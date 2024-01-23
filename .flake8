@@ -1,0 +1,3 @@
+# note: D103 will remove in the future
+[flake8]
+ignore = D100,D101,D102,D103,D107,D401
