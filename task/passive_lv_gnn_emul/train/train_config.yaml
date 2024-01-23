@@ -1,0 +1,19 @@
+task_name: passive_lv_gnn_emul
+task_trainer:
+  model_name: PassiveLvGNNEmul
+  train_param:
+    optimizer_param:
+      optimizer: adam
+      learning_rate: 5e-5  # Learning rate for training the network
+    step_param:
+      epochs: 1
+    fixed_geom: False
+task_train:
+  model_param:
+    n_shape_coeff: 2  # Number of shape coefficients to input to the emulator
+    K: 2  # Number of message passing steps to perform
+    fixed_geom: False  # Set whether the dataset is for varying or fixed geometries
+    local_emb_dim: 40
+    mlp_width: 128
+    mlp_depth: 2
+
