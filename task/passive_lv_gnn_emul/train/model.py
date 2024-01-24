@@ -22,7 +22,7 @@ class PassiveLvGNNEmul(BaseTrainer):
         trainer_param = self.task_trainer["train_param"]
         train_param = self.task_train["model_param"]
 
-        logger.info(f"Data path: {config.task_data_path}")
+        logger.info(f"Data path: {self.task_data['task_data_path']}")
         logger.info(f'Message passing steps (K): {train_param["K"]}')
         logger.info(f'Num. shape coeffs: {train_param["n_shape_coeff"]}')
         logger.info(f'Training epochs: {trainer_param["step_param"]["epochs"]}')

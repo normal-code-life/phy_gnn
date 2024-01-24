@@ -41,7 +41,7 @@ class TrainerConfig(BaseConfig):
 
         # == data path
         self.task_data = self.config.get("task_data", {})
-        self.task_data_path = self.task_data.get("task_data_path", f"{self.repo_root_path}/data/{self.task_name}")
+        self.task_data["task_data_path"] = self.task_data.get("task_data_path", f"{self.repo_root_path}/data/{self.task_name}")
 
         # training param
         self.task_trainer = self.config["task_trainer"]
@@ -53,8 +53,6 @@ class TrainerConfig(BaseConfig):
         self.config["repo_root_path"] = self.repo_root_path
         self.config["task_path"] = self.task_path
 
-        self.task_data["task_data_path"] = self.task_data_path
-        self.config["task_data"] = self.task_data
 
     def get_config(self):
         return self.config

@@ -1,4 +1,6 @@
 task_name: passive_lv_gnn_emul
+task_data:
+  sub_data_name: beam_data
 task_trainer:
   model_name: PassiveLvGNNEmul
   train_param:
