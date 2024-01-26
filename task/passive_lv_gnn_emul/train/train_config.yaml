@@ -1,4 +1,5 @@
-task_name: passive_lv_gnn_emul
+task_base:
+  task_name: passive_lv_gnn_emul
 task_data:
   sub_data_name: beam_data
 task_trainer:
@@ -11,11 +12,14 @@ task_trainer:
       epochs: 1
     fixed_geom: False
 task_train:
-  model_param:
+  model_custom_param:
     n_shape_coeff: 2  # Number of shape coefficients to input to the emulator
-    K: 2  # Number of message passing steps to perform
+    message_passing_steps: 2  # Number of message passing steps to perform
     fixed_geom: False  # Set whether the dataset is for varying or fixed geometries
     local_emb_dim: 40
     mlp_width: 128
     mlp_depth: 2
+    mlp_features:
+      - 128
+      - 128
 
