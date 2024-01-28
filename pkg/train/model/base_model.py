@@ -18,4 +18,10 @@ class ModelConfig(BaseConfig):
 
 
 class BaseModel(nn.Module):
-    pass
+    def __init__(self, config: ModelConfig, *args, **kwargs) -> None:
+        super(BaseModel, self).__init__(*args, **kwargs)
+        self.config = config
+
+    def _init_graph(self):
+        raise NotImplementedError(f"Module [{type(self).__name__}] is missing the required '_init_graph' function")
+

@@ -49,6 +49,11 @@ class PassiveLvGNNEmulModel(BaseModel):
     def __init__(self, config: ModelConfig):
         super().__init__()
 
+        self._init_graph()
+
+    def _init_graph(self):
+        pass
+
 
 if __name__ == "__main__":
     cur_path = os.path.abspath(sys.argv[0])
