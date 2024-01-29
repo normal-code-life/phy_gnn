@@ -1,6 +1,6 @@
 from pprint import pformat
 from pkg.train.trainer.base_trainer import TrainerConfig, BaseTrainer
-from pkg.train.model.base_model import ModelConfig, BaseModel
+from pkg.train.model.base_model import BaseModuleConfig, BaseModule
 from pkg.utils.logging import init_logger
 from pkg.utils import io
 from task.passive_lv_gnn_emul.train.datasets import LvDataset
@@ -45,8 +45,8 @@ class PassiveLvGNNEmulTrainer(BaseTrainer):
         self.read_dataset()
 
 
-class PassiveLvGNNEmulModel(BaseModel):
-    def __init__(self, config: ModelConfig):
+class PassiveLvGNNEmulModel(BaseModule):
+    def __init__(self, config: BaseModuleConfig):
         super().__init__()
 
         self._init_graph()

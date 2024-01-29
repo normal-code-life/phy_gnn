@@ -9,17 +9,25 @@ from torch import nn
 logger = init_logger("BASE_MODEL")
 
 
-class ModelConfig(BaseConfig):
-    def __init__(self, config: Dict):
+class BaseModuleConfig(BaseConfig):
+    def __init__(self, config: Dict, **kwargs) -> None:
+        self.prefix_name = "base_module"
+        if "prefix_name" in config:
+            self.prefix_name = config["prefix_name"]
+        elif "prefix_name" in kwargs:
+            self.prefix_name = kwargs["prefix_name"]
+
         self.config = config
 
     def get_config(self):
-        return self.config
+        return {
+            "prefix_name": self.prefix_name,
+        }
 
 
-class BaseModel(nn.Module):
-    def __init__(self, config: ModelConfig, *args, **kwargs) -> None:
-        super(BaseModel, self).__init__(*args, **kwargs)
+class BaseModule(nn.Module):
+    def __init__(self, config: BaseModuleConfig, *args, **kwargs) -> None:
+        super(BaseModule, self).__init__(*args, **kwargs)
         self.config = config
 
     def _init_graph(self):
