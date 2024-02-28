@@ -1,6 +1,5 @@
-import torch
-from torch.utils.data import Dataset, DataLoader
-from typing import Dict
+from torch.utils.data import Dataset
+from typing import Dict, Sequence
 from pkg.utils.logging import init_logger
 import os
 import numpy as np
@@ -9,7 +8,7 @@ logger = init_logger("LvDataset")
 
 
 class LvDataset(Dataset):
-    """Data loader for graph-formatted input-output data with common, fixed topology"""
+    """Data loader for graph-formatted input-output data with common, fixed topology."""
 
     def __init__(self, task_data: Dict, data_type: str, n_shape_coeff: int = 2):
         base_data_path = f"{task_data['task_data_path']}/{task_data['sub_data_name']}"
@@ -90,4 +89,24 @@ class LvDataset(Dataset):
         return self._data_size
 
     def __getitem__(self, index):
-        return self._theta_vals[index : (index + 1)], self._displacement[index]
+        # fmt: off
+        return (
+            self._nodes[index],
+            self._edges[index],
+            self._shape_coeffs[index],
+            self._theta_vals[index: (index + 1)],
+            self._displacement[index],
+        )
+        # fmt: on
+
+    def get_senders(self) -> Sequence[int]:
+        return self._senders
+
+    def get_receivers(self) -> Sequence[int]:
+        return self._receivers
+
+    def get_n_total_nodes(self) -> int:
+        return self._n_total_nodes
+
+    def get_real_node_indices(self) -> Sequence[bool]:
+        return self._real_node_indices

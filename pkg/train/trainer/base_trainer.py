@@ -62,7 +62,7 @@ class TrainerConfig(BaseConfig):
 
 class BaseTrainer(abc.ABC):
     def __init__(self, config: TrainerConfig):
-        logger.info("====== Beginning Training ====== ")
+        logger.info("====== Trainer Init ====== ")
 
         self.task_base = config.task_base
         self.task_data = config.task_data
