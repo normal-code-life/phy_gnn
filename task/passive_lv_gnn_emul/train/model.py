@@ -19,8 +19,9 @@ logger = init_logger("PassiveLvGNNEmul")
 
 
 class PassiveLvGnnEmulConfig(TrainerConfig):
-    def __init__(self, root_path: str, config_path: str) -> None:
-        super().__init__(root_path, config_path)
+    def __init__(self, config_path: str) -> None:
+
+        super().__init__(config_path)
         logger.info(f"====== config init ====== \n{pformat(self.config)}")
 
 
@@ -28,12 +29,9 @@ class PassiveLvGNNEmulTrainer(BaseTrainer):
     def __init__(self, config: PassiveLvGnnEmulConfig) -> None:
         super().__init__(config)
 
-        trainer_param = self.task_trainer["train_param"]
-        train_param = self.task_train["model_custom_param"]
+        trainer_param = self.task_trainer
 
         logger.info(f"Data path: {self.task_data['task_data_path']}")
-        logger.info(f'Message passing steps: {train_param["message_passing_steps"]}')
-        logger.info(f'Num. shape coeffs: {train_param["n_shape_coeff"]}')
         logger.info(f'Training epochs: {trainer_param["step_param"]["epochs"]}')
         logger.info(f'Learning rate: {trainer_param["optimizer_param"]["learning_rate"]}')
         logger.info(f'Fixed LV geom: {trainer_param["fixed_geom"]}\n')
@@ -65,6 +63,8 @@ class PassiveLvGNNEmulTrainer(BaseTrainer):
 
         print_model(model)
 
+        return model
+
     def fit(self):
         train_data, validation_data = self.read_dataset()
 
@@ -73,7 +73,9 @@ class PassiveLvGNNEmulTrainer(BaseTrainer):
         real_node_indices = train_data.get_real_node_indices()
         n_total_nodes = train_data.get_n_total_nodes()
 
-        self.create_model(senders, receivers, real_node_indices, n_total_nodes)
+        model = self.create_model(senders, receivers, real_node_indices, n_total_nodes)
+
+        optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
 
 class PassiveLvGNNEmulConfig(BaseModuleConfig):
@@ -91,7 +93,7 @@ class PassiveLvGNNEmulConfig(BaseModuleConfig):
         model_custom_param = config["model_custom_param"]
 
         # mlp layer config
-        self.mlp_layer_config = model_custom_param["mlp_layer"]
+        self.input_mlp_layer_config = model_custom_param["input_mlp_layer"]
         self.message_passing_layer_config = model_custom_param["message_passing_layer"]
         self.decoder_layer_config = model_custom_param["decoder_layer"]
 
@@ -103,11 +105,14 @@ class PassiveLvGNNEmulConfig(BaseModuleConfig):
         # other config
         self.real_node_indices = real_node_indices
 
+        logger.info(f'Message passing steps: {model_custom_param["message_passing_steps"]}')
+        logger.info(f'Num. shape coeffs: {model_custom_param["n_shape_coeff"]}')
+
     def get_config(self):
         base_config = super().get_config()
 
         mlp_config = {
-            "mlp_layer_config": self.mlp_layer_config,
+            "input_mlp_layer_config": self.input_mlp_layer_config,
             "message_passing_layer_config": self.message_passing_layer_config,
             "decoder_layer_config": self.decoder_layer_config,
             "real_node_indices": self.real_node_indices,
@@ -124,16 +129,16 @@ class PassiveLvGNNEmulModel(BaseModule):
 
     def _init_graph(self, config: PassiveLvGNNEmulConfig):
         # 3 encoder mlp
-        mlp_config = config.mlp_layer_config
+        input_mlp_config = config.input_mlp_layer_config
 
-        node_encode_mlp_config = MLPConfig(mlp_config, prefix_name="node_encode")
+        node_encode_mlp_config = MLPConfig(input_mlp_config, prefix_name="node_encode")
         self.node_encode_mlp_layer = MLPModule(node_encode_mlp_config)
 
-        edge_encode_mlp_config = MLPConfig(mlp_config, prefix_name="edge_encode")
+        edge_encode_mlp_config = MLPConfig(input_mlp_config, prefix_name="edge_encode")
         self.edge_encode_mlp_layer = MLPModule(edge_encode_mlp_config)
 
         # theta mlp
-        theta_encode_mlp_config = MLPConfig(mlp_config, prefix_name="theta_encode")
+        theta_encode_mlp_config = MLPConfig(input_mlp_config, prefix_name="theta_encode")
         self.theta_encode_mlp_layer = MLPModule(theta_encode_mlp_config)
 
         # decoder MLPs
@@ -196,8 +201,8 @@ if __name__ == "__main__":
     cur_path = os.path.abspath(sys.argv[0])
 
     task_dir = io.get_cur_abs_dir(cur_path)
-    training_yaml_dir = f"{task_dir}/train_config.yaml"
+    config_path = f"{task_dir}/train_config.yaml"
 
-    lv_config = PassiveLvGnnEmulConfig(task_dir, training_yaml_dir)
+    lv_config = PassiveLvGnnEmulConfig(config_path)
     model = PassiveLvGNNEmulTrainer(lv_config)
     model.fit()

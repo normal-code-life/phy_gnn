@@ -4,8 +4,8 @@ from pkg.train.config.base_config import BaseConfig
 from pkg.utils.io import load_yaml
 from pkg.utils.logging import init_logger
 from pkg.utils import io
-
-
+import torch
+from pkg.train.model.base_model import BaseModule
 logger = init_logger("BASE_TRAINER")
 
 
@@ -18,7 +18,7 @@ class TrainerConfig(BaseConfig):
         config_path: Attribute to store configuration information, loaded using the yaml.unsafe_load method.
     """
 
-    def __init__(self, task_path: str, config_path: str):
+    def __init__(self, config_path: str):
         """
         Constructor to initialize a TrainerConfig object.
 
@@ -35,9 +35,9 @@ class TrainerConfig(BaseConfig):
         self.task_base = self.config["task_base"]
         self.task_name = self.task_base["task_name"]
 
-        repo_root_path = io.get_repo_path(task_path)
+        repo_root_path = io.get_repo_path(config_path)
         self.task_base["repo_root_path"] = repo_root_path
-        self.task_base["task_path"] = task_path
+        self.task_base["config_path"] = config_path
 
         # task dataset info
         self.task_data = self.config.get("task_data", {})
@@ -68,3 +68,15 @@ class BaseTrainer(abc.ABC):
         self.task_data = config.task_data
         self.task_trainer = config.task_trainer
         self.task_train = config.task_train
+
+    def create_model(self, **kargs) -> BaseModule:
+        self.model: BaseModule
+
+
+    def set_optimizer(self):
+        optimizer_param = self.task_trainer["optimizer_param"]
+
+        optimizer_name = optimizer_param["optimizer"]
+
+        if optimizer_name == "adam":
+            optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
