@@ -6,6 +6,12 @@ import numpy as np
 
 logger = init_logger("LvDataset")
 
+nodes: str = "nodes"
+edges: str = "edges"
+shape_coeffs: str = "shape_coeffs"
+theta_vals: str = "theta_vals"
+displacement: str = "displacement"
+
 
 class LvDataset(Dataset):
     """Data loader for graph-formatted input-output data with common, fixed topology."""
@@ -89,15 +95,16 @@ class LvDataset(Dataset):
         return self._data_size
 
     def __getitem__(self, index):
-        # fmt: off
-        return (
-            self._nodes[index],
-            self._edges[index],
-            self._shape_coeffs[index],
-            self._theta_vals[index: (index + 1)],
-            self._displacement[index],
-        )
-        # fmt: on
+        sample = {
+            nodes: self._nodes[index],
+            edges: self._edges[index],
+            shape_coeffs: self._shape_coeffs[index],
+            theta_vals: self._theta_vals[index],
+        }
+
+        label = self._displacement[index]
+
+        return sample, label
 
     def get_senders(self) -> Sequence[int]:
         return self._senders

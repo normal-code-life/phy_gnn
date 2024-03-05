@@ -14,6 +14,9 @@ import torch.nn as nn
 import torch
 from task.passive_lv_gnn_emul.train.message_passing_layer import MessagePassingConfig, MessagePassingModule
 from pkg.tf_utils.method import segment_sum
+from torch.utils.data import DataLoader
+from pkg.train.module.loss import get_loss_fn
+
 
 logger = init_logger("PassiveLvGNNEmul")
 
@@ -32,20 +35,20 @@ class PassiveLvGNNEmulTrainer(BaseTrainer):
         trainer_param = self.task_trainer
 
         logger.info(f"Data path: {self.task_data['task_data_path']}")
-        logger.info(f'Training epochs: {trainer_param["step_param"]["epochs"]}')
+        logger.info(f'Training epochs: {trainer_param["epochs"]}')
         logger.info(f'Learning rate: {trainer_param["optimizer_param"]["learning_rate"]}')
         logger.info(f'Fixed LV geom: {trainer_param["fixed_geom"]}\n')
 
     def read_dataset(self):
         task_data = self.task_data
 
-        train_data = LvDataset(task_data, TRAIN_NAME)
-        logger.info(f"Number of train data points: {len(train_data)}")
+        train_dataset = LvDataset(task_data, TRAIN_NAME)
+        logger.info(f"Number of train data points: {len(train_dataset)}")
 
-        validation_data = LvDataset(task_data, VALIDATION_NAME)
-        logger.info(f"Number of validation_data data points: {len(validation_data)}")
+        validation_dataset = LvDataset(task_data, VALIDATION_NAME)
+        logger.info(f"Number of validation_data data points: {len(validation_dataset)}")
 
-        return train_data, validation_data
+        return train_dataset, validation_dataset
 
     def create_model(
         self, senders: Sequence[int], receivers: Sequence[int], real_node_indices: Sequence[bool], n_total_nodes: int
@@ -66,18 +69,60 @@ class PassiveLvGNNEmulTrainer(BaseTrainer):
         return model
 
     def fit(self):
-        train_data, validation_data = self.read_dataset()
+        # Generate data
+        train_dataset, validation_dataset = self.read_dataset()
 
-        senders = train_data.get_senders()
-        receivers = train_data.get_receivers()
-        real_node_indices = train_data.get_real_node_indices()
-        n_total_nodes = train_data.get_n_total_nodes()
+        senders = train_dataset.get_senders()
+        receivers = train_dataset.get_receivers()
+        real_node_indices = train_dataset.get_real_node_indices()
+        n_total_nodes = train_dataset.get_n_total_nodes()
 
+        # Create model
         model = self.create_model(senders, receivers, real_node_indices, n_total_nodes)
 
-        optimizer_param = self.task_trainer["optimizer_param"]
+        task_trainer = self.task_trainer
+
+        # Init optimizer
+        optimizer_param = task_trainer["optimizer_param"]
 
         optimizer = torch.optim.Adam(model.parameters(), lr=optimizer_param["learning_rate"])
+
+        # Init loss
+        loss_param = task_trainer["loss_param"]
+        criterion = get_loss_fn(loss_param["loss_name"])
+
+        # Train model process
+        epoch = task_trainer["epochs"]
+        batch_size = task_trainer["batch_size"]
+        shuffle = task_trainer["dataset_shuffle"]
+
+        train_data_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=shuffle)
+
+        for t in range(epoch):
+            for train_data, train_label in train_data_loader:
+                # Forward pass: compute predicted y by passing x to the model.
+                train_pred = model(train_data)
+
+                # Compute and print loss.
+                loss = criterion(train_pred, train_label)
+
+                if t % 100 == 99:
+                    print(t, loss.item())
+
+                # Before the backward pass, use the optimizer object to zero all of the
+                # gradients for the variables it will update (which are the learnable
+                # weights of the model). This is because by default, gradients are
+                # accumulated in buffers( i.e, not overwritten) whenever .backward()
+                # is called. Checkout docs of torch.autograd.backward for more details.
+                optimizer.zero_grad()
+
+                # Backward pass: compute gradient of the loss with respect to model
+                # parameters
+                loss.backward()
+
+                # Calling the step function on an Optimizer makes an update to its
+                # parameters
+                optimizer.step()
 
 
 class PassiveLvGNNEmulConfig(BaseModuleConfig):
@@ -151,7 +196,10 @@ class PassiveLvGNNEmulModel(BaseModule):
         self.message_passing_layer = MessagePassingModule(message_passing_layer_config)
 
     def forward(self, x):
-        input_node, input_edge, input_theta, input_z_global, _ = x  # shape: (126, 1), (440, 3), (1, 2), (2,)
+        input_node = x["nodes"]  # shape: (126, 1)
+        input_edge = x["edges"]  # shape: (440, 3)
+        input_theta = x["theta_vals"]  # shape: (1, 2)
+        input_z_global = x["shape_coeffs"]  # shape: (2, )
 
         # ====== Encoder:
         # encode vertices and edges
