@@ -75,7 +75,9 @@ class PassiveLvGNNEmulTrainer(BaseTrainer):
 
         model = self.create_model(senders, receivers, real_node_indices, n_total_nodes)
 
-        optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+        optimizer_param = self.task_trainer["optimizer_param"]
+
+        optimizer = torch.optim.Adam(model.parameters(), lr=optimizer_param["learning_rate"])
 
 
 class PassiveLvGNNEmulConfig(BaseModuleConfig):
@@ -90,12 +92,10 @@ class PassiveLvGNNEmulConfig(BaseModuleConfig):
     ) -> None:
         super().__init__(config, **kwargs)
 
-        model_custom_param = config["model_custom_param"]
-
         # mlp layer config
-        self.input_mlp_layer_config = model_custom_param["input_mlp_layer"]
-        self.message_passing_layer_config = model_custom_param["message_passing_layer"]
-        self.decoder_layer_config = model_custom_param["decoder_layer"]
+        self.input_mlp_layer_config = config["input_mlp_layer"]
+        self.message_passing_layer_config = config["message_passing_layer"]
+        self.decoder_layer_config = config["decoder_layer"]
 
         # message passing config
         self.message_passing_layer_config["senders"] = senders
@@ -105,8 +105,8 @@ class PassiveLvGNNEmulConfig(BaseModuleConfig):
         # other config
         self.real_node_indices = real_node_indices
 
-        logger.info(f'Message passing steps: {model_custom_param["message_passing_steps"]}')
-        logger.info(f'Num. shape coeffs: {model_custom_param["n_shape_coeff"]}')
+        logger.info(f'Message passing steps: {config["message_passing_steps"]}')
+        logger.info(f'Num. shape coeffs: {config["n_shape_coeff"]}')
 
     def get_config(self):
         base_config = super().get_config()

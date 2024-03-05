@@ -6,7 +6,7 @@ task_trainer:
   model_name: PassiveLvGNNEmul
   optimizer_param:
     optimizer: adam
-    learning_rate: 5e-5  # Learning rate for training the network
+    learning_rate: 0。0001  # Learning rate for training the network
   step_param:
     epochs: 1
   fixed_geom: False
