@@ -64,7 +64,7 @@ class PassiveLvGNNEmulTrainer(BaseTrainer):
                 if isinstance(module, nn.Module):
                     print_model(module)
 
-        print_model(model)
+        # print_model(model)
 
         return model
 
@@ -196,10 +196,11 @@ class PassiveLvGNNEmulModel(BaseModule):
         self.message_passing_layer = MessagePassingModule(message_passing_layer_config)
 
     def forward(self, x):
-        input_node = x["nodes"]  # shape: (126, 1)
-        input_edge = x["edges"]  # shape: (440, 3)
-        input_theta = x["theta_vals"]  # shape: (1, 2)
-        input_z_global = x["shape_coeffs"]  # shape: (2, )
+        # ====== Input data (squeeze to align to previous project)
+        input_node = x["nodes"].squeeze(dim=0)  # shape: (1, 126, 1) => (126, 1)
+        input_edge = x["edges"].squeeze(dim=0)  # shape: (1, 440, 3) => (440, 3)
+        input_theta = x["theta_vals"].squeeze(dim=0)  # shape: (1, 2) => (2, )
+        input_z_global = x["shape_coeffs"].squeeze(dim=0)  # shape: (2, )
 
         # ====== Encoder:
         # encode vertices and edges

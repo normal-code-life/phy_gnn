@@ -72,11 +72,3 @@ class BaseTrainer(abc.ABC):
     def create_model(self, **kargs) -> BaseModule:
         self.model: BaseModule
 
-
-    def set_optimizer(self):
-        optimizer_param = self.task_trainer["optimizer_param"]
-
-        optimizer_name = optimizer_param["optimizer"]
-
-        if optimizer_name == "adam":
-            optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
