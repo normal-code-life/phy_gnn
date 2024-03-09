@@ -14,13 +14,21 @@ task_trainer:
   dataset_shuffle: True
   fixed_geom: False
 task_train:
-  input_mlp_layer:
-    unit_sizes: [128, 128, 40]
+  node_input_mlp_layer:
+    unit_sizes: [1, 128, 128, 40]
+    layer_norm: True
+    activation: tanh
+  edge_input_mlp_layer:
+    unit_sizes: [3, 128, 128, 40]
+    layer_norm: True
+    activation: tanh
+  theta_input_mlp_layer:
+    unit_sizes: [2, 128, 128, 40]
     layer_norm: True
     activation: tanh
   message_passing_layer:
     mlp_layer:
-      unit_sizes: [128, 128, 40]
+      unit_sizes: [120, 128, 128, 40]
       layer_norm: True
       activation: tanh
     K: 2

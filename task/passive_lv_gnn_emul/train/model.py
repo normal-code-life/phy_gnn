@@ -138,7 +138,9 @@ class PassiveLvGNNEmulConfig(BaseModuleConfig):
         super().__init__(config, **kwargs)
 
         # mlp layer config
-        self.input_mlp_layer_config = config["input_mlp_layer"]
+        self.node_input_mlp_layer = config["node_input_mlp_layer"]
+        self.edge_input_mlp_layer = config["edge_input_mlp_layer"]
+        self.theta_input_mlp_layer = config["theta_input_mlp_layer"]
         self.message_passing_layer_config = config["message_passing_layer"]
         self.decoder_layer_config = config["decoder_layer"]
 
@@ -157,7 +159,9 @@ class PassiveLvGNNEmulConfig(BaseModuleConfig):
         base_config = super().get_config()
 
         mlp_config = {
-            "input_mlp_layer_config": self.input_mlp_layer_config,
+            "node_input_mlp_layer": self.node_input_mlp_layer,
+            "edge_input_mlp_layer": self.edge_input_mlp_layer,
+            "theta_input_mlp_layer": self.theta_input_mlp_layer,
             "message_passing_layer_config": self.message_passing_layer_config,
             "decoder_layer_config": self.decoder_layer_config,
             "real_node_indices": self.real_node_indices,
@@ -174,16 +178,14 @@ class PassiveLvGNNEmulModel(BaseModule):
 
     def _init_graph(self, config: PassiveLvGNNEmulConfig):
         # 3 encoder mlp
-        input_mlp_config = config.input_mlp_layer_config
-
-        node_encode_mlp_config = MLPConfig(input_mlp_config, prefix_name="node_encode")
+        node_encode_mlp_config = MLPConfig(config.node_input_mlp_layer, prefix_name="node_encode")
         self.node_encode_mlp_layer = MLPModule(node_encode_mlp_config)
 
-        edge_encode_mlp_config = MLPConfig(input_mlp_config, prefix_name="edge_encode")
+        edge_encode_mlp_config = MLPConfig(config.edge_input_mlp_layer, prefix_name="edge_encode")
         self.edge_encode_mlp_layer = MLPModule(edge_encode_mlp_config)
 
         # theta mlp
-        theta_encode_mlp_config = MLPConfig(input_mlp_config, prefix_name="theta_encode")
+        theta_encode_mlp_config = MLPConfig(config.theta_input_mlp_layer, prefix_name="theta_encode")
         self.theta_encode_mlp_layer = MLPModule(theta_encode_mlp_config)
 
         # decoder MLPs

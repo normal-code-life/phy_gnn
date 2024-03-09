@@ -68,8 +68,8 @@ class MessagePassingModule(BaseModule):
         n_total_nodes = self.config.n_total_nodes
 
         # calculate messages along each directed edge with an edge feature vector assigned
-        print(node.shape, edge.shape, node, receivers)
-        messages = self.edge_update_fn[i](torch.concat((edge, node[receivers], node[senders]), dim=-1))
+        edge_input = torch.concat((edge, node[receivers], node[senders]), dim=-1)
+        messages = self.edge_update_fn[i](edge_input)
 
         # aggregate incoming messages m_{ij} from nodes i to j where i > j
         received_messages_ij = self.aggregate_incoming_messages(messages, receivers, n_total_nodes)
@@ -84,7 +84,7 @@ class MessagePassingModule(BaseModule):
         # return updated node and edge representations with residual connection
         return node + V, edge + messages
 
-    def forward(self, edge, node):
+    def forward(self, node, edge):
         # node, edge
         for i in range(self.config.K):
             node, edge = self.message_passing_block(node, edge, i)
