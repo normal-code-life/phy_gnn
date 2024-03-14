@@ -27,14 +27,18 @@ task_train:
     layer_norm: True
     activation: tanh
   message_passing_layer:
-    mlp_layer:
+    edge_mlp_layer:
       unit_sizes: [120, 128, 128, 40]
+      layer_norm: True
+      activation: tanh
+    node_mlp_layer:
+      unit_sizes: [80, 128, 128, 40]
       layer_norm: True
       activation: tanh
     K: 2
   decoder_layer:
     mlp_layer:
-      unit_sizes: [128, 128, 1]
+      unit_sizes: [122, 128, 128, 1]
       layer_norm: False
       activation: tanh
     output_dim: 2

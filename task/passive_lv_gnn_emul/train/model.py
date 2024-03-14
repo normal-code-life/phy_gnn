@@ -51,7 +51,7 @@ class PassiveLvGNNEmulTrainer(BaseTrainer):
         return train_dataset, validation_dataset
 
     def create_model(
-        self, senders: Sequence[int], receivers: Sequence[int], real_node_indices: Sequence[bool], n_total_nodes: int
+        self, senders: torch.tensor, receivers: torch.tensor, real_node_indices: Sequence[bool], n_total_nodes: int
     ):
         config = PassiveLvGNNEmulConfig(self.task_train, senders, receivers, real_node_indices, n_total_nodes)
         model = PassiveLvGNNEmulModel(config)
@@ -99,15 +99,20 @@ class PassiveLvGNNEmulTrainer(BaseTrainer):
         train_data_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=shuffle)
 
         for t in range(epoch):
+            batch = 0
             for train_data, train_label in train_data_loader:
                 # Forward pass: compute predicted y by passing x to the model.
+                # note: by default, we assume batch size = 1
+                batch += 1
+
                 train_pred = model(train_data)
 
                 # Compute and print loss.
+                train_label = train_label.squeeze(dim=0)
                 loss = criterion(train_pred, train_label)
 
-                if t % 100 == 99:
-                    print(t, loss.item())
+                # if t % 10 == 0:
+                logger.info("epoch: %d, batch %d, loss: %f", t, batch, loss.item())
 
                 # Before the backward pass, use the optimizer object to zero all of the
                 # gradients for the variables it will update (which are the learnable
@@ -130,7 +135,7 @@ class PassiveLvGNNEmulConfig(BaseModuleConfig):
         self,
         config: Dict,
         senders: Sequence[int],
-        receivers: Sequence[int],
+        receivers: torch.tensor,
         real_node_indices: Sequence[int],
         n_total_nodes: int,
         **kwargs,
@@ -150,6 +155,8 @@ class PassiveLvGNNEmulConfig(BaseModuleConfig):
         self.message_passing_layer_config["n_total_nodes"] = n_total_nodes
 
         # other config
+        self.receivers = receivers
+        self.n_total_nodes = n_total_nodes
         self.real_node_indices = real_node_indices
 
         logger.info(f'Message passing steps: {config["message_passing_steps"]}')
@@ -164,6 +171,8 @@ class PassiveLvGNNEmulConfig(BaseModuleConfig):
             "theta_input_mlp_layer": self.theta_input_mlp_layer,
             "message_passing_layer_config": self.message_passing_layer_config,
             "decoder_layer_config": self.decoder_layer_config,
+            "receivers": self.receivers,
+            "n_total_nodes": self.n_total_nodes,
             "real_node_indices": self.real_node_indices,
         }
 
@@ -201,8 +210,8 @@ class PassiveLvGNNEmulModel(BaseModule):
         # ====== Input data (squeeze to align to previous project)
         input_node = x["nodes"].squeeze(dim=0)  # shape: (1, 126, 1) => (126, 1)
         input_edge = x["edges"].squeeze(dim=0)  # shape: (1, 440, 3) => (440, 3)
-        input_theta = x["theta_vals"].squeeze(dim=0)  # shape: (1, 2) => (2, )
-        input_z_global = x["shape_coeffs"].squeeze(dim=0)  # shape: (2, )
+        input_theta = x["theta_vals"]  # shape: (1, 2)
+        input_z_global = x["shape_coeffs"]
 
         # ====== Encoder:
         # encode vertices and edges
@@ -219,7 +228,7 @@ class PassiveLvGNNEmulModel(BaseModule):
         z_local = torch.concat((node, incoming_message), dim=-1)  # shape: (126, 80)
 
         # only need local representation for real nodes
-        z_local = z_local[self.real_node_indices]  # shape: (96, 80)
+        z_local = z_local[self.config.real_node_indices, ]  # shape: (96, 80)
 
         # encode global parameters theta
         z_theta = self.theta_encode_mlp_layer(input_theta)  # shape: (1, 2) => (1, 40)
@@ -229,8 +238,7 @@ class PassiveLvGNNEmulModel(BaseModule):
             globals_array = torch.tile(z_theta, (z_local.shape[0], 1))  # shape: (96, 40)
         else:
             # stack z_global with z_theta if z_global is inputted
-            z_global_reshape = input_z_global.reshape(1, -1)  # shape: (2, ) => (1, 2)
-            global_embedding = torch.hstack((z_theta, z_global_reshape))  # shape: (1, 40) + (1, 2) => (1, 42)
+            global_embedding = torch.hstack((z_theta, input_z_global))  # shape: (1, 40) + (1, 2) => (1, 42)
             globals_array = torch.tile(global_embedding, (z_local.shape[0], 1))  # shape: (96, 42)
 
         # final learned representation is (z_theta, z_local) or (z_theta, z_global, z_local)

@@ -3,6 +3,7 @@ from typing import Dict, Sequence
 from pkg.utils.logging import init_logger
 import os
 import numpy as np
+import torch
 
 logger = init_logger("LvDataset")
 
@@ -106,11 +107,11 @@ class LvDataset(Dataset):
 
         return sample, label
 
-    def get_senders(self) -> Sequence[int]:
-        return self._senders
+    def get_senders(self) -> torch.tensor:
+        return torch.from_numpy(self._senders)
 
-    def get_receivers(self) -> Sequence[int]:
-        return self._receivers
+    def get_receivers(self) -> torch.tensor:
+        return torch.from_numpy(self._receivers)
 
     def get_n_total_nodes(self) -> int:
         return self._n_total_nodes

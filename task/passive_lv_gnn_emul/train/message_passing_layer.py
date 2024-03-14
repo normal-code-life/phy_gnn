@@ -14,7 +14,8 @@ class MessagePassingConfig(BaseModuleConfig):
 
         self.layer_name = "message_passing_layer"
 
-        self.mlp_layer_config = config["mlp_layer"]
+        self.edge_mlp_layer_config = config["edge_mlp_layer"]
+        self.node_mlp_layer_config = config["node_mlp_layer"]
 
         self.senders = config["senders"]
         self.receivers = config["receivers"]
@@ -25,7 +26,8 @@ class MessagePassingConfig(BaseModuleConfig):
         base_config = super().get_config()
 
         message_passing_config = {
-            "mlp_layer_config": self.mlp_layer_config,
+            "edge_mlp_layer_config": self.edge_mlp_layer_config,
+            "node_mlp_layer_config": self.node_mlp_layer_config,
             "senders": self.senders,
             "receivers": self.receivers,
             "n_total_nodes": self.n_total_nodes,
@@ -45,16 +47,19 @@ class MessagePassingModule(BaseModule):
         self.node_update_fn = []
         self.edge_update_fn = []
 
-        for i in range(self.config.K):
-            self.node_update_fn.append(self._init_mlp_graph(("message_passing_node_%d" % i)))
-            self.edge_update_fn.append(self._init_mlp_graph("message_passing_edge_%d" % i))
+        node_mlp_layer_config = self.config.node_mlp_layer_config
+        edge_mlp_layer_config = self.config.edge_mlp_layer_config
 
-    def _init_mlp_graph(self, prefix_name):
-        config = MLPConfig(self.config.mlp_layer_config, prefix_name=prefix_name)
+        for i in range(self.config.K):
+            self.node_update_fn.append(self._init_mlp_graph(("message_passing_node_%d" % i), node_mlp_layer_config))
+            self.edge_update_fn.append(self._init_mlp_graph(("message_passing_edge_%d" % i), edge_mlp_layer_config))
+
+    def _init_mlp_graph(self, prefix_name, config):
+        config = MLPConfig(config, prefix_name=prefix_name)
 
         return MLPModule(config)
 
-    def aggregate_incoming_messages(self, message, receivers: Sequence[int], n_nodes: int):
+    def aggregate_incoming_messages(self, message, receivers: torch.tensor, n_nodes: int):
         r"""Sum aggregates incoming messages to each node.
 
         Performs the sum over incoming messages $\sum_{j \in \mathcal{N}_i} m_{ij}^k$
@@ -68,18 +73,19 @@ class MessagePassingModule(BaseModule):
         n_total_nodes = self.config.n_total_nodes
 
         # calculate messages along each directed edge with an edge feature vector assigned
-        edge_input = torch.concat((edge, node[receivers], node[senders]), dim=-1)
-        messages = self.edge_update_fn[i](edge_input)
+        edge_input = torch.concat((edge, node[receivers], node[senders]), dim=-1)  # shape: (440, 120)
+        messages = self.edge_update_fn[i](edge_input)  # shape: (440, 40)
 
         # aggregate incoming messages m_{ij} from nodes i to j where i > j
-        received_messages_ij = self.aggregate_incoming_messages(messages, receivers, n_total_nodes)
+        received_messages_ij = self.aggregate_incoming_messages(messages, receivers, n_total_nodes)  # shape: (126: 40)
 
         # aggregate incoming messages m_{ij} from nodes i to j where i < j
         # m_{ij} = -m_{ji} where i < j (momentum conservation property of the message passing)
-        received_messages_ji = self.aggregate_incoming_messages(-messages, senders, n_total_nodes)
+        received_messages_ji = self.aggregate_incoming_messages(-messages, senders, n_total_nodes)  # shape: (126: 40)
 
         # concatenate node representation with incoming messages and then update node representation
-        V = self.node_update_fn[i](torch.concat((node, received_messages_ij + received_messages_ji)))
+        node_input = torch.concat((node, received_messages_ij + received_messages_ji), dim=-1)  # shape: (126: 80)
+        V = self.node_update_fn[i](node_input)  # shape: (126: 40)
 
         # return updated node and edge representations with residual connection
         return node + V, edge + messages
