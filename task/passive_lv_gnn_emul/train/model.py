@@ -64,7 +64,7 @@ class PassiveLvGNNEmulTrainer(BaseTrainer):
                 if isinstance(module, nn.Module):
                     print_model(module)
 
-        # print_model(model)
+        print_model(model)
 
         return model
 
@@ -98,21 +98,28 @@ class PassiveLvGNNEmulTrainer(BaseTrainer):
 
         train_data_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=shuffle)
 
+        validation_data_loader = DataLoader(validation_dataset, batch_size=batch_size)
+
+        logger.info("model training start!")
+
         for t in range(epoch):
+            # training process
+            model.train()
+
             batch = 0
-            for train_data, train_label in train_data_loader:
+            train_loss = 0
+            val_loss = 0
+            for train_batch_data, train_batch_labels in train_data_loader:
                 # Forward pass: compute predicted y by passing x to the model.
                 # note: by default, we assume batch size = 1
                 batch += 1
 
-                train_pred = model(train_data)
+                train_pred = model(train_batch_data)
 
                 # Compute and print loss.
-                train_label = train_label.squeeze(dim=0)
-                loss = criterion(train_pred, train_label)
-
-                # if t % 10 == 0:
-                logger.info("epoch: %d, batch %d, loss: %f", t, batch, loss.item())
+                train_batch_labels = train_batch_labels.squeeze(dim=0)
+                loss = criterion(train_pred, train_batch_labels)
+                train_loss += loss
 
                 # Before the backward pass, use the optimizer object to zero all of the
                 # gradients for the variables it will update (which are the learnable
@@ -128,6 +135,21 @@ class PassiveLvGNNEmulTrainer(BaseTrainer):
                 # Calling the step function on an Optimizer makes an update to its
                 # parameters
                 optimizer.step()
+
+            # test process
+            model.eval()
+            with torch.no_grad():
+                for val_batch_data, val_batch_labels in validation_data_loader:
+                    val_output = (
+                            model(val_batch_data) * validation_dataset.get_displacement_mean()
+                            + validation_dataset.get_displacement_std()
+                    )
+                    val_loss += criterion(val_output, val_batch_labels)
+
+            logger.info(
+                "epoch: %d, train_loss: %f, val_loss: %f", t,
+                train_loss.item() / len(train_dataset), val_loss.item() / len(validation_dataset)
+            )
 
 
 class PassiveLvGNNEmulConfig(BaseModuleConfig):

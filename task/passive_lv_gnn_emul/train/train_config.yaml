@@ -11,7 +11,7 @@ task_trainer:
     loss_name: mse
   epochs: 300
   batch_size: 1
-  dataset_shuffle: True
+  dataset_shuffle: False
   fixed_geom: False
 task_train:
   node_input_mlp_layer:

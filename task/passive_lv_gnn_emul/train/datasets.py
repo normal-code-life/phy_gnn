@@ -118,3 +118,10 @@ class LvDataset(Dataset):
 
     def get_real_node_indices(self) -> Sequence[bool]:
         return self._real_node_indices
+
+    def get_displacement_mean(self) -> np.float32:
+        return self._displacement_mean
+
+    def get_displacement_std(self) -> np.float32:
+        return self._displacement_std
+
