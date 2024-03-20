@@ -15,7 +15,7 @@ class MLPConfig(BaseModuleConfig):
 
         self.unit_sizes: List[int] = []
         if isinstance(config["unit_sizes"], list):
-            logger.info("WARN: layer_sizes should contain the final layer's output dim, or it will panic")
+            # WARN: layer_sizes should contain the first input layer and final layer's output dim
             self.unit_sizes = config["unit_sizes"]
         else:
             raise ValueError("the 'unit_sizes' should be a list, and should contain the final layer's output size")
@@ -38,11 +38,14 @@ class MLPConfig(BaseModuleConfig):
         return {**base_config, **mlp_config}
 
 
-class MLPModule(BaseModule):
-    def __init__(self, config: MLPConfig, *args, **kwargs) -> None:
-        super().__init__(config, *args, **kwargs)
+class MLPLayer(BaseModule):
+    def __init__(self, config: Dict, *args, **kwargs) -> None:
+        self.config = MLPConfig(config)
+        super().__init__(self.config, *args, **kwargs)
 
-        self.mlp_layers = self._init_graph(config)
+        self.mlp_layers = self._init_graph(self.config)
+
+        logger.info(f"{self.config.layer_name} module config: {self.config.get_config()}")
 
     def _init_graph(self, config: MLPConfig):
         sequential = nn.Sequential()

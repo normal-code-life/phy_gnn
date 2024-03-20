@@ -4,12 +4,12 @@ from pkg.train.model.base_model import BaseModuleConfig, BaseModule
 from pkg.utils.logging import init_logger
 from pkg.utils import io
 from task.passive_lv_gnn_emul.train.datasets import LvDataset
-from common.constant import TRAIN_NAME, VALIDATION_NAME, TEST_NAME
+from common.constant import TRAIN_NAME, VALIDATION_NAME
 import os
 import sys
 from typing import Dict, Sequence
 # from torchsummary import summary
-from pkg.train.module.mlp_layer import MLPConfig, MLPModule
+from task.passive_lv_gnn_emul.train.mlp_layer_ln import MLPConfig, MLPLayerLN
 import torch.nn as nn
 import torch
 from task.passive_lv_gnn_emul.train.message_passing_layer import MessagePassingConfig, MessagePassingModule
@@ -32,12 +32,10 @@ class PassiveLvGNNEmulTrainer(BaseTrainer):
     def __init__(self, config: PassiveLvGnnEmulConfig) -> None:
         super().__init__(config)
 
-        trainer_param = self.task_trainer
-
         logger.info(f"Data path: {self.task_data['task_data_path']}")
-        logger.info(f'Training epochs: {trainer_param["epochs"]}')
-        logger.info(f'Learning rate: {trainer_param["optimizer_param"]["learning_rate"]}')
-        logger.info(f'Fixed LV geom: {trainer_param["fixed_geom"]}\n')
+        logger.info(f'Training epochs: {self.task_trainer["epochs"]}')
+        logger.info(f'Learning rate: {self.task_trainer["optimizer_param"]["learning_rate"]}')
+        logger.info(f'Fixed LV geom: {self.task_trainer["fixed_geom"]}\n')
 
     def read_dataset(self):
         task_data = self.task_data
@@ -209,20 +207,19 @@ class PassiveLvGNNEmulModel(BaseModule):
 
     def _init_graph(self, config: PassiveLvGNNEmulConfig):
         # 3 encoder mlp
-        node_encode_mlp_config = MLPConfig(config.node_input_mlp_layer, prefix_name="node_encode")
-        self.node_encode_mlp_layer = MLPModule(node_encode_mlp_config)
+        self.node_encode_mlp_layer = MLPLayerLN(config.node_input_mlp_layer, prefix_name="node_encode")
 
         edge_encode_mlp_config = MLPConfig(config.edge_input_mlp_layer, prefix_name="edge_encode")
-        self.edge_encode_mlp_layer = MLPModule(edge_encode_mlp_config)
+        self.edge_encode_mlp_layer = MLPLayerLN(edge_encode_mlp_config)
 
         # theta mlp
         theta_encode_mlp_config = MLPConfig(config.theta_input_mlp_layer, prefix_name="theta_encode")
-        self.theta_encode_mlp_layer = MLPModule(theta_encode_mlp_config)
+        self.theta_encode_mlp_layer = MLPLayerLN(config.theta_input_mlp_layer, prefix_name="theta_encode")
 
         # decoder MLPs
         decoder_layer_config = config.decoder_layer_config
         decoder_mlp_config = MLPConfig(decoder_layer_config["mlp_layer"], prefix_name="decode")
-        self.decoder_layer = [MLPModule(decoder_mlp_config) for _ in range(decoder_layer_config["output_dim"])]
+        self.decoder_layer = [MLPLayerLN(decoder_mlp_config) for _ in range(decoder_layer_config["output_dim"])]
 
         # 2K processor mlp
         message_passing_layer_config = MessagePassingConfig(config.message_passing_layer_config)

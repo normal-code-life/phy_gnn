@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Type
 from pkg.train.config.base_config import BaseConfig
 from pkg.utils.logging import init_logger
 from torch import nn
@@ -24,7 +24,6 @@ class BaseModuleConfig(BaseConfig):
 class BaseModule(nn.Module):
     def __init__(self, config: BaseModuleConfig, *args, **kwargs) -> None:
         super(BaseModule, self).__init__(*args, **kwargs)
-        self.config = config
 
     def _init_graph(self, config: BaseModuleConfig):
         raise NotImplementedError(f"Module [{type(self).__name__}] is missing the required '_init_graph' function")

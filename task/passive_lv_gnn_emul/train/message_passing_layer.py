@@ -1,7 +1,7 @@
-from typing import Dict, Sequence
+from typing import Dict
 from pkg.utils.logging import init_logger
 from pkg.train.model.base_model import BaseModuleConfig, BaseModule
-from pkg.train.module.mlp_layer import MLPConfig, MLPModule
+from pkg.train.layer.mlp_layer import MLPConfig, MLPLayer
 import torch
 from pkg.tf_utils.method import segment_sum
 
@@ -57,7 +57,7 @@ class MessagePassingModule(BaseModule):
     def _init_mlp_graph(self, prefix_name, config):
         config = MLPConfig(config, prefix_name=prefix_name)
 
-        return MLPModule(config)
+        return MLPLayer(config)
 
     def aggregate_incoming_messages(self, message, receivers: torch.tensor, n_nodes: int):
         r"""Sum aggregates incoming messages to each node.
