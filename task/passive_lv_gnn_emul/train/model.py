@@ -20,6 +20,8 @@ from pkg.train.module.loss import get_loss_fn
 
 logger = init_logger("PassiveLvGNNEmul")
 
+torch.manual_seed(753)
+
 
 class PassiveLvGNNEmulTrainer(BaseTrainer):
     def __init__(self, config_path: str) -> None:
@@ -112,7 +114,7 @@ class PassiveLvGNNEmulTrainer(BaseTrainer):
                 # Compute and print loss.
                 train_batch_labels = train_batch_labels.squeeze(dim=0)
                 loss = criterion(train_pred, train_batch_labels)
-                train_loss += loss
+                train_loss += loss.item()
 
                 # Before the backward pass, use the optimizer object to zero all of the
                 # gradients for the variables it will update (which are the learnable
@@ -139,11 +141,11 @@ class PassiveLvGNNEmulTrainer(BaseTrainer):
                             model(val_batch_data) * validation_dataset.get_displacement_mean()
                             + validation_dataset.get_displacement_std()
                     )
-                    val_loss += criterion(val_output, val_batch_labels)
+                    val_loss += criterion(val_output, val_batch_labels).item()
 
             logger.info(
                 "epoch: %d, train_loss: %f, val_loss: %f", t,
-                train_loss.item() / len(train_dataset), val_loss.item() / len(validation_dataset)
+                train_loss / len(train_dataset), val_loss / len(validation_dataset)
             )
 
 

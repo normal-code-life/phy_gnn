@@ -1,8 +1,24 @@
 import torch
+from torch import nn,Tensor
 
 
-def get_loss_fn(name: str) -> torch.nn.Module:
+def get_loss_fn(name: str) -> nn.Module:
     if name == "mse":
-        return torch.nn.MSELoss()
+        return nn.MSELoss()
+    if name == "euclidean_distance_mse":
+        return EuclideanDistanceMSE()
     else:
         raise ValueError(f"loss name is not correct {name}")
+
+
+class EuclideanDistanceMSE(nn.Module):
+    def forward(self, y_pred: Tensor, y_true: Tensor) -> Tensor:
+        # print("???", y_pred[0, :])
+        # print("????", y_true[0, :])
+        d = torch.sum((y_true - y_pred) ** 2, dim=-1)
+        # print(d)
+        s = torch.sqrt(d)
+        # print(s)
+        r = torch.mean(s)
+        return r
+
