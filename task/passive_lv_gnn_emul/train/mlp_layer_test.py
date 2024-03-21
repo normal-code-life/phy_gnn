@@ -1,4 +1,4 @@
-from pkg.train.layer.mlp_layer import MLPLayer
+from task.passive_lv_gnn_emul.train.mlp_layer_ln import MLPLayerLN
 from torchsummary import summary
 from pkg.utils.logging import init_logger
 
@@ -13,7 +13,7 @@ if __name__ == "__main__":
         "activation": "relu",
     }
 
-    model = MLPLayer(config)
+    model = MLPLayerLN(config)
     logger.info(f"module config: {model.get_config()}")
 
     # 使用 torchsummary 打印模型结构

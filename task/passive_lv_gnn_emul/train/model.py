@@ -1,6 +1,6 @@
 from pprint import pformat
 from pkg.train.trainer.base_trainer import TrainerConfig, BaseTrainer
-from pkg.train.model.base_model import BaseModuleConfig, BaseModule
+from pkg.train.model.base_model import BaseModule
 from pkg.utils.logging import init_logger
 from pkg.utils import io
 from task.passive_lv_gnn_emul.train.datasets import LvDataset
@@ -9,10 +9,10 @@ import os
 import sys
 from typing import Dict, Sequence
 # from torchsummary import summary
-from task.passive_lv_gnn_emul.train.mlp_layer_ln import MLPConfig, MLPLayerLN
+from task.passive_lv_gnn_emul.train.mlp_layer_ln import MLPLayerLN
 import torch.nn as nn
 import torch
-from task.passive_lv_gnn_emul.train.message_passing_layer import MessagePassingConfig, MessagePassingModule
+from task.passive_lv_gnn_emul.train.message_passing_layer import MessagePassingModule
 from pkg.tf_utils.method import segment_sum
 from torch.utils.data import DataLoader
 from pkg.train.module.loss import get_loss_fn
@@ -21,15 +21,11 @@ from pkg.train.module.loss import get_loss_fn
 logger = init_logger("PassiveLvGNNEmul")
 
 
-class PassiveLvGnnEmulConfig(TrainerConfig):
-    def __init__(self, config_path: str) -> None:
-
-        super().__init__(config_path)
-        logger.info(f"====== config init ====== \n{pformat(self.config)}")
-
-
 class PassiveLvGNNEmulTrainer(BaseTrainer):
-    def __init__(self, config: PassiveLvGnnEmulConfig) -> None:
+    def __init__(self, config_path: str) -> None:
+        config = TrainerConfig(config_path)
+        logger.info(f"====== config init ====== \n{config.get_config()}")
+
         super().__init__(config)
 
         logger.info(f"Data path: {self.task_data['task_data_path']}")
@@ -50,9 +46,8 @@ class PassiveLvGNNEmulTrainer(BaseTrainer):
 
     def create_model(
         self, senders: torch.tensor, receivers: torch.tensor, real_node_indices: Sequence[bool], n_total_nodes: int
-    ):
-        config = PassiveLvGNNEmulConfig(self.task_train, senders, receivers, real_node_indices, n_total_nodes)
-        model = PassiveLvGNNEmulModel(config)
+    ) -> BaseModule:
+        model = PassiveLvGNNEmulModel(self.task_train, senders, receivers, real_node_indices, n_total_nodes)
 
         def print_model(model):
             # logger.info(model)
@@ -138,6 +133,8 @@ class PassiveLvGNNEmulTrainer(BaseTrainer):
             model.eval()
             with torch.no_grad():
                 for val_batch_data, val_batch_labels in validation_data_loader:
+                    val_batch_labels = val_batch_labels.squeeze(dim=0)
+
                     val_output = (
                             model(val_batch_data) * validation_dataset.get_displacement_mean()
                             + validation_dataset.get_displacement_std()
@@ -150,7 +147,7 @@ class PassiveLvGNNEmulTrainer(BaseTrainer):
             )
 
 
-class PassiveLvGNNEmulConfig(BaseModuleConfig):
+class PassiveLvGNNEmulModel(BaseModule):
     def __init__(
         self,
         config: Dict,
@@ -158,9 +155,10 @@ class PassiveLvGNNEmulConfig(BaseModuleConfig):
         receivers: torch.tensor,
         real_node_indices: Sequence[int],
         n_total_nodes: int,
+        *args,
         **kwargs,
     ) -> None:
-        super().__init__(config, **kwargs)
+        super().__init__(config, *args, **kwargs)
 
         # mlp layer config
         self.node_input_mlp_layer = config["node_input_mlp_layer"]
@@ -182,7 +180,9 @@ class PassiveLvGNNEmulConfig(BaseModuleConfig):
         logger.info(f'Message passing steps: {config["message_passing_steps"]}')
         logger.info(f'Num. shape coeffs: {config["n_shape_coeff"]}')
 
-    def get_config(self):
+        self._init_graph()
+
+    def get_config(self) -> Dict:
         base_config = super().get_config()
 
         mlp_config = {
@@ -198,32 +198,23 @@ class PassiveLvGNNEmulConfig(BaseModuleConfig):
 
         return {**base_config, **mlp_config}
 
-
-class PassiveLvGNNEmulModel(BaseModule):
-    def __init__(self, config: PassiveLvGNNEmulConfig) -> None:
-        super().__init__(config)
-
-        self._init_graph(config)
-
-    def _init_graph(self, config: PassiveLvGNNEmulConfig):
+    def _init_graph(self):
         # 3 encoder mlp
-        self.node_encode_mlp_layer = MLPLayerLN(config.node_input_mlp_layer, prefix_name="node_encode")
-
-        edge_encode_mlp_config = MLPConfig(config.edge_input_mlp_layer, prefix_name="edge_encode")
-        self.edge_encode_mlp_layer = MLPLayerLN(edge_encode_mlp_config)
+        self.node_encode_mlp_layer = MLPLayerLN(self.node_input_mlp_layer, prefix_name="node_encode")
+        self.edge_encode_mlp_layer = MLPLayerLN(self.edge_input_mlp_layer, prefix_name="edge_encode")
 
         # theta mlp
-        theta_encode_mlp_config = MLPConfig(config.theta_input_mlp_layer, prefix_name="theta_encode")
-        self.theta_encode_mlp_layer = MLPLayerLN(config.theta_input_mlp_layer, prefix_name="theta_encode")
+        self.theta_encode_mlp_layer = MLPLayerLN(self.theta_input_mlp_layer, prefix_name="theta_encode")
 
         # decoder MLPs
-        decoder_layer_config = config.decoder_layer_config
-        decoder_mlp_config = MLPConfig(decoder_layer_config["mlp_layer"], prefix_name="decode")
-        self.decoder_layer = [MLPLayerLN(decoder_mlp_config) for _ in range(decoder_layer_config["output_dim"])]
+        decoder_layer_config = self.decoder_layer_config
+        self.decoder_layer = [
+            MLPLayerLN(decoder_layer_config["mlp_layer"], prefix_name="decode")
+            for _ in range(decoder_layer_config["output_dim"])
+        ]
 
         # 2K processor mlp
-        message_passing_layer_config = MessagePassingConfig(config.message_passing_layer_config)
-        self.message_passing_layer = MessagePassingModule(message_passing_layer_config)
+        self.message_passing_layer = MessagePassingModule(self.message_passing_layer_config)
 
     def forward(self, x):
         # ====== Input data (squeeze to align to previous project)
@@ -241,13 +232,13 @@ class PassiveLvGNNEmulModel(BaseModule):
         node, edge = self.message_passing_layer(node, edge)  # shape: (126, 40), (440, 40)
 
         # aggregate incoming messages to each node
-        incoming_message = segment_sum(edge, self.config.receivers, self.config.n_total_nodes)  # shape: (126, 40)
+        incoming_message = segment_sum(edge, self.receivers, self.n_total_nodes)  # shape: (126, 40)
 
         # final local learned representation is a concatenation of vector embedding and incoming messages
         z_local = torch.concat((node, incoming_message), dim=-1)  # shape: (126, 80)
 
         # only need local representation for real nodes
-        z_local = z_local[self.config.real_node_indices, ]  # shape: (96, 80)
+        z_local = z_local[self.real_node_indices, ]  # shape: (96, 80)
 
         # encode global parameters theta
         z_theta = self.theta_encode_mlp_layer(input_theta)  # shape: (1, 2) => (1, 40)
@@ -279,8 +270,5 @@ if __name__ == "__main__":
     cur_path = os.path.abspath(sys.argv[0])
 
     task_dir = io.get_cur_abs_dir(cur_path)
-    config_path = f"{task_dir}/train_config.yaml"
-
-    lv_config = PassiveLvGnnEmulConfig(config_path)
-    model = PassiveLvGNNEmulTrainer(lv_config)
+    model = PassiveLvGNNEmulTrainer(f"{task_dir}/train_config.yaml")
     model.fit()

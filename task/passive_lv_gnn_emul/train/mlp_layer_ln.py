@@ -1,27 +1,25 @@
-from pkg.train.layer.mlp_layer import MLPConfig, MLPLayer
+from pkg.train.layer.mlp_layer import MLPLayer
 from torch import nn
 from pkg.train.module.activation import get_activation
 
 
 class MLPLayerLN(MLPLayer):
-    def _init_graph(self, config: MLPConfig):
-        sequential = nn.Sequential()
+    def _init_graph(self) -> None:
+        mlp_layers = self.mlp_layers
 
-        for i in range(len(config.unit_sizes) - 1):
-            cur_layer_name = f"{config.prefix_name}_{config.layer_name}_l{i + 1}"
+        for i in range(len(self.unit_sizes) - 1):
+            cur_layer_name = f"{self.prefix_name}_{self.layer_name}_l{i + 1}"
 
             # add fc layer
-            sequential.add_module(cur_layer_name, nn.Linear(config.unit_sizes[i], config.unit_sizes[i + 1]))
+            mlp_layers.add_module(cur_layer_name, nn.Linear(self.unit_sizes[i], self.unit_sizes[i + 1]))
 
             # add activation
-            if config.activation and i != len(config.unit_sizes) - 2:
-                sequential.add_module(f"{cur_layer_name}_ac", get_activation(config.activation))
+            if self.activation and i != len(self.unit_sizes) - 2:
+                mlp_layers.add_module(f"{cur_layer_name}_ac", get_activation(self.activation))
 
         # add batch/layer norm
-        if config.layer_norm:
-            sequential.add_module(f"{config.prefix_name}_{config.layer_name}_ln", nn.LayerNorm(config.unit_sizes[-1]))
-
-        return sequential
+        if self.layer_norm:
+            mlp_layers.add_module(f"{self.prefix_name}_{self.layer_name}_ln", nn.LayerNorm(self.unit_sizes[-1]))
 
     def forward(self, x):
         return self.mlp_layers(x)

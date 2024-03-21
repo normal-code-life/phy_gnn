@@ -70,5 +70,5 @@ class BaseTrainer(abc.ABC):
         self.task_train = config.task_train
 
     def create_model(self, **kargs) -> BaseModule:
-        self.model: BaseModule
+        raise NotImplementedError("please implement create_model")
 
