@@ -21,6 +21,7 @@ from pkg.train.module.loss import get_loss_fn
 logger = init_logger("PassiveLvGNNEmul")
 
 torch.manual_seed(753)
+# torch.set_printoptions(precision=8)
 
 
 class PassiveLvGNNEmulTrainer(BaseTrainer):
@@ -138,8 +139,8 @@ class PassiveLvGNNEmulTrainer(BaseTrainer):
                     val_batch_labels = val_batch_labels.squeeze(dim=0)
 
                     val_output = (
-                            model(val_batch_data) * validation_dataset.get_displacement_mean()
-                            + validation_dataset.get_displacement_std()
+                            model(val_batch_data) * validation_dataset.get_displacement_std()
+                            + validation_dataset.get_displacement_mean()
                     )
                     val_loss += criterion(val_output, val_batch_labels).item()
 
