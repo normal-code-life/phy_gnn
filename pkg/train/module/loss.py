@@ -13,12 +13,6 @@ def get_loss_fn(name: str) -> nn.Module:
 
 class EuclideanDistanceMSE(nn.Module):
     def forward(self, y_pred: Tensor, y_true: Tensor) -> Tensor:
-        # print("???", y_pred[0, :])
-        # print("????", y_true[0, :])
-        d = torch.sum((y_true - y_pred) ** 2, dim=-1)
-        # print(d)
-        s = torch.sqrt(d)
-        # print(s)
-        r = torch.mean(s)
-        return r
+        rmse = torch.sqrt((torch.sum((y_true - y_pred) ** 2, dim=-1)))
+        return torch.mean(rmse)
 

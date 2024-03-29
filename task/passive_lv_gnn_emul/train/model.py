@@ -102,19 +102,16 @@ class PassiveLvGNNEmulTrainer(BaseTrainer):
             # training process
             model.train()
 
-            batch = 0
             train_loss = 0
             val_loss = 0
-            for train_batch_data, train_batch_labels in train_data_loader:
+            for batch, data in enumerate(train_data_loader):
                 # Forward pass: compute predicted y by passing x to the model.
                 # note: by default, we assume batch size = 1
-                batch += 1
-
-                train_pred = model(train_batch_data)
+                train_inputs, train_labels = data
 
                 # Compute and print loss.
-                train_batch_labels = train_batch_labels.squeeze(dim=0)
-                loss = criterion(train_pred, train_batch_labels)
+                train_ouputs = model(train_inputs)
+                loss = criterion(train_ouputs, train_labels.squeeze(dim=0))
                 train_loss += loss.item()
 
                 # Before the backward pass, use the optimizer object to zero all of the
@@ -124,29 +121,33 @@ class PassiveLvGNNEmulTrainer(BaseTrainer):
                 # is called. Checkout docs of torch.autograd.backward for more details.
                 optimizer.zero_grad()
 
-                # Backward pass: compute gradient of the loss with respect to model
-                # parameters
+                # Backward pass: compute gradient of the loss with respect to model parameters
                 loss.backward()
 
-                # Calling the step function on an Optimizer makes an update to its
-                # parameters
+                # Calling the step function on an Optimizer makes an update to its parameters
                 optimizer.step()
 
-            # test process
+            print(t, batch, loss.item(), train_loss)
+            # print("===================================================================")
+            # for moduel in model.parameters():
+            #     print(moduel)
+            #     break
+
+            # Set the model to evaluation mode, disabling dropout and using population
+            # statistics for batch normalization.
             model.eval()
             with torch.no_grad():
-                for val_batch_data, val_batch_labels in validation_data_loader:
-                    val_batch_labels = val_batch_labels.squeeze(dim=0)
-
+                for batch, val_data in enumerate(validation_data_loader):
+                    val_inputs, val_labels = val_data
                     val_output = (
-                            model(val_batch_data) * validation_dataset.get_displacement_std()
+                            model(val_inputs) * validation_dataset.get_displacement_std()
                             + validation_dataset.get_displacement_mean()
                     )
-                    val_loss += criterion(val_output, val_batch_labels).item()
+                    val_loss += criterion(val_output, val_labels.squeeze(dim=0)).item()
 
             logger.info(
-                "epoch: %d, train_loss: %f, val_loss: %f", t,
-                train_loss / len(train_dataset), val_loss / len(validation_dataset)
+                "epoch: %d, train_loss: %f, val_loss: %f, train_dataset_size: %d, %d", t,
+                train_loss / len(train_dataset), val_loss / len(validation_dataset), len(train_dataset), len(validation_dataset)
             )
 
 
