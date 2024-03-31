@@ -124,4 +124,3 @@ class LvDataset(Dataset):
 
     def get_displacement_std(self) -> np.float32:
         return self._displacement_std
-

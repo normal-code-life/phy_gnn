@@ -9,7 +9,6 @@ logger = init_logger("BASE_MODEL")
 
 class BaseModule(nn.Module, BaseConfig):
     def __init__(self, config: Dict, *args, **kwargs) -> None:
-
         self.prefix_name = "base_module"
         if "prefix_name" in config:
             self.prefix_name = config["prefix_name"]
@@ -25,4 +24,3 @@ class BaseModule(nn.Module, BaseConfig):
         return {
             "prefix_name": self.prefix_name,
         }
-

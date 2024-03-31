@@ -6,6 +6,7 @@ from pkg.utils.logging import init_logger
 from pkg.utils import io
 import torch
 from pkg.train.model.base_model import BaseModule
+
 logger = init_logger("BASE_TRAINER")
 
 
@@ -71,4 +72,3 @@ class BaseTrainer(abc.ABC):
 
     def create_model(self, **kargs) -> BaseModule:
         raise NotImplementedError("please implement create_model")
-

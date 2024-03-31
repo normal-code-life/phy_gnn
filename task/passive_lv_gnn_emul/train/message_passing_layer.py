@@ -4,6 +4,8 @@ from pkg.train.model.base_model import BaseModule
 from task.passive_lv_gnn_emul.train.mlp_layer_ln import MLPLayerLN
 import torch
 from pkg.tf_utils.method import segment_sum
+from torch import nn
+
 
 logger = init_logger("message_passing")
 
@@ -24,8 +26,8 @@ class MessagePassingModule(BaseModule):
         self.K = config["K"]
 
         # === Layers
-        self.node_update_fn = []
-        self.edge_update_fn = []
+        self.node_update_fn = nn.ModuleList()
+        self.edge_update_fn = nn.ModuleList()
 
         self._init_graph()
 
@@ -46,7 +48,7 @@ class MessagePassingModule(BaseModule):
     def _init_graph(self) -> None:
         for i in range(self.K):
             self.node_update_fn.append(MLPLayerLN(self.node_mlp_layer_config, prefix_name=f"message_passing_node_{i}"))
-            self.edge_update_fn.append(MLPLayerLN(self.edge_mlp_layer_config, prefix_name=f"message_passing_node_{i}"))
+            self.edge_update_fn.append(MLPLayerLN(self.edge_mlp_layer_config, prefix_name=f"message_passing_edge_{i}"))
 
     def aggregate_incoming_messages(self, message, receivers: torch.tensor, n_nodes: int):
         r"""Sum aggregates incoming messages to each node.

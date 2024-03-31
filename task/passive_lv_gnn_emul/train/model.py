@@ -8,7 +8,6 @@ from common.constant import TRAIN_NAME, VALIDATION_NAME
 import os
 import sys
 from typing import Dict, Sequence
-# from torchsummary import summary
 from task.passive_lv_gnn_emul.train.mlp_layer_ln import MLPLayerLN
 import torch.nn as nn
 import torch
@@ -21,7 +20,7 @@ from pkg.train.module.loss import get_loss_fn
 logger = init_logger("PassiveLvGNNEmul")
 
 torch.manual_seed(753)
-# torch.set_printoptions(precision=8)
+torch.set_printoptions(precision=8)
 
 
 class PassiveLvGNNEmulTrainer(BaseTrainer):
@@ -127,12 +126,6 @@ class PassiveLvGNNEmulTrainer(BaseTrainer):
                 # Calling the step function on an Optimizer makes an update to its parameters
                 optimizer.step()
 
-            print(t, batch, loss.item(), train_loss)
-            # print("===================================================================")
-            # for moduel in model.parameters():
-            #     print(moduel)
-            #     break
-
             # Set the model to evaluation mode, disabling dropout and using population
             # statistics for batch normalization.
             model.eval()
@@ -140,14 +133,18 @@ class PassiveLvGNNEmulTrainer(BaseTrainer):
                 for batch, val_data in enumerate(validation_data_loader):
                     val_inputs, val_labels = val_data
                     val_output = (
-                            model(val_inputs) * validation_dataset.get_displacement_std()
-                            + validation_dataset.get_displacement_mean()
+                        model(val_inputs) * validation_dataset.get_displacement_std()
+                        + validation_dataset.get_displacement_mean()
                     )
                     val_loss += criterion(val_output, val_labels.squeeze(dim=0)).item()
 
             logger.info(
-                "epoch: %d, train_loss: %f, val_loss: %f, train_dataset_size: %d, %d", t,
-                train_loss / len(train_dataset), val_loss / len(validation_dataset), len(train_dataset), len(validation_dataset)
+                "epoch: %d, train_loss: %f, val_loss: %f, train_dataset_size: %d, %d",
+                t,
+                train_loss / len(train_dataset),
+                val_loss / len(validation_dataset),
+                len(train_dataset),
+                len(validation_dataset),
             )
 
 
@@ -212,10 +209,12 @@ class PassiveLvGNNEmulModel(BaseModule):
 
         # decoder MLPs
         decoder_layer_config = self.decoder_layer_config
-        self.decoder_layer = [
-            MLPLayerLN(decoder_layer_config["mlp_layer"], prefix_name="decode")
-            for _ in range(decoder_layer_config["output_dim"])
-        ]
+        self.decoder_layer = nn.ModuleList(
+            [
+                MLPLayerLN(decoder_layer_config["mlp_layer"], prefix_name=f"decode_{i}")
+                for i in range(decoder_layer_config["output_dim"])
+            ]
+        )
 
         # 2K processor mlp
         self.message_passing_layer = MessagePassingModule(self.message_passing_layer_config)
@@ -242,7 +241,7 @@ class PassiveLvGNNEmulModel(BaseModule):
         z_local = torch.concat((node, incoming_message), dim=-1)  # shape: (126, 80)
 
         # only need local representation for real nodes
-        z_local = z_local[self.real_node_indices, ]  # shape: (96, 80)
+        z_local = z_local[self.real_node_indices,]  # shape: (96, 80)
 
         # encode global parameters theta
         z_theta = self.theta_encode_mlp_layer(input_theta)  # shape: (1, 2) => (1, 40)
