@@ -1,4 +1,5 @@
 import torch
+
 from pkg.train.module.loss import EuclideanDistanceMSE
 
 

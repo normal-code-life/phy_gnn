@@ -1,11 +1,13 @@
 import abc
 from typing import Dict
+
+from torch import nn
+
 from pkg.train.config.base_config import BaseConfig
+from pkg.train.model.base_model import BaseModule
+from pkg.utils import io
 from pkg.utils.io import load_yaml
 from pkg.utils.logging import init_logger
-from pkg.utils import io
-import torch
-from pkg.train.model.base_model import BaseModule
 
 logger = init_logger("BASE_TRAINER")
 
@@ -72,3 +74,11 @@ class BaseTrainer(abc.ABC):
 
     def create_model(self, **kargs) -> BaseModule:
         raise NotImplementedError("please implement create_model")
+
+    def print_model(self, model):
+        logger.info(model)
+        for name, module in model.named_children():
+            logger.info(f"Submodule: {name}")
+            logger.info(module)
+            if isinstance(module, nn.Module):
+                self.print_model(module)

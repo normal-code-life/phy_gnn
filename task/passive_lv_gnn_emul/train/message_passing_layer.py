@@ -1,11 +1,12 @@
 from typing import Dict
-from pkg.utils.logging import init_logger
-from pkg.train.model.base_model import BaseModule
-from task.passive_lv_gnn_emul.train.mlp_layer_ln import MLPLayerLN
+
 import torch
-from pkg.tf_utils.method import segment_sum
 from torch import nn
 
+from pkg.tf_utils.method import segment_sum
+from pkg.train.model.base_model import BaseModule
+from pkg.utils.logging import init_logger
+from task.passive_lv_gnn_emul.train.mlp_layer_ln import MLPLayerLN
 
 logger = init_logger("message_passing")
 

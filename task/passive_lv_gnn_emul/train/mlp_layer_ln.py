@@ -1,7 +1,7 @@
-from pkg.train.layer.mlp_layer import MLPLayer
 from torch import nn
+
+from pkg.train.layer.mlp_layer import MLPLayer
 from pkg.train.module.activation import get_activation
-from pkg.utils.logging import init_logger
 
 
 class MLPLayerLN(MLPLayer):
@@ -21,6 +21,3 @@ class MLPLayerLN(MLPLayer):
             self.mlp_layers.add_module(
                 f"{self.prefix_name}_{self.layer_name}_ln", nn.LayerNorm(self.unit_sizes[-1], eps=1e-6)
             )
-
-    def forward(self, x):
-        return self.mlp_layers(x)

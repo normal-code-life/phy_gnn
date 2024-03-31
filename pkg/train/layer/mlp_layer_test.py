@@ -1,5 +1,6 @@
-from pkg.train.layer.mlp_layer import MLPLayer
 from torchsummary import summary
+
+from pkg.train.layer.mlp_layer import MLPLayer
 from pkg.utils.logging import init_logger
 
 logger = init_logger("test_mlp_module")

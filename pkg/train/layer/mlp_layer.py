@@ -1,10 +1,12 @@
-import torch.nn as nn
 from typing import Dict, List
-from pkg.utils.logging import init_logger
-from pkg.train.model.base_model import BaseModule
-from pkg.train.module.activation import get_activation
+
 import numpy as np
 import torch
+import torch.nn as nn
+
+from pkg.train.model.base_model import BaseModule
+from pkg.train.module.activation import get_activation
+from pkg.utils.logging import init_logger
 
 logger = init_logger("mlp_layer_ln")
 

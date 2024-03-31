@@ -1,21 +1,24 @@
-from pprint import pformat
-from pkg.train.trainer.base_trainer import TrainerConfig, BaseTrainer
-from pkg.train.model.base_model import BaseModule
-from pkg.utils.logging import init_logger
-from pkg.utils import io
-from task.passive_lv_gnn_emul.train.datasets import LvDataset
-from common.constant import TRAIN_NAME, VALIDATION_NAME
 import os
 import sys
+import time
+from pprint import pformat
 from typing import Dict, Sequence
-from task.passive_lv_gnn_emul.train.mlp_layer_ln import MLPLayerLN
-import torch.nn as nn
-import torch
-from task.passive_lv_gnn_emul.train.message_passing_layer import MessagePassingModule
-from pkg.tf_utils.method import segment_sum
-from torch.utils.data import DataLoader
-from pkg.train.module.loss import get_loss_fn
 
+import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader
+
+from common.constant import TRAIN_NAME, VALIDATION_NAME
+from pkg.tf_utils.method import segment_sum
+from pkg.train.model.base_model import BaseModule
+from pkg.train.module.loss import get_loss_fn
+from pkg.train.trainer.base_trainer import BaseTrainer, TrainerConfig
+from pkg.utils import io
+from pkg.utils.logging import init_logger
+from task.passive_lv_gnn_emul.train.datasets import LvDataset
+from task.passive_lv_gnn_emul.train.message_passing_layer import \
+    MessagePassingModule
+from task.passive_lv_gnn_emul.train.mlp_layer_ln import MLPLayerLN
 
 logger = init_logger("PassiveLvGNNEmul")
 
@@ -51,19 +54,18 @@ class PassiveLvGNNEmulTrainer(BaseTrainer):
     ) -> BaseModule:
         model = PassiveLvGNNEmulModel(self.task_train, senders, receivers, real_node_indices, n_total_nodes)
 
-        def print_model(model):
-            # logger.info(model)
-            for name, module in model.named_children():
-                logger.info(f"Submodule: {name}")
-                logger.info(module)
-                if isinstance(module, nn.Module):
-                    print_model(module)
-
-        print_model(model)
+        logger.info(model)
 
         return model
 
     def fit(self):
+        task_trainer = self.task_trainer
+
+        # Train model process
+        epoch = task_trainer["epochs"]
+        batch_size = task_trainer["batch_size"]
+        shuffle = task_trainer["dataset_shuffle"]
+
         # Generate data
         train_dataset, validation_dataset = self.read_dataset()
 
@@ -72,10 +74,11 @@ class PassiveLvGNNEmulTrainer(BaseTrainer):
         real_node_indices = train_dataset.get_real_node_indices()
         n_total_nodes = train_dataset.get_n_total_nodes()
 
+        train_data_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=shuffle)
+        validation_data_loader = DataLoader(validation_dataset, batch_size=batch_size)
+
         # Create model
         model = self.create_model(senders, receivers, real_node_indices, n_total_nodes)
-
-        task_trainer = self.task_trainer
 
         # Init optimizer
         optimizer_param = task_trainer["optimizer_param"]
@@ -86,16 +89,9 @@ class PassiveLvGNNEmulTrainer(BaseTrainer):
         loss_param = task_trainer["loss_param"]
         criterion = get_loss_fn(loss_param["loss_name"])
 
-        # Train model process
-        epoch = task_trainer["epochs"]
-        batch_size = task_trainer["batch_size"]
-        shuffle = task_trainer["dataset_shuffle"]
-
-        train_data_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=shuffle)
-
-        validation_data_loader = DataLoader(validation_dataset, batch_size=batch_size)
-
         logger.info("model training start!")
+
+        start_time = time.time()
 
         for t in range(epoch):
             # training process
@@ -139,12 +135,11 @@ class PassiveLvGNNEmulTrainer(BaseTrainer):
                     val_loss += criterion(val_output, val_labels.squeeze(dim=0)).item()
 
             logger.info(
-                "epoch: %d, train_loss: %f, val_loss: %f, train_dataset_size: %d, %d",
+                "epoch: %d, training time: %ds, train_loss: %f, val_loss: %f",
                 t,
+                time.time() - start_time,
                 train_loss / len(train_dataset),
                 val_loss / len(validation_dataset),
-                len(train_dataset),
-                len(validation_dataset),
             )
 
 

@@ -2,3 +2,6 @@
 
 echo "-- black --"
 black --line-length=120 .
+
+echo "-- isort --"
+isort .
