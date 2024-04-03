@@ -1,0 +1,15 @@
+# This file may be used to create an environment using:
+# $ conda create --name <env> --file <this file>
+
+black=23.12.1
+flake8=7.0.0
+flake8-docstrings=1.7.0
+isort=5.13.2
+numpy=1.24.3
+numpy-base=1.24.3
+python=3.8.18
+pytorch=2.1.2
+torchsummary=1.5.1
+torchvision=0.16.2
+xz=5.4.5
+yaml=0.2.5

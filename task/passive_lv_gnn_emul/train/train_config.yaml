@@ -1,19 +1,53 @@
-task_name: passive_lv_gnn_emul
+task_base:
+  task_name: passive_lv_gnn_emul
+task_data:
+  sub_data_name: beam_data
 task_trainer:
   model_name: PassiveLvGNNEmul
-  train_param:
-    optimizer_param:
-      optimizer: adam
-      learning_rate: 5e-5  # Learning rate for training the network
-    step_param:
-      epochs: 1
-    fixed_geom: False
+  optimizer_param:
+    optimizer: adam
+    learning_rate: 0.00001  # Learning rate for training the network
+  loss_param:
+    loss_name: euclidean_distance_mse
+  epochs: 300
+  batch_size: 1
+  dataset_shuffle: False
+  fixed_geom: False
 task_train:
-  model_param:
-    n_shape_coeff: 2  # Number of shape coefficients to input to the emulator
-    K: 2  # Number of message passing steps to perform
-    fixed_geom: False  # Set whether the dataset is for varying or fixed geometries
-    local_emb_dim: 40
-    mlp_width: 128
-    mlp_depth: 2
-
+  node_input_mlp_layer:
+    unit_sizes: [1, 128, 128, 40]
+    layer_norm: True
+    activation: tanh
+    init_weight_file_path: "weight_init.npy"
+  edge_input_mlp_layer:
+    unit_sizes: [3, 128, 128, 40]
+    layer_norm: True
+    activation: tanh
+    init_weight_file_path: "weight_init.npy"
+  theta_input_mlp_layer:
+    unit_sizes: [2, 128, 128, 40]
+    layer_norm: True
+    activation: tanh
+    init_weight_file_path: "weight_init.npy"
+  message_passing_layer:
+    edge_mlp_layer:
+      unit_sizes: [120, 128, 128, 40]
+      layer_norm: True
+      activation: tanh
+      init_weight_file_path: "weight_init.npy"
+    node_mlp_layer:
+      unit_sizes: [80, 128, 128, 40]
+      layer_norm: True
+      activation: tanh
+      init_weight_file_path: "weight_init.npy"
+    K: 2
+  decoder_layer:
+    mlp_layer:
+      unit_sizes: [122, 128, 128, 1]
+      layer_norm: False
+      activation: tanh
+      init_weight_file_path: "weight_init.npy"
+    output_dim: 2
+  n_shape_coeff: 2  # Number of shape coefficients to input to the emulator
+  message_passing_steps: 2  # Number of message passing steps to perform
+  fixed_geom: False  # Set whether the dataset is for varying or fixed geometries

@@ -1,10 +1,13 @@
 import abc
 from typing import Dict
+
+from torch import nn
+
 from pkg.train.config.base_config import BaseConfig
+from pkg.train.model.base_model import BaseModule
+from pkg.utils import io
 from pkg.utils.io import load_yaml
 from pkg.utils.logging import init_logger
-from pkg.utils import io
-
 
 logger = init_logger("BASE_TRAINER")
 
@@ -18,7 +21,7 @@ class TrainerConfig(BaseConfig):
         config_path: Attribute to store configuration information, loaded using the yaml.unsafe_load method.
     """
 
-    def __init__(self, task_path: str, config_path: str):
+    def __init__(self, config_path: str):
         """
         Constructor to initialize a TrainerConfig object.
 
@@ -31,39 +34,51 @@ class TrainerConfig(BaseConfig):
         """
         self.config: Dict = load_yaml(config_path)
 
-        # basic
-        self.task_name = self.config["task_name"]
+        # task base info
+        self.task_base = self.config["task_base"]
+        self.task_name = self.task_base["task_name"]
 
-        # path
-        # == task and root path
-        self.repo_root_path = io.get_repo_path(task_path)
-        self.task_path = task_path
+        repo_root_path = io.get_repo_path(config_path)
+        self.task_base["repo_root_path"] = repo_root_path
+        self.task_base["config_path"] = config_path
 
-        # == data path
+        # task dataset info
         self.task_data = self.config.get("task_data", {})
-        self.task_data_path = self.task_data.get("task_data_path", f"{self.repo_root_path}/data/{self.task_name}")
+        self.task_data["task_data_path"] = self.task_data.get(
+            "task_data_path", f"{repo_root_path}/pkg/data/{self.task_name}"
+        )
 
-        # training param
+        # task trainer
         self.task_trainer = self.config["task_trainer"]
+
+        # task train
         self.task_train = self.config["task_train"]
 
-        self._update_config()
-
-    def _update_config(self):
-        self.config["repo_root_path"] = self.repo_root_path
-        self.config["task_path"] = self.task_path
-
-        self.task_data["task_data_path"] = self.task_data_path
-        self.config["task_data"] = self.task_data
-
     def get_config(self):
-        return self.config
+        return {
+            "task_base": self.task_base,
+            "task_data": self.task_data,
+            "task_trainer": self.task_trainer,
+            "task_train": self.task_train,
+        }
 
 
 class BaseTrainer(abc.ABC):
     def __init__(self, config: TrainerConfig):
-        logger.info("====== Beginning Training ====== ")
+        logger.info("====== Trainer Init ====== ")
 
+        self.task_base = config.task_base
         self.task_data = config.task_data
         self.task_trainer = config.task_trainer
         self.task_train = config.task_train
+
+    def create_model(self, **kargs) -> BaseModule:
+        raise NotImplementedError("please implement create_model")
+
+    def print_model(self, model):
+        logger.info(model)
+        for name, module in model.named_children():
+            logger.info(f"Submodule: {name}")
+            logger.info(module)
+            if isinstance(module, nn.Module):
+                self.print_model(module)
