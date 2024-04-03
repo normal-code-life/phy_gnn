@@ -1,17 +1,13 @@
 import os
 import sys
-import time
-from pprint import pformat
 from typing import Dict, Sequence
 
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader
 
-from common.constant import TRAIN_NAME, VALIDATION_NAME
+from common.constant import TRAIN_NAME
 from pkg.tf_utils.method import segment_sum
 from pkg.train.model.base_model import BaseModule
-from pkg.train.module.loss import get_loss_fn
 from pkg.train.trainer.base_trainer import BaseTrainer, TrainerConfig
 from pkg.utils import io
 from pkg.utils.logging import init_logger
@@ -27,120 +23,35 @@ torch.set_printoptions(precision=8)
 
 
 class PassiveLvGNNEmulTrainer(BaseTrainer):
+    dataset_class = LvDataset
+
     def __init__(self, config_path: str) -> None:
         config = TrainerConfig(config_path)
-        logger.info(f"====== config init ====== \n{config.get_config()}")
+
+        logger.info(f"{config.get_config()}")
 
         super().__init__(config)
 
-        logger.info(f"Data path: {self.task_data['task_data_path']}")
-        logger.info(f'Training epochs: {self.task_trainer["epochs"]}')
-        logger.info(f'Learning rate: {self.task_trainer["optimizer_param"]["learning_rate"]}')
-        logger.info(f'Fixed LV geom: {self.task_trainer["fixed_geom"]}\n')
+        # config relative to dataset
+        dataset_config = self.dataset_class(self.task_data, TRAIN_NAME)
 
-    def read_dataset(self):
-        task_data = self.task_data
+        self.senders = dataset_config.get_senders()
+        self.receivers = dataset_config.get_receivers()
+        self.real_node_indices = dataset_config.get_real_node_indices()
+        self.n_total_nodes = dataset_config.get_n_total_nodes()
+        self.displacement_mean = dataset_config.get_displacement_mean()
+        self.displacement_std = dataset_config.get_displacement_std()
 
-        train_dataset = LvDataset(task_data, TRAIN_NAME)
-        logger.info(f"Number of train data points: {len(train_dataset)}")
+    def create_model(self) -> BaseModule:
+        return PassiveLvGNNEmulModel(
+            self.task_train, self.senders, self.receivers, self.real_node_indices, self.n_total_nodes
+        )
 
-        validation_dataset = LvDataset(task_data, VALIDATION_NAME)
-        logger.info(f"Number of validation_data data points: {len(validation_dataset)}")
+    def compute_loss(self, outputs, labels):
+        return self.loss(outputs, labels.squeeze(dim=0))
 
-        return train_dataset, validation_dataset
-
-    def create_model(
-        self, senders: torch.tensor, receivers: torch.tensor, real_node_indices: Sequence[bool], n_total_nodes: int
-    ) -> BaseModule:
-        model = PassiveLvGNNEmulModel(self.task_train, senders, receivers, real_node_indices, n_total_nodes)
-
-        logger.info(model)
-
-        return model
-
-    def fit(self):
-        task_trainer = self.task_trainer
-
-        # Train model process
-        epoch = task_trainer["epochs"]
-        batch_size = task_trainer["batch_size"]
-        shuffle = task_trainer["dataset_shuffle"]
-
-        # Generate data
-        train_dataset, validation_dataset = self.read_dataset()
-
-        senders = train_dataset.get_senders()
-        receivers = train_dataset.get_receivers()
-        real_node_indices = train_dataset.get_real_node_indices()
-        n_total_nodes = train_dataset.get_n_total_nodes()
-
-        train_data_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=shuffle)
-        validation_data_loader = DataLoader(validation_dataset, batch_size=batch_size)
-
-        # Create model
-        model = self.create_model(senders, receivers, real_node_indices, n_total_nodes)
-
-        # Init optimizer
-        optimizer_param = task_trainer["optimizer_param"]
-
-        optimizer = torch.optim.Adam(model.parameters(), lr=optimizer_param["learning_rate"])
-
-        # Init loss
-        loss_param = task_trainer["loss_param"]
-        criterion = get_loss_fn(loss_param["loss_name"])
-
-        logger.info("model training start!")
-
-        start_time = time.time()
-
-        for t in range(epoch):
-            # training process
-            model.train()
-
-            train_loss = 0
-            val_loss = 0
-            for batch, data in enumerate(train_data_loader):
-                # Forward pass: compute predicted y by passing x to the model.
-                # note: by default, we assume batch size = 1
-                train_inputs, train_labels = data
-
-                # Compute and print loss.
-                train_ouputs = model(train_inputs)
-                loss = criterion(train_ouputs, train_labels.squeeze(dim=0))
-                train_loss += loss.item()
-
-                # Before the backward pass, use the optimizer object to zero all of the
-                # gradients for the variables it will update (which are the learnable
-                # weights of the model). This is because by default, gradients are
-                # accumulated in buffers( i.e, not overwritten) whenever .backward()
-                # is called. Checkout docs of torch.autograd.backward for more details.
-                optimizer.zero_grad()
-
-                # Backward pass: compute gradient of the loss with respect to model parameters
-                loss.backward()
-
-                # Calling the step function on an Optimizer makes an update to its parameters
-                optimizer.step()
-
-            # Set the model to evaluation mode, disabling dropout and using population
-            # statistics for batch normalization.
-            model.eval()
-            with torch.no_grad():
-                for batch, val_data in enumerate(validation_data_loader):
-                    val_inputs, val_labels = val_data
-                    val_output = (
-                        model(val_inputs) * validation_dataset.get_displacement_std()
-                        + validation_dataset.get_displacement_mean()
-                    )
-                    val_loss += criterion(val_output, val_labels.squeeze(dim=0)).item()
-
-            logger.info(
-                "epoch: %d, training time: %ds, train_loss: %f, val_loss: %f",
-                t,
-                time.time() - start_time,
-                train_loss / len(train_dataset),
-                val_loss / len(validation_dataset),
-            )
+    def compute_validation_loss(self, outputs, labels):
+        return self.compute_loss(outputs * self.displacement_std + self.displacement_mean, labels)
 
 
 class PassiveLvGNNEmulModel(BaseModule):
@@ -219,7 +130,7 @@ class PassiveLvGNNEmulModel(BaseModule):
         input_node = x["nodes"].squeeze(dim=0)  # shape: (1, 126, 1) => (126, 1)
         input_edge = x["edges"].squeeze(dim=0)  # shape: (1, 440, 3) => (440, 3)
         input_theta = x["theta_vals"]  # shape: (1, 2)
-        input_z_global = x["shape_coeffs"]
+        input_z_global = x["shape_coeffs"]  # shape: (1, 2)
 
         # ====== Encoder:
         # encode vertices and edges
@@ -269,4 +180,4 @@ if __name__ == "__main__":
 
     task_dir = io.get_cur_abs_dir(cur_path)
     model = PassiveLvGNNEmulTrainer(f"{task_dir}/train_config.yaml")
-    model.fit()
+    model.train()
