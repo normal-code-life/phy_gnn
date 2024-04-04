@@ -3,11 +3,11 @@ from typing import Dict, Sequence
 
 import numpy as np
 import torch
-from torch.utils.data import Dataset
 
+from pkg.train.datasets.base_datasets import BaseDataset
 from pkg.utils.logging import init_logger
 
-logger = init_logger("LvDataset")
+logger = init_logger("LV_Dataset")
 
 nodes: str = "nodes"
 edges: str = "edges"
@@ -16,11 +16,13 @@ theta_vals: str = "theta_vals"
 displacement: str = "displacement"
 
 
-class LvDataset(Dataset):
+class LvDataset(BaseDataset):
     """Data loader for graph-formatted input-output data with common, fixed topology."""
 
-    def __init__(self, task_data: Dict, data_type: str, n_shape_coeff: int = 2):
-        base_data_path = f"{task_data['task_data_path']}/{task_data['sub_data_name']}"
+    def __init__(self, data_config: Dict, data_type: str, n_shape_coeff: int = 2) -> None:
+        super().__init__(data_config, data_type)
+
+        base_data_path = f"{data_config['task_data_path']}/{data_config['sub_data_name']}"
 
         if not os.path.isdir(base_data_path):
             raise NotADirectoryError(f"No directory at: {base_data_path}")
@@ -97,15 +99,15 @@ class LvDataset(Dataset):
     def __len__(self):
         return self._data_size
 
-    def __getitem__(self, index):
+    def __getitem__(self, index) -> (Dict, torch.Tensor):
         sample = {
-            nodes: self._nodes[index],
-            edges: self._edges[index],
-            shape_coeffs: self._shape_coeffs[index],
-            theta_vals: self._theta_vals[index],
+            nodes: torch.tensor(self._nodes[index]),
+            edges: torch.tensor(self._edges[index]),
+            shape_coeffs: torch.tensor(self._shape_coeffs[index]),
+            theta_vals: torch.tensor(self._theta_vals[index]),
         }
 
-        label = self._displacement[index]
+        label = torch.tensor(self._displacement[index])
 
         return sample, label
 
