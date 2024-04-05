@@ -3,7 +3,7 @@ from typing import Dict
 import torch
 from torch import nn
 
-from pkg.tf_utils.method import segment_sum
+from pkg.dnn_utils.method import segment_sum
 from pkg.train.model.base_model import BaseModule
 from pkg.utils.logging import init_logger
 from task.passive_lv_gnn_emul.train.mlp_layer_ln import MLPLayerLN

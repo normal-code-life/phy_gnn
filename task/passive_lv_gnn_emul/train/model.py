@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 
 from common.constant import TRAIN_NAME
-from pkg.tf_utils.method import segment_sum
+from pkg.dnn_utils.method import segment_sum
 from pkg.train.model.base_model import BaseModule
 from pkg.train.trainer.base_trainer import BaseTrainer, TrainerConfig
 from pkg.utils import io
