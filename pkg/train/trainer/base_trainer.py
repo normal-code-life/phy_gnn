@@ -1,13 +1,15 @@
 import abc
-import time
-from typing import Dict, List
+import os
+from typing import Dict, List, Optional
 
 import torch
-from pytorch_model_summary import summary
 from torch import nn
 from torch.utils.data import DataLoader
 
 from common.constant import TRAIN_NAME, VALIDATION_NAME
+from pkg.train.callbacks.base_callback import CallbackList
+from pkg.train.callbacks.model_checkpoint import ModelCheckpoint
+from pkg.train.callbacks.tensorboard import TensorBoard
 from pkg.train.config.base_config import BaseConfig
 from pkg.train.datasets.base_datasets import BaseDataset
 from pkg.train.model.base_model import BaseModule
@@ -15,6 +17,7 @@ from pkg.train.module.loss import EuclideanDistanceMSE
 from pkg.utils import io
 from pkg.utils.io import load_yaml
 from pkg.utils.logging import init_logger
+from pkg.utils.model_summary import summary
 
 logger = init_logger("BASE_TRAINER")
 
@@ -33,7 +36,6 @@ class TrainerConfig(BaseConfig):
         Constructor to initialize a TrainerConfig object.
 
         Args:
-            task_path (str): String containing default repo root path.
             config_path (str): String containing configuration information.
 
         Notes:
@@ -45,10 +47,15 @@ class TrainerConfig(BaseConfig):
         # task base info
         self.task_base = self.config["task_base"]
         self.task_name = self.task_base["task_name"]
+        self.exp_name = self.task_base["exp_name"]
 
         repo_root_path = io.get_repo_path(config_path)
         self.task_base["repo_root_path"] = repo_root_path
         self.task_base["config_path"] = config_path
+        self.task_base["logs_base_path"] = f"{repo_root_path}/tmp/{self.task_name}/{self.exp_name}"
+
+        self.overwrite_exp_folder = self.task_base.get("overwrite_exp_folder", True)
+        self._create_logs_dir()
 
         # task dataset info
         self.task_data = self.config.get("task_data", {})
@@ -63,6 +70,23 @@ class TrainerConfig(BaseConfig):
         self.task_train = self.config["task_train"]
 
         logger.info(f"Data path: {self.task_data['task_data_path']}")
+
+    def _create_logs_dir(self):
+        logs_base_path = f"{self.task_base['repo_root_path']}/tmp"
+        if not os.path.exists(logs_base_path):
+            os.makedirs(logs_base_path)
+
+        task_logs_base_path = f"{logs_base_path}/{self.task_name}"
+        if not os.path.exists(task_logs_base_path):
+            os.makedirs(task_logs_base_path)
+
+        exp_logs_base_path = f"{task_logs_base_path}/{self.exp_name}"
+        if not os.path.exists(exp_logs_base_path):
+            os.makedirs(exp_logs_base_path)
+        elif not self.overwrite_exp_folder:
+            raise ValueError(
+                f"the current {exp_logs_base_path} directory can't be overwrite, please choice a new exp folder name"
+            )
 
     def get_config(self):
         return {
@@ -79,10 +103,18 @@ class BaseTrainer(abc.ABC):
     def __init__(self, config: TrainerConfig):
         logger.info("====== Init Trainer ====== ")
 
-        self.task_base = config.task_base
-        self.task_data = config.task_data
-        self.task_trainer = config.task_trainer
-        self.task_train = config.task_train
+        # === init config
+        self.task_base: Dict = config.task_base
+        self.task_data: Dict = config.task_data
+        self.task_trainer: Dict = config.task_trainer
+        self.task_train: Dict = config.task_train
+
+        # === init tuning param
+        self.loss: Optional[nn.Module] = None
+        self.optimizer: Optional[torch.optim.Optimizer] = None
+
+        # === init callback
+        self.callback: Optional[CallbackList] = None
 
     # === dataset ===
     def create_dataset(self) -> (BaseDataset, BaseDataset):
@@ -101,23 +133,33 @@ class BaseTrainer(abc.ABC):
         raise NotImplementedError("please implement create_model func")
 
     def print_model(self, model: nn.Module, inputs: List[List]):
+        model_summary = self.task_trainer.get(
+            "model_summary",
+            {
+                "show_input": False,
+                "show_hierarchical": False,
+                "print_summary": True,
+                "max_depth": 999,
+                "show_parent_layers": True,
+            },
+        )
+
         logger.info("=== Print Model Structure ===")
         logger.info(model)
 
         summary(
             model,
             inputs,
-            show_input=True,
-            # show_hierarchical=True,
-            print_summary=True,
-            max_depth=999,
-            show_parent_layers=True,
+            show_input=model_summary["show_input"],
+            show_hierarchical=model_summary["show_hierarchical"],
+            print_summary=model_summary["print_summary"],
+            max_depth=model_summary["max_depth"],
+            show_parent_layers=model_summary["show_parent_layers"],
         )
 
     def create_optimize(self, model: nn.Module) -> None:
         optimizer_param = self.task_trainer["optimizer_param"]
 
-        self.optimizer: torch.optim.Optimizer
         if optimizer_param["name"] == "adam":
             self.optimizer = torch.optim.Adam(model.parameters(), lr=optimizer_param["learning_rate"])
         else:
@@ -126,13 +168,36 @@ class BaseTrainer(abc.ABC):
     def create_loss(self) -> None:
         loss_param = self.task_trainer["loss_param"]
 
-        self.loss: nn.Module
         if loss_param["name"] == "mse":
             self.loss = nn.MSELoss()
         if loss_param["name"] == "euclidean_distance_mse":
             self.loss = EuclideanDistanceMSE()
         else:
             raise ValueError(f"loss name do not set properly, please check: {loss_param['name']}")
+
+    def create_callback(self, model: nn.Module) -> None:
+        callback_param = self.task_trainer["callback_param"]
+
+        tensorboard_param = callback_param.get("tensorboard", {})
+        tensorboard_param = self._check_callback_dir_exist(tensorboard_param)
+        tensorboard = TensorBoard(tensorboard_param["log_dir"])
+
+        checkpoint_param = callback_param.get("model_checkpoint", {})
+        checkpoint_param = self._check_callback_dir_exist(checkpoint_param)
+        model_checkpoint = ModelCheckpoint(
+            checkpoint_param["log_dir"], save_freq=checkpoint_param.get("save_freq", "epoch")
+        )
+
+        self.callback = CallbackList(
+            callbacks=[tensorboard, model_checkpoint],
+            model=model,
+        )
+
+    def _check_callback_dir_exist(self, params: Dict) -> Dict:
+        if "log_dir" not in params:
+            params["log_dir"] = self.task_base["logs_base_path"]
+
+        return params
 
     # === train ===
     def train(self):
@@ -161,21 +226,19 @@ class BaseTrainer(abc.ABC):
         # ====== Init loss ======
         self.create_loss()
 
-        logger.info("====== model training start! ======")
+        # ====== Init callback ======
+        self.create_callback(model)
 
-        start_time = time.time()
+        self.callback.on_train_begin()
 
         for t in range(epoch):
             train_metrics = self.train_step(model, train_data_loader)
+
             val_metrics = self.validation_step(model, validation_data_loader)
 
-            logger.info(
-                "epoch: %d, training time: %ds, train_loss: %f, val_loss: %f",
-                t,
-                time.time() - start_time,
-                train_metrics["loss"],
-                val_metrics["loss"],
-            )
+            self.callback.on_epoch_end(t, train_metrics=train_metrics, val_metrics=val_metrics)
+
+        self.callback.on_train_end(epoch=epoch)
 
     def compute_loss(self, predictions, labels):
         return self.loss(predictions, labels)

@@ -13,3 +13,4 @@ torchsummary=1.5.1
 torchvision=0.16.2
 xz=5.4.5
 yaml=0.2.5
+tensorboardX=2.1

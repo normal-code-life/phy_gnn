@@ -296,3 +296,4 @@ pyrightconfig.json
 # Others
 .DS_Store
 test
+tmp
