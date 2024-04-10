@@ -245,12 +245,12 @@ class CallbackList(object):
             callback.on_train_end(**kwargs)
 
     def on_validation_begin(self, **kwargs):
-        """Calls the `on_test_begin` methods of its callbacks."""
+        """Calls the `on_validation_begin` methods of its callbacks."""
         for callback in self.callbacks:
             callback.on_validation_begin(**kwargs)
 
     def on_validation_end(self, **kwargs):
-        """Calls the `on_test_end` methods of its callbacks."""
+        """Calls the `on_validation_end` methods of its callbacks."""
         for callback in self.callbacks:
             callback.on_validation_end(**kwargs)
 

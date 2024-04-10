@@ -1,7 +1,7 @@
 task_base:
   task_name: passive_lv_gnn_emul
   exp_name: 1
-  overwrite_exp_folder: False
+  overwrite_exp_folder: True
 task_data:
   sub_data_name: beam_data
 task_trainer:
@@ -21,39 +21,34 @@ task_trainer:
   dataset_shuffle: False
   fixed_geom: False
 task_train:
+  init_weight_file_path: "weight_init.npy"
   node_input_mlp_layer:
     unit_sizes: [1, 128, 128, 40]
     layer_norm: True
     activation: tanh
-    init_weight_file_path: "weight_init.npy"
   edge_input_mlp_layer:
     unit_sizes: [3, 128, 128, 40]
     layer_norm: True
     activation: tanh
-    init_weight_file_path: "weight_init.npy"
   theta_input_mlp_layer:
     unit_sizes: [2, 128, 128, 40]
     layer_norm: True
     activation: tanh
-    init_weight_file_path: "weight_init.npy"
   message_passing_layer:
     edge_mlp_layer:
       unit_sizes: [120, 128, 128, 40]
       layer_norm: True
       activation: tanh
-      init_weight_file_path: "weight_init.npy"
     node_mlp_layer:
       unit_sizes: [80, 128, 128, 40]
       layer_norm: True
       activation: tanh
-      init_weight_file_path: "weight_init.npy"
     K: 2
   decoder_layer:
     mlp_layer:
       unit_sizes: [122, 128, 128, 1]
       layer_norm: False
       activation: tanh
-      init_weight_file_path: "weight_init.npy"
     output_dim: 2
   n_shape_coeff: 2  # Number of shape coefficients to input to the emulator
   message_passing_steps: 2  # Number of message passing steps to perform
