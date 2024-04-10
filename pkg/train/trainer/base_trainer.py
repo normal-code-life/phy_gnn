@@ -1,4 +1,5 @@
 import abc
+import argparse
 import os
 from typing import Dict, List, Optional
 
@@ -14,7 +15,6 @@ from pkg.train.config.base_config import BaseConfig
 from pkg.train.datasets.base_datasets import BaseDataset
 from pkg.train.model.base_model import BaseModule
 from pkg.train.module.loss import EuclideanDistanceMSE
-from pkg.utils import io
 from pkg.utils.io import load_yaml
 from pkg.utils.logging import init_logger
 from pkg.utils.model_summary import summary
@@ -23,44 +23,38 @@ logger = init_logger("BASE_TRAINER")
 
 
 class TrainerConfig(BaseConfig):
-    """
-    TrainerConfig class is inherent from BaseConfig class defining the structure for Trainer configuration classes.
+    """TrainerConfig class is inherent from BaseConfig class defining the structure for Trainer configuration."""
 
-    Attributes:
-        repo_root_path: Attribute to store the repo default root path.
-        config_path: Attribute to store configuration information, loaded using the yaml.unsafe_load method.
-    """
-
-    def __init__(self, config_path: str):
-        """
-        Constructor to initialize a TrainerConfig object.
-
-        Args:
-            config_path (str): String containing configuration information.
-
-        Notes:
-            1. Use the yaml.unsafe_load method to load configuration information.
-        """
+    def __init__(self) -> None:
+        """Constructor to initialize a TrainerConfig object."""
         logger.info("=== Init Trainer Config ===")
-        self.config: Dict = load_yaml(config_path)
+
+        # parse args
+
+        args = self.parse_args()
+        repo_path: str = args.repo_path
+        task_name: str = args.task_name
 
         # task base info
+        task_path = f"{repo_path}/task/{task_name}"
+        config_path = f"{task_path}/config/train_config.yaml"
+        self.config: Dict = load_yaml(config_path)
+
         self.task_base = self.config["task_base"]
         self.task_name = self.task_base["task_name"]
         self.exp_name = self.task_base["exp_name"]
 
-        repo_root_path = io.get_repo_path(config_path)
-        self.task_base["repo_root_path"] = repo_root_path
+        self.task_base["repo_path"] = repo_path
+        self.task_base["task_path"] = task_path
         self.task_base["config_path"] = config_path
-        self.task_base["logs_base_path"] = f"{repo_root_path}/tmp/{self.task_name}/{self.exp_name}"
+        self.task_base["logs_base_path"] = f"{repo_path}/tmp/{task_name}/{self.exp_name}"
 
-        self.overwrite_exp_folder = self.task_base.get("overwrite_exp_folder", True)
-        self._create_logs_dir()
+        self._create_logs_path()
 
         # task dataset info
         self.task_data = self.config.get("task_data", {})
         self.task_data["task_data_path"] = self.task_data.get(
-            "task_data_path", f"{repo_root_path}/pkg/data/{self.task_name}"
+            "task_data_path", f"{repo_path}/pkg/data/{self.task_name}"
         )
 
         # task trainer
@@ -71,24 +65,35 @@ class TrainerConfig(BaseConfig):
 
         logger.info(f"Data path: {self.task_data['task_data_path']}")
 
-    def _create_logs_dir(self):
-        logs_base_path = f"{self.task_base['repo_root_path']}/tmp"
-        if not os.path.exists(logs_base_path):
-            os.makedirs(logs_base_path)
+    @staticmethod
+    def parse_args() -> argparse.Namespace:
+        parser = argparse.ArgumentParser(description="Train Model")
 
-        task_logs_base_path = f"{logs_base_path}/{self.task_name}"
-        if not os.path.exists(task_logs_base_path):
-            os.makedirs(task_logs_base_path)
+        parser.add_argument("--repo_path", type=str, help="current repo path")
+        parser.add_argument("--task_name", type=str, help="task job name")
 
-        exp_logs_base_path = f"{task_logs_base_path}/{self.exp_name}"
-        if not os.path.exists(exp_logs_base_path):
-            os.makedirs(exp_logs_base_path)
-        elif not self.overwrite_exp_folder:
+        args = parser.parse_args()
+
+        return args
+
+    def _create_logs_path(self) -> None:
+        log_path = f"{self.task_base['repo_path']}/tmp"
+        if not os.path.exists(log_path):
+            os.makedirs(log_path)
+
+        task_logs_path = f"{log_path}/{self.task_name}"
+        if not os.path.exists(task_logs_path):
+            os.makedirs(task_logs_path)
+
+        exp_logs_path = f"{task_logs_path}/{self.exp_name}"
+        if not os.path.exists(exp_logs_path):
+            os.makedirs(exp_logs_path)
+        elif not self.task_base.get("overwrite_exp_folder", True):
             raise ValueError(
-                f"the current {exp_logs_base_path} directory can't be overwrite, please choice a new exp folder name"
+                f"the current {exp_logs_path} directory can't be overwrite, please choice a new exp folder name"
             )
 
-    def get_config(self):
+    def get_config(self) -> Dict:
         return {
             "task_base": self.task_base,
             "task_data": self.task_data,

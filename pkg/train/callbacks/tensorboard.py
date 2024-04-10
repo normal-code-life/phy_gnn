@@ -1,6 +1,6 @@
 import time
 
-from torch.utils.tensorboard import SummaryWriter
+from tensorboardX import SummaryWriter
 
 from common.constant import TRAIN_NAME, VALIDATION_NAME
 from pkg.train.callbacks.base_callback import CallBack

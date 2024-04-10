@@ -1,5 +1,3 @@
-import os
-import sys
 from typing import Dict, Sequence
 
 import torch
@@ -9,7 +7,6 @@ from common.constant import TRAIN_NAME
 from pkg.dnn_utils.method import segment_sum
 from pkg.train.model.base_model import BaseModule
 from pkg.train.trainer.base_trainer import BaseTrainer, TrainerConfig
-from pkg.utils import io
 from pkg.utils.logging import init_logger
 from task.passive_lv_gnn_emul.train.datasets import LvDataset
 from task.passive_lv_gnn_emul.train.message_passing_layer import \
@@ -25,12 +22,16 @@ torch.set_printoptions(precision=8)
 class PassiveLvGNNEmulTrainer(BaseTrainer):
     dataset_class = LvDataset
 
-    def __init__(self, config_path: str) -> None:
-        config = TrainerConfig(config_path)
+    def __init__(self) -> None:
+        config = TrainerConfig()
 
         logger.info(f"{config.get_config()}")
 
         super().__init__(config)
+
+        self.task_train[
+            "init_weight_file_path"
+        ] = f"{config.task_base['task_path']}/train/{config.task_train['init_weight_file_path']}"
 
         # config relative to dataset
         dataset_config = self.dataset_class(self.task_data, TRAIN_NAME)
@@ -69,15 +70,25 @@ class PassiveLvGNNEmulModel(BaseModule):
 
         # mlp layer config
         self.node_input_mlp_layer = config["node_input_mlp_layer"]
+        self.node_input_mlp_layer["init_weight_file_path"] = config["init_weight_file_path"]
+
         self.edge_input_mlp_layer = config["edge_input_mlp_layer"]
+        self.edge_input_mlp_layer["init_weight_file_path"] = config["init_weight_file_path"]
+
         self.theta_input_mlp_layer = config["theta_input_mlp_layer"]
+        self.theta_input_mlp_layer["init_weight_file_path"] = config["init_weight_file_path"]
+
         self.message_passing_layer_config = config["message_passing_layer"]
+        self.message_passing_layer_config["init_weight_file_path"] = config["init_weight_file_path"]
+
         self.decoder_layer_config = config["decoder_layer"]
+        self.decoder_layer_config["init_weight_file_path"] = config["init_weight_file_path"]
 
         # message passing config
         self.message_passing_layer_config["senders"] = senders
         self.message_passing_layer_config["receivers"] = receivers
         self.message_passing_layer_config["n_total_nodes"] = n_total_nodes
+        self.message_passing_layer_config["init_weight_file_path"] = config["init_weight_file_path"]
 
         # other config
         self.receivers = receivers
@@ -173,11 +184,3 @@ class PassiveLvGNNEmulModel(BaseModule):
         Upred = torch.hstack(individual_mlp_predictions)  # shape: (96, 2)
 
         return Upred
-
-
-if __name__ == "__main__":
-    cur_path = os.path.abspath(sys.argv[0])
-
-    task_dir = io.get_cur_abs_dir(cur_path)
-    model = PassiveLvGNNEmulTrainer(f"{task_dir}/train_config.yaml")
-    model.train()

@@ -19,7 +19,9 @@ class MessagePassingModule(BaseModule):
         self.layer_name = "message_passing_layer"
 
         self.edge_mlp_layer_config = config["edge_mlp_layer"]
+        self.edge_mlp_layer_config["init_weight_file_path"] = config["init_weight_file_path"]
         self.node_mlp_layer_config = config["node_mlp_layer"]
+        self.node_mlp_layer_config["init_weight_file_path"] = config["init_weight_file_path"]
 
         self.senders = config["senders"]
         self.receivers = config["receivers"]
