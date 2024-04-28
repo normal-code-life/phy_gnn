@@ -78,6 +78,8 @@ class MLPLayer(BaseModule):
         else:
             if self.init_func == "xavier_uniform":
                 nn.init.xavier_uniform_(fc.weight)
+            elif self.init_func == "xavier_normal":
+                nn.init.xavier_normal_(fc.weight)
             else:
                 raise Exception(f"please define the init_func correctly, currently init_func={self.init_func}")
 

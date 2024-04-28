@@ -1,6 +1,6 @@
 """export from keras."""
 import abc
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 from torch import nn
 
@@ -11,6 +11,16 @@ logger = init_logger("CALLBACK")
 
 class CallBack(abc.ABC):
     model: nn.Module
+
+    def __init__(self, task_base_param: Dict, logs_param: Dict):
+        self.params: Dict = dict()
+
+        if "log_dir" not in logs_param:
+            self.log_dir = task_base_param["logs_base_path"]
+        else:
+            self.log_dir = logs_param["log_dir"]
+
+
 
     def set_model(self, model: nn.Module):
         self.model = model
@@ -245,12 +255,12 @@ class CallbackList(object):
             callback.on_train_end(**kwargs)
 
     def on_validation_begin(self, **kwargs):
-        """Calls the `on_test_begin` methods of its callbacks."""
+        """Calls the `on_validation_begin` methods of its callbacks."""
         for callback in self.callbacks:
             callback.on_validation_begin(**kwargs)
 
     def on_validation_end(self, **kwargs):
-        """Calls the `on_test_end` methods of its callbacks."""
+        """Calls the `on_validation_end` methods of its callbacks."""
         for callback in self.callbacks:
             callback.on_validation_end(**kwargs)
 

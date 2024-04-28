@@ -9,7 +9,7 @@ def get_cur_abs_dir(path) -> str:
     return abs_dir
 
 
-# get the currently repo path, by default assume we have .git file.
+# get the current repo path, by default assume we have .git file.
 def get_repo_path(path: str) -> str:
     # Get the directory of the current script
     script_directory = os.path.dirname(path)

@@ -1,5 +1,5 @@
 import os
-from typing import Dict, Sequence
+from typing import Dict, Sequence, Optional
 
 import numpy as np
 import torch
@@ -13,8 +13,10 @@ logger = init_logger("LV_Dataset")
 class LvDataset(BaseDataset):
     """Data loader for graph-formatted input-output data with common, fixed topology."""
 
-    def __init__(self, data_config: Dict, data_type: str, n_shape_coeff: int = 2) -> None:
+    def __init__(self, data_config: Dict, data_type: str, max_norm_val: Optional[np.array] = None, min_norm_val: Optional[np.array] = None, n_shape_coeff: int = 2) -> None:
         super().__init__(data_config, data_type)
+
+        self.max_norm_val, self.min_norm_val = max_norm_val, min_norm_val
 
         base_data_path = f"{data_config['task_data_path']}"
 
@@ -23,6 +25,7 @@ class LvDataset(BaseDataset):
         else:
             logger.info(f"base_data_path is {base_data_path}")
 
+        raw_data_path = f"{base_data_path}/rawData/{data_type}"
         processed_data_path = f"{base_data_path}/processedData/{data_type}"
         topology_data_path = f"{base_data_path}/topologyData"
         stats_data_path = f"{base_data_path}/normalisationStatistics"
@@ -31,16 +34,43 @@ class LvDataset(BaseDataset):
         logger.info(f"topology_data_path is {topology_data_path}")
         logger.info(f"stats_data_path is {stats_data_path}")
 
-        # load mesh topology (assumed fixed for each graph)
-        sparse_topology = np.load(f"{topology_data_path}/sparse-topology.npy").astype(np.int32)
-        self._senders = sparse_topology[:, 0]
-        self._receivers = sparse_topology[:, 1]
+        # node features (used real node features)
+        # === fetch node features
+        node_is_edge = torch.from_numpy(np.load(f"{raw_data_path}/real-node-features.npy").astype(np.float32))
+        node_coords = np.load(f"{processed_data_path}/real-node-coords.npy").astype(np.float32)
 
-        # node features
-        self._nodes = torch.from_numpy(np.load(f"{processed_data_path}/augmented-node-features.npy").astype(np.float32))
+        # === distance calculation
+        node_distance = np.expand_dims(np.sqrt((node_coords ** 2).sum(axis=2)), axis=2)
+
+        # === max min calculation
+        if self.max_norm_val is None and self.min_norm_val is None:
+            self.max_norm_val = np.max(node_distance, axis=(0, 1))
+            self.min_norm_val = np.min(node_distance, axis=(0, 1))
+        else:
+            logger.info(f"{data_type} dataset preset max_norm and min_norm is {self.max_norm_val} {self.min_norm_val}")
+
+        self._nodes = torch.from_numpy(np.concatenate((node_is_edge, self.normalization_max_min(node_distance)), axis=2))
 
         # edge features
-        self._edges = torch.from_numpy(np.load(f"{processed_data_path}/edge-features.npy").astype(np.float32))
+        # === real node indices
+        node_layer_labels = np.load(f"{topology_data_path}/node-layer-labels.npy")
+        real_node_indices = np.where(node_layer_labels == 0)
+
+        # load mesh topology (assumed fixed for each graph)
+        sparse_topology = np.load(f"{topology_data_path}/sparse-topology.npy").astype(np.int32)
+
+        checked_topology_indices = np.all(np.isin(sparse_topology, real_node_indices), axis=1)
+        real_topology_indices = sparse_topology[checked_topology_indices]
+        self._senders = real_topology_indices[:, 0]
+        self._receivers = real_topology_indices[:, 1]
+
+        # ==== calculate edge features
+        edge = self.generate_topology_data(real_topology_indices, node_coords)
+
+        # === calculate edge distance
+        edge_distance = np.expand_dims(np.sqrt((edge ** 2).sum(axis=2)), axis=2)
+
+        self._edges = torch.from_numpy(np.concatenate((edge, edge_distance), axis=2))
 
         # array holding the displacement between end and start diastole
         # (normalised for training data, un-normalised for validation and test data)
@@ -49,13 +79,6 @@ class LvDataset(BaseDataset):
         # summary statistics for displacement values calculated on training data
         self._displacement_mean = np.load(f"{stats_data_path}/real-node-displacement-mean.npy").astype(np.float32)
         self._displacement_std = np.load(f"{stats_data_path}/real-node-displacement-std.npy").astype(np.float32)
-
-        # the co-ordinates of the LV geometry in the reference configuration
-        self._real_node_coords = np.load(f"{processed_data_path}/real-node-coords.npy").astype(np.float32)
-
-        node_layer_labels = np.load(f"{topology_data_path}/node-layer-labels.npy")
-
-        self._real_node_indices = node_layer_labels == 0
 
         self._data_size = self._displacement.shape[0]
         self._n_total_nodes = int(self._nodes.shape[1])
@@ -123,10 +146,6 @@ class LvDataset(BaseDataset):
     def get_n_total_nodes(self) -> int:
         return self._n_total_nodes
 
-    def get_real_node_indices(self) -> Sequence[torch.tensor]:
-        _real_node_indices = torch.from_numpy(self._real_node_indices)
-        return _real_node_indices if not self.gpu else _real_node_indices.cuda()
-
     def get_displacement_mean(self) -> torch.tensor:
         _displacement_mean = torch.from_numpy(self._displacement_mean)
         return self._displacement_mean if not self.gpu else _displacement_mean.cuda()
@@ -134,3 +153,23 @@ class LvDataset(BaseDataset):
     def get_displacement_std(self) -> torch.tensor:
         _displacement_std = torch.from_numpy(self._displacement_std)
         return _displacement_std if not self.gpu else _displacement_std.cuda()
+
+    def generate_topology_data(self, topology_indices: np.ndarray, node_coord: np.ndarray) -> np.ndarray:
+        shape = np.shape(node_coord)
+
+        senders = node_coord[np.arange(shape[0])[:, None], topology_indices[:, 0], :]
+        receivers = node_coord[np.arange(shape[0])[:, None], topology_indices[:, 1], :]
+
+        return senders - receivers
+
+    def normalization_max_min(self, array: np.ndarray) -> np.ndarray:
+        max_val = np.expand_dims(self.max_norm_val, axis=(0, 1))
+        min_val = np.expand_dims(self.min_norm_val, axis=(0, 1))
+
+        return (array - min_val) / (max_val - min_val)
+
+    def get_max_norm_val(self) -> np.array:
+        return self.max_norm_val
+
+    def get_min_norm_val(self) -> np.array:
+        return self.min_norm_val
