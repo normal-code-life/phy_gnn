@@ -25,7 +25,7 @@ task_trainer:
       update_freq: 1
   epochs: 300
   batch_size: 1
-  dataset_shuffle: False
+  dataset_shuffle: True
   fixed_geom: False
 task_train:
   init_weight_file_path: "weight_init.npy"
