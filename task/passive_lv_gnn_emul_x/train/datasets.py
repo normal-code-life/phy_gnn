@@ -13,20 +13,10 @@ logger = init_logger("LV_Dataset")
 class LvDataset(BaseDataset):
     """Data loader for graph-formatted input-output data with common, fixed topology."""
 
-    def __init__(self,
-                 data_config: Dict,
-                 data_type: str,
-                 corrd_max_norm_val: Optional[np.array] = None,
-                 corrd_min_norm_val: Optional[np.array] = None,
-                 distance_max_norm_val: Optional[np.array] = None,
-                 distance_min_norm_val: Optional[np.array] = None,
-                 n_shape_coeff: int = 2
-        ) -> None:
+    def __init__(self, data_config: Dict, data_type: str, max_norm_val: Optional[np.array] = None, min_norm_val: Optional[np.array] = None, n_shape_coeff: int = 2) -> None:
         super().__init__(data_config, data_type)
 
-        self.coord_max_norm_val, self.coord_min_norm_val, self.distance_max_norm_val, self.distance_min_norm_val = (
-            corrd_max_norm_val, corrd_min_norm_val, distance_max_norm_val, distance_min_norm_val
-        )
+        self.max_norm_val, self.min_norm_val = max_norm_val, min_norm_val
 
         base_data_path = f"{data_config['task_data_path']}"
 
@@ -53,23 +43,13 @@ class LvDataset(BaseDataset):
         node_distance = np.expand_dims(np.sqrt((node_coords ** 2).sum(axis=2)), axis=2)
 
         # === max min calculation
-        if (self.coord_max_norm_val is None and self.coord_min_norm_val is None and
-                self.distance_max_norm_val is None and self.distance_min_norm_val is None):
-            self.coord_max_norm_val = np.max(node_coords, axis=(0, 1))
-            self.coord_min_norm_val = np.min(node_coords, axis=(0, 1))
-            self.distance_max_norm_val = np.max(node_distance, axis=(0, 1))
-            self.distance_min_norm_val = np.min(node_distance, axis=(0, 1))
+        if self.max_norm_val is None and self.min_norm_val is None:
+            self.max_norm_val = np.max(node_distance, axis=(0, 1))
+            self.min_norm_val = np.min(node_distance, axis=(0, 1))
         else:
-            logger.info(f"{data_type} dataset preset max_norm and min_norm is "
-                        f"{self.coord_max_norm_val} {self.coord_min_norm_val} "
-                        f"{self.distance_max_norm_val} {self.distance_min_norm_val}"
-            )
+            logger.info(f"{data_type} dataset preset max_norm and min_norm is {self.max_norm_val} {self.min_norm_val}")
 
-        self._nodes = torch.from_numpy(np.concatenate((
-            node_is_edge,
-            self.coord_normalization_max_min(node_coords)
-            ), axis=2)
-        )
+        self._nodes = torch.from_numpy(np.concatenate((node_is_edge, self.normalization_max_min(node_distance)), axis=2))
 
         # edge features
         # === real node indices
@@ -90,7 +70,7 @@ class LvDataset(BaseDataset):
         # === calculate edge distance
         edge_distance = np.expand_dims(np.sqrt((edge ** 2).sum(axis=2)), axis=2)
 
-        self._edges = torch.from_numpy(edge)
+        self._edges = torch.from_numpy(np.concatenate((edge, edge_distance), axis=2))
 
         # array holding the displacement between end and start diastole
         # (normalised for training data, un-normalised for validation and test data)
@@ -182,26 +162,14 @@ class LvDataset(BaseDataset):
 
         return senders - receivers
 
-    def coord_normalization_max_min(self, array: np.ndarray) -> np.ndarray:
-        max_val = np.expand_dims(self.coord_max_norm_val, axis=(0, 1))
-        min_val = np.expand_dims(self.coord_min_norm_val, axis=(0, 1))
+    def normalization_max_min(self, array: np.ndarray) -> np.ndarray:
+        max_val = np.expand_dims(self.max_norm_val, axis=(0, 1))
+        min_val = np.expand_dims(self.min_norm_val, axis=(0, 1))
 
         return (array - min_val) / (max_val - min_val)
 
-    def distance_normalization_max_min(self, array: np.ndarray) -> np.ndarray:
-        max_val = np.expand_dims(self.distance_max_norm_val, axis=(0, 1))
-        min_val = np.expand_dims(self.distance_min_norm_val, axis=(0, 1))
+    def get_max_norm_val(self) -> np.array:
+        return self.max_norm_val
 
-        return (array - min_val) / (max_val - min_val)
-
-    def get_distance_max_norm_val(self) -> np.array:
-        return self.distance_max_norm_val
-
-    def get_distance_min_norm_val(self) -> np.array:
-        return self.distance_min_norm_val
-
-    def get_coord_max_norm_val(self) -> np.array:
-        return self.coord_max_norm_val
-
-    def get_coord_min_norm_val(self) -> np.array:
-        return self.coord_min_norm_val
+    def get_min_norm_val(self) -> np.array:
+        return self.min_norm_val
