@@ -8,9 +8,9 @@ from pkg.dnn_utils.method import segment_sum
 from pkg.train.model.base_model import BaseModule
 from pkg.train.trainer.base_trainer import BaseTrainer, TrainerConfig
 from pkg.utils.logging import init_logger
-from task.passive_lv_gnn_emul_6.train.datasets import LvDataset
-from task.passive_lv_gnn_emul_6.train.message_passing_layer import MessagePassingModule
-from task.passive_lv_gnn_emul_6.train.mlp_layer_ln import MLPLayerLN
+from task.passive_lv_gnn_emul_9.train.datasets import LvDataset
+from task.passive_lv_gnn_emul_9.train.message_passing_layer import MessagePassingModule
+from task.passive_lv_gnn_emul_9.train.mlp_layer_ln import MLPLayerLN
 
 logger = init_logger("PassiveLvGNNEmul")
 
@@ -51,7 +51,14 @@ class PassiveLvGNNEmulTrainer(BaseTrainer):
         train_dataset = self.dataset_class(task_data, TRAIN_NAME)
         logger.info(f"Number of train data points: {len(train_dataset)}")
 
-        validation_dataset = self.dataset_class(task_data, VALIDATION_NAME, train_dataset.get_max_norm_val(), train_dataset.get_min_norm_val())
+        validation_dataset = self.dataset_class(
+            task_data,
+            VALIDATION_NAME,
+            train_dataset.get_coord_max_norm_val(),
+            train_dataset.get_coord_min_norm_val(),
+            train_dataset.get_distance_max_norm_val(),
+            train_dataset.get_distance_min_norm_val()
+        )
         logger.info(f"Number of validation_data data points: {len(validation_dataset)}")
 
         return train_dataset, validation_dataset

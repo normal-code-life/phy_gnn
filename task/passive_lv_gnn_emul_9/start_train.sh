@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export TASK_NAME="passive_lv_gnn_emul_6"
+export TASK_NAME="passive_lv_gnn_emul_9"
 
 export PROJECT_PATH="$(cd `dirname $0`/../../; pwd)"
 echo "project root path: ${PROJECT_PATH}"

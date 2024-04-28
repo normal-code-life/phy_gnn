@@ -6,7 +6,7 @@ from torch import nn
 from pkg.dnn_utils.method import segment_sum
 from pkg.train.model.base_model import BaseModule
 from pkg.utils.logging import init_logger
-from task.passive_lv_gnn_emul_6.train.mlp_layer_ln import MLPLayerLN
+from task.passive_lv_gnn_emul_9.train.mlp_layer_ln import MLPLayerLN
 
 logger = init_logger("message_passing")
 
@@ -67,8 +67,8 @@ class MessagePassingModule(BaseModule):
         n_total_nodes = self.n_total_nodes
 
         # calculate messages along each directed edge with an edge feature vector assigned
-        edge_input_receivers = torch.concat((edge, node[senders]), dim=-1)  # shape: (440, 80)
-        edge_input_senders = torch.concat((-edge, node[receivers]), dim=-1)  # shape: (440, 80)
+        edge_input_receivers = torch.concat((edge, node[senders], node[receivers]), dim=-1)  # shape: (440, 80)
+        edge_input_senders = torch.concat((-edge, node[receivers], node[senders]), dim=-1)  # shape: (440, 80)
         messages_receivers = self.edge_update_fn[i](edge_input_receivers)  # shape: (440, 40)
         messages_senders = self.edge_update_fn[i](edge_input_senders)  # shape: (440, 40)
 

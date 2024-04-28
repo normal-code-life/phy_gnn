@@ -1,6 +1,6 @@
 task_base:
   task_name: passive_lv_gnn_emul
-  exp_name: 6
+  exp_name: 9
   overwrite_exp_folder: True
   gpu: True
 task_data:
@@ -28,7 +28,7 @@ task_trainer:
   fixed_geom: False
 task_train:
   node_input_mlp_layer:
-    unit_sizes: [2, 128, 128, 40]
+    unit_sizes: [4, 128, 128, 40]
     layer_norm: True
     activation: tanh
   edge_input_mlp_layer:
@@ -41,7 +41,7 @@ task_train:
     activation: tanh
   message_passing_layer:
     edge_mlp_layer:
-      unit_sizes: [80, 128, 128, 40]
+      unit_sizes: [120, 128, 128, 40]
       layer_norm: True
       activation: tanh
     node_mlp_layer:
