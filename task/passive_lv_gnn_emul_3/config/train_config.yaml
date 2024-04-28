@@ -1,6 +1,6 @@
 task_base:
   task_name: passive_lv_gnn_emul
-  exp_name: 5
+  exp_name: 3
   overwrite_exp_folder: False
   gpu: True
 task_data:
@@ -24,7 +24,7 @@ task_trainer:
       update_freq: 1
   epochs: 300
   batch_size: 1
-  dataset_shuffle: False
+  dataset_shuffle: True
   fixed_geom: False
 task_train:
   node_input_mlp_layer:

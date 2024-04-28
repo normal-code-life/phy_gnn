@@ -8,9 +8,9 @@ from pkg.dnn_utils.method import segment_sum
 from pkg.train.model.base_model import BaseModule
 from pkg.train.trainer.base_trainer import BaseTrainer, TrainerConfig
 from pkg.utils.logging import init_logger
-from task.passive_lv_gnn_emul_2.train.datasets import LvDataset
-from task.passive_lv_gnn_emul_2.train.message_passing_layer import MessagePassingModule
-from task.passive_lv_gnn_emul_2.train.mlp_layer_ln import MLPLayerLN
+from task.passive_lv_gnn_emul_3.train.datasets import LvDataset
+from task.passive_lv_gnn_emul_3.train.message_passing_layer import MessagePassingModule
+from task.passive_lv_gnn_emul_3.train.mlp_layer_ln import MLPLayerLN
 
 logger = init_logger("PassiveLvGNNEmul")
 

@@ -50,5 +50,5 @@ class ModelCheckpointCallback(CallBack):
             save_checkpoint = True
 
         if save_checkpoint:
-            self.logger.info(f"========= checkpoint saving epoch={epoch} =========")
+            # self.logger.info(f"========= checkpoint saving epoch={epoch} =========")
             self.save_checkpoint(epoch)

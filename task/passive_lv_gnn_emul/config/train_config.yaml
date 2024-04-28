@@ -1,6 +1,6 @@
 task_base:
   task_name: passive_lv_gnn_emul
-  exp_name: 1.1
+  exp_name: 1
   overwrite_exp_folder: False
   gpu: True
 task_data:

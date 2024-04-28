@@ -6,7 +6,7 @@ from torch import nn
 from pkg.dnn_utils.method import segment_sum
 from pkg.train.model.base_model import BaseModule
 from pkg.utils.logging import init_logger
-from task.passive_lv_gnn_emul_2.train.mlp_layer_ln import MLPLayerLN
+from task.passive_lv_gnn_emul_3.train.mlp_layer_ln import MLPLayerLN
 
 logger = init_logger("message_passing")
 
