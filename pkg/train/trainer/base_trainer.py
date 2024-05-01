@@ -1,7 +1,7 @@
 import abc
 import argparse
 import os
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 import torchmetrics
 import torch
 from torch import nn
@@ -130,7 +130,7 @@ class BaseTrainer(abc.ABC):
         self.callback: Optional[CallbackList] = None
 
         # === init others
-        self.gpu = self.task_trainer["gpu"]
+        self.gpu: Union[bool, int] = self.task_trainer["gpu"]
 
     # === dataset ===
     def create_dataset(self) -> (BaseDataset, BaseDataset):

@@ -8,10 +8,10 @@ from pkg.dnn_utils.method import segment_sum
 from pkg.train.model.base_model import BaseModule
 from pkg.train.trainer.base_trainer import BaseTrainer, TrainerConfig
 from pkg.utils.logging import init_logger
-from task.passive_lv_gnn_emul.train.datasets import LvDataset
-from task.passive_lv_gnn_emul.train.message_passing_layer import \
+from task.passive_lv_gnn_emul_13.train.datasets import LvDataset
+from task.passive_lv_gnn_emul_13.train.message_passing_layer import \
     MessagePassingModule
-from task.passive_lv_gnn_emul.train.mlp_layer_ln import MLPLayerLN
+from task.passive_lv_gnn_emul_13.train.mlp_layer_ln import MLPLayerLN
 
 logger = init_logger("PassiveLvGNNEmul")
 
@@ -168,11 +168,11 @@ class PassiveLvGNNEmulModel(BaseModule):
             globals_array = torch.tile(z_theta, (z_local.shape[0], 1))  # shape: (96, 40)
         else:
             # stack z_global with z_theta if z_global is inputted
-            global_embedding = torch.hstack((z_theta, input_z_global))  # shape: (1, 40) + (1, 2) => (1, 42)
-            globals_array = torch.tile(global_embedding, (z_local.shape[0], 1))  # shape: (96, 42)
+            global_embedding = torch.hstack((z_theta, input_z_global))  # shape: (1, 40) + (1, 32) => (1, 42)
+            globals_array = torch.tile(global_embedding, (z_local.shape[0], 1))  # shape: (96, 72)
 
         # final learned representation is (z_theta, z_local) or (z_theta, z_global, z_local)
-        final_representation = torch.hstack((globals_array, z_local))  # shape: (96, 122)
+        final_representation = torch.hstack((globals_array, z_local))  # shape: (96, 152)
 
         # ====== Decoder:
         # make prediction for forward displacement using different decoder mlp for each dimension

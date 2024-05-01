@@ -5,6 +5,7 @@ task_base:
   gpu: True
 task_data:
   task_data_name: lvData
+  n_shape_coeff: 32  # Number of shape coefficients to input to the emulator
 task_trainer:
   model_name: PassiveLvGNNEmul
   optimizer_param:
@@ -14,21 +15,23 @@ task_trainer:
     name: euclidean_distance_mse
   metrics_param:
     - mean_absolute_error
-    - explained_variance
+    # - explained_va/riance
   callback_param:
     tensorboard:
+#      log_dir: "./"
       profiler : False
     model_checkpoint:
-      save_freq: 300
+      save_freq: 500
     logs:
       update_freq: 1
-  epochs: 30
+  epochs: 3000
   batch_size: 1
   dataset_shuffle: True
   fixed_geom: False
 task_train:
+  init_weight_file_path: "array_init.npy"
   node_input_mlp_layer:
-    unit_sizes: [12, 128, 128, 40]
+    unit_sizes: [10, 128, 128, 40]
     layer_norm: True
     activation: tanh
   edge_input_mlp_layer:
@@ -41,20 +44,18 @@ task_train:
     activation: tanh
   message_passing_layer:
     edge_mlp_layer:
-      unit_sizes: [64, 128, 128, 40]
+      unit_sizes: [120, 128, 128, 40]
       layer_norm: True
       activation: tanh
     node_mlp_layer:
       unit_sizes: [80, 128, 128, 40]
       layer_norm: True
       activation: tanh
-    K: 2
+    K: 5
   decoder_layer:
     mlp_layer:
-      unit_sizes: [122, 128, 128, 1]
+      unit_sizes: [152, 128, 128, 1]
       layer_norm: False
       activation: tanh
     output_dim: 3
-  n_shape_coeff: 2  # Number of shape coefficients to input to the emulator
-  message_passing_steps: 2  # Number of message passing steps to perform
   fixed_geom: False  # Set whether the dataset is for varying or fixed geometries

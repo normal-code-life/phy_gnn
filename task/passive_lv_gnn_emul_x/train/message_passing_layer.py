@@ -6,7 +6,7 @@ from torch import nn
 from pkg.dnn_utils.method import segment_sum
 from pkg.train.model.base_model import BaseModule
 from pkg.utils.logging import init_logger
-from task.passive_lv_gnn_emul.train.mlp_layer_ln import MLPLayerLN
+from task.passive_lv_gnn_emul_12.train.mlp_layer_ln import MLPLayerLN
 
 logger = init_logger("message_passing")
 
@@ -61,13 +61,13 @@ class MessagePassingModule(BaseModule):
         """
         return segment_sum(message, receivers, n_nodes)
 
-    def message_passing_block(self, node, edge, i):
+    def message_passing_block(self, node, edge, input_node, i):
         receivers = self.receivers
         senders = self.senders
         n_total_nodes = self.n_total_nodes
 
         # calculate messages along each directed edge with an edge feature vector assigned
-        edge_input = torch.concat((edge, node[receivers], node[senders]), dim=-1)  # shape: (440, 120)
+        edge_input = torch.concat((edge, input_node[receivers], input_node[senders]), dim=-1)  # shape: (440, 120)
         messages = self.edge_update_fn[i](edge_input)  # shape: (440, 40)
 
         # aggregate incoming messages m_{ij} from nodes i to j where i > j
@@ -84,9 +84,9 @@ class MessagePassingModule(BaseModule):
         # return updated node and edge representations with residual connection
         return node + V, edge + messages
 
-    def forward(self, node, edge):
+    def forward(self, node, edge, input_node):
         # node, edge
         for i in range(self.K):
-            node, edge = self.message_passing_block(node, edge, i)
+            node, edge = self.message_passing_block(node, edge, input_node, i)
 
         return node, edge

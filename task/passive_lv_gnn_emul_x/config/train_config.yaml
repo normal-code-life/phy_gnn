@@ -1,11 +1,10 @@
 task_base:
   task_name: passive_lv_gnn_emul
-  exp_name: 1
-  overwrite_exp_folder: False
+  exp_name: 12
+  overwrite_exp_folder: True
   gpu: True
 task_data:
-  task_data_name: passive_lv_gnn_emul/beam_data
-  n_shape_coeff: 2  # Number of shape coefficients to input to the emulator
+  task_data_name: lvData
 task_trainer:
   model_name: PassiveLvGNNEmul
   optimizer_param:
@@ -15,36 +14,34 @@ task_trainer:
     name: euclidean_distance_mse
   metrics_param:
     - mean_absolute_error
-    # - explained_va/riance
+    - explained_variance
   callback_param:
     tensorboard:
-#      log_dir: "./"
       profiler : False
     model_checkpoint:
-      save_freq: 100
+      save_freq: 300
     logs:
       update_freq: 1
-  epochs: 300
+  epochs: 30
   batch_size: 1
   dataset_shuffle: True
   fixed_geom: False
 task_train:
-  init_weight_file_path: "weight_init.npy"
   node_input_mlp_layer:
-    unit_sizes: [1, 128, 128, 40]
+    unit_sizes: [12, 128, 128, 40]
     layer_norm: True
     activation: tanh
   edge_input_mlp_layer:
-    unit_sizes: [3, 128, 128, 40]
+    unit_sizes: [4, 128, 128, 40]
     layer_norm: True
     activation: tanh
   theta_input_mlp_layer:
-    unit_sizes: [2, 128, 128, 40]
+    unit_sizes: [4, 128, 128, 40]
     layer_norm: True
     activation: tanh
   message_passing_layer:
     edge_mlp_layer:
-      unit_sizes: [120, 128, 128, 40]
+      unit_sizes: [64, 128, 128, 40]
       layer_norm: True
       activation: tanh
     node_mlp_layer:
@@ -57,5 +54,7 @@ task_train:
       unit_sizes: [122, 128, 128, 1]
       layer_norm: False
       activation: tanh
-    output_dim: 2
+    output_dim: 3
+  n_shape_coeff: 2  # Number of shape coefficients to input to the emulator
+  message_passing_steps: 2  # Number of message passing steps to perform
   fixed_geom: False  # Set whether the dataset is for varying or fixed geometries
