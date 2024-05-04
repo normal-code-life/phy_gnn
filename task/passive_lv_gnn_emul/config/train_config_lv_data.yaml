@@ -1,11 +1,11 @@
 task_base:
   task_name: passive_lv_gnn_emul
-  exp_name: 1
+  exp_name: 13
   overwrite_exp_folder: True
-  gpu: False
+  gpu: True
 task_data:
-  task_data_name: passive_lv_gnn_emul/beam_data
-  n_shape_coeff: 2  # Number of shape coefficients to input to the emulator
+  task_data_name: lvData
+  n_shape_coeff: 32  # Number of shape coefficients to input to the emulator
 task_trainer:
   model_name: PassiveLvGNNEmul
   epochs: 300
@@ -22,29 +22,27 @@ task_trainer:
 #      log_dir: "./"
       profiler : False
     model_checkpoint:
-      save_freq: 100
+      save_freq: 500
     logs:
       update_freq: 1
   dataset_param:
     batch_size: 1
     shuffle: True
     train_shuffle: True
-    num_workers: 1
-    prefetch_factor: 3
   static_graph: True
   fixed_geom: False
 task_train:
-  init_weight_file_path: "weight_init.npy"
+#  init_weight_file_path: "array_init.npy"
   node_input_mlp_layer:
-    unit_sizes: [1, 128, 128, 40]
+    unit_sizes: [10, 128, 128, 40]
     layer_norm: True
     activation: tanh
   edge_input_mlp_layer:
-    unit_sizes: [3, 128, 128, 40]
+    unit_sizes: [4, 128, 128, 40]
     layer_norm: True
     activation: tanh
   theta_input_mlp_layer:
-    unit_sizes: [2, 128, 128, 40]
+    unit_sizes: [4, 128, 128, 40]
     layer_norm: True
     activation: tanh
   message_passing_layer:
@@ -56,11 +54,11 @@ task_train:
       unit_sizes: [80, 128, 128, 40]
       layer_norm: True
       activation: tanh
-    K: 2
+    K: 5
   decoder_layer:
     mlp_layer:
-      unit_sizes: [122, 128, 128, 1]
+      unit_sizes: [152, 128, 128, 1]
       layer_norm: False
       activation: tanh
-    output_dim: 2
+    output_dim: 3
   fixed_geom: False  # Set whether the dataset is for varying or fixed geometries

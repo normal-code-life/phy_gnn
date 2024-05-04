@@ -34,10 +34,11 @@ class TrainerConfig(BaseConfig):
         args = self.parse_args()
         repo_path: str = args.repo_path
         task_name: str = args.task_name
+        config_name: str = args.config_name
 
         # task base info
         task_path = f"{repo_path}/task/{task_name}"
-        config_path = f"{task_path}/config/train_config.yaml"
+        config_path = f"{task_path}/config/{config_name}.yaml"
         self.config: Dict = load_yaml(config_path)
 
         self.task_base = self.config["task_base"]
@@ -76,6 +77,7 @@ class TrainerConfig(BaseConfig):
 
         parser.add_argument("--repo_path", type=str, help="current repo path")
         parser.add_argument("--task_name", type=str, help="task job name")
+        parser.add_argument("--config_name", default="train_config", type=str, help="config file name")
 
         args = parser.parse_args()
 
@@ -130,7 +132,8 @@ class BaseTrainer(abc.ABC):
         self.callback: Optional[CallbackList] = None
 
         # === init others
-        self.gpu: Union[bool, int] = self.task_trainer["gpu"]
+        self.gpu: Union[bool, int] = self.task_trainer.get("gpu", False)
+        self.static_graph: bool = self.task_trainer.get("static_graph", False)
 
     # === dataset ===
     def create_dataset(self) -> (BaseDataset, BaseDataset):
@@ -224,25 +227,39 @@ class BaseTrainer(abc.ABC):
 
         # ====== Params ======
         epoch = task_trainer["epochs"]
-        batch_size = task_trainer["batch_size"]
-        shuffle = task_trainer["dataset_shuffle"]
+        dataset_param = task_trainer["dataset_param"]
 
         # ====== Generate dataset ======
         train_dataset, validation_dataset = self.create_dataset()
 
         # ====== Generate dataloder ======
-        train_data_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=shuffle)
-        validation_data_loader = DataLoader(validation_dataset, batch_size=batch_size)
+        train_data_loader = DataLoader(
+            dataset=train_dataset,
+            batch_size=dataset_param.get("batch_size", 1),
+            shuffle=dataset_param.get("train_shuffle", True),
+            num_workers=dataset_param.get("num_workers", 0),
+            prefetch_factor=dataset_param.get("prefetch_factor", None)
+        )
+        validation_data_loader = DataLoader(
+            dataset=validation_dataset,
+            batch_size=dataset_param.get("batch_size", 1),
+            shuffle=dataset_param.get("test_shuffle", False),
+            num_workers=dataset_param.get("num_workers", 0),
+            prefetch_factor=dataset_param.get("prefetch_factor", None)
+        )
 
         # ====== Create model ======
         model = self.create_model()
 
         if self.gpu:
+            model = model.cuda()
             logger.info(f"cuda version: {torch.version.cuda}")
             logger.info(f"model device check: {next(model.parameters()).device}")
-            model = model.cuda()
 
         self.print_model(model, train_dataset.get_head_inputs())
+
+        if self.static_graph:
+            model = torch.jit.trace(model, train_dataset.get_head_inputs())
 
         # ====== Init optimizer ======
         self.create_optimize(model)
@@ -276,7 +293,6 @@ class BaseTrainer(abc.ABC):
     def train_step(self, model: nn.Module, dataloder: DataLoader) -> Dict:
         task_trainer = self.task_trainer
 
-        batch_size = task_trainer["batch_size"]
         data_size = 0
         metrics = {}
 
@@ -292,7 +308,7 @@ class BaseTrainer(abc.ABC):
             loss = self.compute_loss(outputs, train_labels)
 
             metrics["train_loss"] = metrics["train_loss"] + loss.item() if "train_loss" in metrics else loss.item()
-            data_size += batch_size
+            data_size += train_labels.shape[0]
 
             # Before the backward pass, use the optimizer object to zero all the
             # gradients for the variables it will update (which are the learnable
@@ -327,7 +343,6 @@ class BaseTrainer(abc.ABC):
         # statistics for batch normalization.
         task_trainer = self.task_trainer
 
-        batch_size = task_trainer["batch_size"]
         data_size = 0
         metrics = {}
 
@@ -348,7 +363,7 @@ class BaseTrainer(abc.ABC):
                     results = self.compute_metrics(self.metrics[p], outputs, val_labels)
                     metrics[f"val_{p}"] = metrics[f"val_{p}"] + results.item() if p in metrics else results.item()
 
-                data_size += batch_size
+                data_size += val_labels.shape[0]
 
         for p in metrics:
             metrics[p] = metrics[p] / data_size
