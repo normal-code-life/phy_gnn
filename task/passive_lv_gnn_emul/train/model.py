@@ -31,7 +31,7 @@ class PassiveLvGNNEmulTrainer(BaseTrainer):
 
         self.task_train[
             "init_weight_file_path"
-        ] = f"{config.task_base['task_path']}/train/{config.task_train['init_weight_file_path']}"
+        ] = f"{config.task_base['task_path']}/train/{config.task_train['init_weight_file_path']}" if "init_weight_file_path" in config.task_train else None
 
         # config relative to dataset
         dataset_config = self.dataset_class(self.task_data, TRAIN_NAME)
@@ -51,8 +51,11 @@ class PassiveLvGNNEmulTrainer(BaseTrainer):
     def compute_loss(self, outputs, labels):
         return self.loss(outputs, labels.squeeze(dim=0))
 
-    def compute_validation_loss(self, outputs, labels):
-        return self.compute_loss(outputs * self.displacement_std + self.displacement_mean, labels)
+    def compute_validation_loss(self, predictions: torch.Tensor, labels: torch.Tensor):
+        return self.compute_loss(predictions * self.displacement_std + self.displacement_mean, labels)
+
+    def compute_metrics(self, metrics_func: callable, predictions: torch.Tensor, labels: torch.Tensor):
+        return metrics_func(predictions * self.displacement_std + self.displacement_mean, labels.squeeze(dim=0))
 
 
 class PassiveLvGNNEmulModel(BaseModule):
@@ -82,7 +85,7 @@ class PassiveLvGNNEmulModel(BaseModule):
         self.message_passing_layer_config["init_weight_file_path"] = config["init_weight_file_path"]
 
         self.decoder_layer_config = config["decoder_layer"]
-        self.decoder_layer_config["init_weight_file_path"] = config["init_weight_file_path"]
+        self.decoder_layer_config["mlp_layer"]["init_weight_file_path"] = config["init_weight_file_path"]
 
         # message passing config
         self.message_passing_layer_config["senders"] = senders
@@ -94,9 +97,6 @@ class PassiveLvGNNEmulModel(BaseModule):
         self.receivers = receivers
         self.n_total_nodes = n_total_nodes
         self.real_node_indices = real_node_indices
-
-        logger.info(f'Message passing steps: {config["message_passing_steps"]}')
-        logger.info(f'Num. shape coeffs: {config["n_shape_coeff"]}')
 
         self._init_graph()
 
