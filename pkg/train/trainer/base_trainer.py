@@ -237,15 +237,15 @@ class BaseTrainer(abc.ABC):
             dataset=train_dataset,
             batch_size=dataset_param.get("batch_size", 1),
             shuffle=dataset_param.get("train_shuffle", True),
-            num_workers=dataset_param.get("num_workers", 0),
-            prefetch_factor=dataset_param.get("prefetch_factor", None)
+            # num_workers=dataset_param.get("num_workers", 0),
+            # prefetch_factor=dataset_param.get("prefetch_factor", None)
         )
         validation_data_loader = DataLoader(
             dataset=validation_dataset,
             batch_size=dataset_param.get("batch_size", 1),
             shuffle=dataset_param.get("test_shuffle", False),
-            num_workers=dataset_param.get("num_workers", 0),
-            prefetch_factor=dataset_param.get("prefetch_factor", None)
+            # num_workers=dataset_param.get("num_workers", 0),
+            # prefetch_factor=dataset_param.get("prefetch_factor", None)
         )
 
         # ====== Create model ======

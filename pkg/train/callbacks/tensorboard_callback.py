@@ -15,7 +15,6 @@ class TensorBoardCallback(CallBack):
 
         self.writer = SummaryWriter(self.log_dir)
 
-
         self.profiler: Optional[torch.profiler.profile] = None
         if use_profiler:
             self.profiler = torch.profiler.profile(
@@ -35,7 +34,8 @@ class TensorBoardCallback(CallBack):
     def on_train_end(self, **kwargs):
         self.logger.info("====== model training end ======")
 
-        if self.profiler: self.profiler.stop()
+        if self.profiler:
+            self.profiler.stop()
 
         self.writer.close()
 

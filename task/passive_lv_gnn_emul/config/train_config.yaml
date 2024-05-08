@@ -2,13 +2,13 @@ task_base:
   task_name: passive_lv_gnn_emul
   exp_name: 1
   overwrite_exp_folder: True
-  gpu: False
+  gpu: True
 task_data:
   task_data_name: passive_lv_gnn_emul/beam_data
   n_shape_coeff: 2  # Number of shape coefficients to input to the emulator
 task_trainer:
   model_name: PassiveLvGNNEmul
-  epochs: 300
+  epochs: 30
   optimizer_param:
     name: adam
     learning_rate: 0.00005  # Learning rate for training the network
@@ -20,9 +20,9 @@ task_trainer:
   callback_param:
     tensorboard:
 #      log_dir: "./"
-      profiler : False
+      profiler : True
     model_checkpoint:
-      save_freq: 100
+      save_freq: 3
     logs:
       update_freq: 1
   dataset_param:
@@ -31,7 +31,7 @@ task_trainer:
     train_shuffle: True
     num_workers: 1
     prefetch_factor: 3
-  static_graph: True
+  static_graph: False
   fixed_geom: False
 task_train:
   init_weight_file_path: "weight_init.npy"
