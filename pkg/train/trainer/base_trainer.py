@@ -1,16 +1,17 @@
 import abc
 import argparse
 import os
-from typing import Dict, List, Optional
-
+from typing import Dict, List, Optional, Union
+import torchmetrics
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
 
 from common.constant import TRAIN_NAME, VALIDATION_NAME
 from pkg.train.callbacks.base_callback import CallbackList
-from pkg.train.callbacks.model_checkpoint import ModelCheckpoint
-from pkg.train.callbacks.tensorboard import TensorBoard
+from pkg.train.callbacks.model_checkpoint_callback import ModelCheckpointCallback
+from pkg.train.callbacks.tensorboard_callback import TensorBoardCallback
+from pkg.train.callbacks.log_callback import LogCallback
 from pkg.train.config.base_config import BaseConfig
 from pkg.train.datasets.base_datasets import BaseDataset
 from pkg.train.model.base_model import BaseModule
@@ -30,14 +31,14 @@ class TrainerConfig(BaseConfig):
         logger.info("=== Init Trainer Config ===")
 
         # parse args
-
         args = self.parse_args()
         repo_path: str = args.repo_path
         task_name: str = args.task_name
+        config_name: str = args.config_name
 
         # task base info
         task_path = f"{repo_path}/task/{task_name}"
-        config_path = f"{task_path}/config/train_config.yaml"
+        config_path = f"{task_path}/config/{config_name}.yaml"
         self.config: Dict = load_yaml(config_path)
 
         self.task_base = self.config["task_base"]
@@ -49,16 +50,21 @@ class TrainerConfig(BaseConfig):
         self.task_base["config_path"] = config_path
         self.task_base["logs_base_path"] = f"{repo_path}/tmp/{task_name}/{self.exp_name}"
 
+        self.task_base["gpu"] = self.task_base["gpu"] and torch.cuda.is_available()
+
         self._create_logs_path()
 
         # task dataset info
         self.task_data = self.config.get("task_data", {})
+        task_data_name = self.task_data.get("task_data_name", self.task_name)
         self.task_data["task_data_path"] = self.task_data.get(
-            "task_data_path", f"{repo_path}/pkg/data/{self.task_name}"
+            "task_data_path", f"{repo_path}/pkg/data/{task_data_name}"
         )
+        self.task_data["gpu"] = self.task_base["gpu"]
 
         # task trainer
         self.task_trainer = self.config["task_trainer"]
+        self.task_trainer["gpu"] = self.task_base["gpu"]
 
         # task train
         self.task_train = self.config["task_train"]
@@ -71,6 +77,7 @@ class TrainerConfig(BaseConfig):
 
         parser.add_argument("--repo_path", type=str, help="current repo path")
         parser.add_argument("--task_name", type=str, help="task job name")
+        parser.add_argument("--config_name", default="train_config", type=str, help="config file name")
 
         args = parser.parse_args()
 
@@ -92,6 +99,8 @@ class TrainerConfig(BaseConfig):
             raise ValueError(
                 f"the current {exp_logs_path} directory can't be overwrite, please choice a new exp folder name"
             )
+
+        logger.info(f"{exp_logs_path} setup done")
 
     def get_config(self) -> Dict:
         return {
@@ -117,9 +126,14 @@ class BaseTrainer(abc.ABC):
         # === init tuning param
         self.loss: Optional[nn.Module] = None
         self.optimizer: Optional[torch.optim.Optimizer] = None
+        self.metrics: Dict[str, callable] = {}
 
         # === init callback
         self.callback: Optional[CallbackList] = None
+
+        # === init others
+        self.gpu: Union[bool, int] = self.task_trainer.get("gpu", False)
+        self.static_graph: bool = self.task_trainer.get("static_graph", False)
 
     # === dataset ===
     def create_dataset(self) -> (BaseDataset, BaseDataset):
@@ -180,29 +194,32 @@ class BaseTrainer(abc.ABC):
         else:
             raise ValueError(f"loss name do not set properly, please check: {loss_param['name']}")
 
+    def create_metrics(self):
+        metrics_param = self.task_trainer["metrics_param"]
+        for p in metrics_param:
+            if p == "mean_absolute_error":
+                self.metrics["mean_absolute_error"] = torchmetrics.functional.mean_absolute_error
+            elif p == "explained_variance":
+                self.metrics["explained_variance"] = torchmetrics.functional.explained_variance
+            else:
+                raise ValueError(f"metrics name do not set properly, please check: {p}")
+
     def create_callback(self, model: nn.Module) -> None:
         callback_param = self.task_trainer["callback_param"]
 
         tensorboard_param = callback_param.get("tensorboard", {})
-        tensorboard_param = self._check_callback_dir_exist(tensorboard_param)
-        tensorboard = TensorBoard(tensorboard_param["log_dir"])
+        tensorboard = TensorBoardCallback(self.task_base, tensorboard_param)
 
         checkpoint_param = callback_param.get("model_checkpoint", {})
-        checkpoint_param = self._check_callback_dir_exist(checkpoint_param)
-        model_checkpoint = ModelCheckpoint(
-            checkpoint_param["log_dir"], save_freq=checkpoint_param.get("save_freq", "epoch")
-        )
+        model_checkpoint = ModelCheckpointCallback(self.task_base, checkpoint_param)
+
+        logs_param = callback_param.get("logs", {})
+        log_checkpoint = LogCallback(self.task_base, logs_param)
 
         self.callback = CallbackList(
-            callbacks=[tensorboard, model_checkpoint],
+            callbacks=[tensorboard, model_checkpoint, log_checkpoint],
             model=model,
         )
-
-    def _check_callback_dir_exist(self, params: Dict) -> Dict:
-        if "log_dir" not in params:
-            params["log_dir"] = self.task_base["logs_base_path"]
-
-        return params
 
     # === train ===
     def train(self):
@@ -210,26 +227,46 @@ class BaseTrainer(abc.ABC):
 
         # ====== Params ======
         epoch = task_trainer["epochs"]
-        batch_size = task_trainer["batch_size"]
-        shuffle = task_trainer["dataset_shuffle"]
+        dataset_param = task_trainer["dataset_param"]
 
         # ====== Generate dataset ======
         train_dataset, validation_dataset = self.create_dataset()
 
         # ====== Generate dataloder ======
-        train_data_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=shuffle)
-        validation_data_loader = DataLoader(validation_dataset, batch_size=batch_size)
+        train_data_loader = DataLoader(
+            dataset=train_dataset,
+            batch_size=dataset_param.get("batch_size", 1),
+            shuffle=dataset_param.get("train_shuffle", True),
+            # num_workers=dataset_param.get("num_workers", 0),
+            # prefetch_factor=dataset_param.get("prefetch_factor", None)
+        )
+        validation_data_loader = DataLoader(
+            dataset=validation_dataset,
+            batch_size=dataset_param.get("batch_size", 1),
+            shuffle=dataset_param.get("test_shuffle", False),
+            # num_workers=dataset_param.get("num_workers", 0),
+            # prefetch_factor=dataset_param.get("prefetch_factor", None)
+        )
 
         # ====== Create model ======
         model = self.create_model()
 
+        if self.gpu:
+            model = model.cuda()
+            logger.info(f"cuda version: {torch.version.cuda}")
+            logger.info(f"model device check: {next(model.parameters()).device}")
+
         self.print_model(model, train_dataset.get_head_inputs())
+
+        if self.static_graph:
+            model = torch.jit.trace(model, train_dataset.get_head_inputs())
 
         # ====== Init optimizer ======
         self.create_optimize(model)
 
-        # ====== Init loss ======
+        # ====== Init loss & metrics ======
         self.create_loss()
+        self.create_metrics()
 
         # ====== Init callback ======
         self.create_callback(model)
@@ -237,6 +274,8 @@ class BaseTrainer(abc.ABC):
         self.callback.on_train_begin()
 
         for t in range(epoch):
+            self.callback.on_epoch_begin(t)
+
             train_metrics = self.train_step(model, train_data_loader)
 
             val_metrics = self.validation_step(model, validation_data_loader)
@@ -245,15 +284,17 @@ class BaseTrainer(abc.ABC):
 
         self.callback.on_train_end(epoch=epoch)
 
-    def compute_loss(self, predictions, labels):
+    def compute_loss(self, predictions: torch.Tensor, labels: torch.Tensor):
         return self.loss(predictions, labels)
+
+    def compute_metrics(self, metrics_func: callable, predictions: torch.Tensor, labels: torch.Tensor):
+        return metrics_func(predictions, labels)
 
     def train_step(self, model: nn.Module, dataloder: DataLoader) -> Dict:
         task_trainer = self.task_trainer
 
-        batch_size = task_trainer["batch_size"]
-        train_loss = 0
         data_size = 0
+        metrics = {}
 
         model.train()
 
@@ -266,10 +307,10 @@ class BaseTrainer(abc.ABC):
             outputs = model(train_inputs)
             loss = self.compute_loss(outputs, train_labels)
 
-            train_loss += loss.item()
-            data_size += batch_size
+            metrics["train_loss"] = metrics["train_loss"] + loss.item() if "train_loss" in metrics else loss.item()
+            data_size += train_labels.shape[0]
 
-            # Before the backward pass, use the optimizer object to zero all of the
+            # Before the backward pass, use the optimizer object to zero all the
             # gradients for the variables it will update (which are the learnable
             # weights of the model). This is because by default, gradients are
             # accumulated in buffers( i.e, not overwritten) whenever .backward()
@@ -282,7 +323,15 @@ class BaseTrainer(abc.ABC):
             # Calling the step function on an Optimizer makes an update to its parameters
             self.optimizer.step()
 
-        metrics = {"loss": train_loss / data_size}
+            # Compute metrics
+            # for p in self.metrics:
+            #     results = self.compute_metrics(self.metrics[p], outputs, train_labels).detach().numpy()
+            #     metrics[f"train_{p}"] = metrics[p] + results if p in metrics else results
+
+        # for p in self.metrics:
+        #     metrics[f"train_{p}"] = metrics[f"train_{p}"] / data_size
+
+        metrics = {"train_loss": metrics[f"train_loss"] / data_size}
 
         return metrics
 
@@ -294,21 +343,29 @@ class BaseTrainer(abc.ABC):
         # statistics for batch normalization.
         task_trainer = self.task_trainer
 
-        batch_size = task_trainer["batch_size"]
         data_size = 0
+        metrics = {}
 
         model.eval()
 
-        val_loss = 0
         with torch.no_grad():
             for batch, val_data in enumerate(dataloder):
                 val_inputs, val_labels = val_data
 
                 outputs = model(val_inputs)
 
-                val_loss += self.compute_validation_loss(outputs, val_labels).item()
-                data_size += batch_size
+                loss = self.compute_validation_loss(outputs, val_labels)
 
-        metrics = {"loss": val_loss / data_size}
+                metrics["val_loss"] = metrics["val_loss"] + loss.item() if "val_loss" in metrics else loss.item()
+
+                # Compute metrics
+                for p in self.metrics:
+                    results = self.compute_metrics(self.metrics[p], outputs, val_labels)
+                    metrics[f"val_{p}"] = metrics[f"val_{p}"] + results.item() if p in metrics else results.item()
+
+                data_size += val_labels.shape[0]
+
+        for p in metrics:
+            metrics[p] = metrics[p] / data_size
 
         return metrics

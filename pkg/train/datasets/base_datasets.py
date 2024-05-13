@@ -8,9 +8,11 @@ logger = init_logger("BASE_DATASET")
 
 
 class BaseDataset(Dataset):
-    def __init__(self, data_config: Dict, data_type: str, **kwargs) -> None:
+    def __init__(self, data_config: Dict, data_type: str, *args, **kwargs) -> None:
         logger.info(f"====== init {data_type} data config ======")
         logger.info(data_config)
+
+        self.gpu = data_config["gpu"]
 
     def __len__(self):
         raise NotImplementedError("please implement __len__ func")
