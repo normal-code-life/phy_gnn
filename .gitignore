@@ -295,6 +295,6 @@ pyrightconfig.json
 
 # Others
 .DS_Store
-test
+test_case
 tmp
 pkg/data/lvData
