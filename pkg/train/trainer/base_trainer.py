@@ -305,7 +305,6 @@ class BaseTrainer(abc.ABC):
             outputs = model(train_inputs)
             loss = self.compute_loss(outputs, train_labels)
 
-            batch_size = train_labels.shape[0]
             batch_cnt += 1
             metrics["train_loss"] = metrics["train_loss"] + loss.item() if "train_loss" in metrics else loss.item()
 
