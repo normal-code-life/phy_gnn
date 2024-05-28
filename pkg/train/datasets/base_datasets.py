@@ -1,3 +1,4 @@
+import numpy as np
 from typing import Dict
 
 from torch.utils.data import Dataset
@@ -17,6 +18,8 @@ class BaseDataset(Dataset):
     def __len__(self):
         raise NotImplementedError("please implement __len__ func")
 
-    def get_head_inputs(self) -> Dict:
-        inputs, _ = self.__getitem__(0)
+    def get_head_inputs(self, batch_size) -> Dict:
+
+        inputs, _ = self.__getitem__(np.arange(0, batch_size))
+
         return {key: data for key, data in inputs.items()}

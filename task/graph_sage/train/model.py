@@ -1,17 +1,14 @@
-from typing import Dict, Sequence
-
+from typing import Dict, Optional
 import torch
 import torch.nn as nn
-
 from common.constant import TRAIN_NAME
 from pkg.dnn_utils.method import segment_sum
 from pkg.train.model.base_model import BaseModule
+from pkg.train.layer.pooling_layer import SUMAggregator
 from pkg.train.trainer.base_trainer import BaseTrainer, TrainerConfig
 from pkg.utils.logging import init_logger
-from task.passive_lv_gnn_emul.train.datasets import LvDataset
-from task.passive_lv_gnn_emul.train.message_passing_layer import \
-    MessagePassingModule
-from task.passive_lv_gnn_emul.train.mlp_layer_ln import MLPLayerLN
+from task.graph_sage.data.datasets import GraphSageDataset
+from task.graph_sage.train.mlp_layer_ln import MLPLayerLN
 
 logger = init_logger("PassiveLvGNNEmul")
 
@@ -19,8 +16,8 @@ torch.manual_seed(753)
 torch.set_printoptions(precision=8)
 
 
-class PassiveLvGNNEmulTrainer(BaseTrainer):
-    dataset_class = LvDataset
+class GraphSAGETrainer(BaseTrainer):
+    dataset_class = GraphSageDataset
 
     def __init__(self) -> None:
         config = TrainerConfig()
@@ -29,24 +26,14 @@ class PassiveLvGNNEmulTrainer(BaseTrainer):
 
         super().__init__(config)
 
-        self.task_train[
-            "init_weight_file_path"
-        ] = f"{config.task_base['task_path']}/train/{config.task_train['init_weight_file_path']}" if "init_weight_file_path" in config.task_train else None
-
         # config relative to dataset
         dataset_config = self.dataset_class(self.task_data, TRAIN_NAME)
 
-        self.senders = dataset_config.get_senders()
-        self.receivers = dataset_config.get_receivers()
-        self.real_node_indices = dataset_config.get_real_node_indices()
-        self.n_total_nodes = dataset_config.get_n_total_nodes()
         self.displacement_mean = dataset_config.get_displacement_mean()
         self.displacement_std = dataset_config.get_displacement_std()
 
     def create_model(self) -> BaseModule:
-        return PassiveLvGNNEmulModel(
-            self.task_train, self.senders, self.receivers, self.real_node_indices, self.n_total_nodes
-        )
+        return GraphSAGEModel(self.task_train)
 
     def compute_loss(self, outputs, labels):
         return self.loss(outputs, labels.squeeze(dim=0))
@@ -58,48 +45,25 @@ class PassiveLvGNNEmulTrainer(BaseTrainer):
         return metrics_func(predictions * self.displacement_std + self.displacement_mean, labels.squeeze(dim=0))
 
 
-class GraphSAGE(BaseModule):
+class GraphSAGEModel(BaseModule):
     '''
     https://github.com/raunakkmr/GraphSAGE
     '''
-    def __init__(
-        self,
-        config: Dict,
-        senders: Sequence[int],
-        receivers: torch.tensor,
-        real_node_indices: Sequence[int],
-        n_total_nodes: int,
-        *args,
-        **kwargs,
-    ) -> None:
+    def __init__(self,config: Dict, *args, **kwargs) -> None:
         super().__init__(config, *args, **kwargs)
 
+        # hyper-parameter config
+        self.neighbour_layers = config["neighbour_layers"]
+        self.default_padding_value = config.get("default_padding_value", -1)
+
         # mlp layer config
-        self.node_input_mlp_layer = config["node_input_mlp_layer"]
-        self.node_input_mlp_layer["init_weight_file_path"] = config["init_weight_file_path"]
-
-        self.edge_input_mlp_layer = config["edge_input_mlp_layer"]
-        self.edge_input_mlp_layer["init_weight_file_path"] = config["init_weight_file_path"]
-
-        self.theta_input_mlp_layer = config["theta_input_mlp_layer"]
-        self.theta_input_mlp_layer["init_weight_file_path"] = config["init_weight_file_path"]
-
-        self.message_passing_layer_config = config["message_passing_layer"]
-        self.message_passing_layer_config["init_weight_file_path"] = config["init_weight_file_path"]
-
+        self.node_input_mlp_layer_config = config["node_input_mlp_layer"]
+        self.edge_input_mlp_layer_config = config["edge_input_mlp_layer"]
+        self.theta_input_mlp_layer_config = config["theta_input_mlp_layer"]
         self.decoder_layer_config = config["decoder_layer"]
-        self.decoder_layer_config["mlp_layer"]["init_weight_file_path"] = config["init_weight_file_path"]
 
-        # message passing config
-        self.message_passing_layer_config["senders"] = senders
-        self.message_passing_layer_config["receivers"] = receivers
-        self.message_passing_layer_config["n_total_nodes"] = n_total_nodes
-        self.message_passing_layer_config["init_weight_file_path"] = config["init_weight_file_path"]
-
-        # other config
-        self.receivers = receivers
-        self.n_total_nodes = n_total_nodes
-        self.real_node_indices = real_node_indices
+        # aggregator config
+        self.aggregator_layer_config = config["aggregator_layer"]
 
         self._init_graph()
 
@@ -109,7 +73,7 @@ class GraphSAGE(BaseModule):
         mlp_config = {
             "node_input_mlp_layer": self.node_input_mlp_layer,
             "edge_input_mlp_layer": self.edge_input_mlp_layer,
-            "theta_input_mlp_layer": self.theta_input_mlp_layer,
+            "theta_input_mlp_layer": self.theta_input_mlp_layer_config,
             "message_passing_layer_config": self.message_passing_layer_config,
             "decoder_layer_config": self.decoder_layer_config,
             "receivers": self.receivers,
@@ -120,12 +84,12 @@ class GraphSAGE(BaseModule):
         return {**base_config, **mlp_config}
 
     def _init_graph(self):
-        # 3 encoder mlp
-        self.node_encode_mlp_layer = MLPLayerLN(self.node_input_mlp_layer, prefix_name="node_encode")
-        self.edge_encode_mlp_layer = MLPLayerLN(self.edge_input_mlp_layer, prefix_name="edge_encode")
+        # 2 encoder mlp
+        self.node_encode_mlp_layer = MLPLayerLN(self.node_input_mlp_layer_config, prefix_name="node_encode")
+        self.edge_encode_mlp_layer = MLPLayerLN(self.edge_input_mlp_layer_config, prefix_name="edge_encode")
 
         # theta mlp
-        self.theta_encode_mlp_layer = MLPLayerLN(self.theta_input_mlp_layer, prefix_name="theta_encode")
+        self.theta_encode_mlp_layer = MLPLayerLN(self.theta_input_mlp_layer_config, prefix_name="theta_encode")
 
         # decoder MLPs
         decoder_layer_config = self.decoder_layer_config
@@ -136,145 +100,109 @@ class GraphSAGE(BaseModule):
             ]
         )
 
-        # 2K processor mlp
-        self.message_passing_layer = MessagePassingModule(self.message_passing_layer_config)
+        # aggregator pooling
+        agg_method = self.aggregator_layer_config["agg_method"]
+        self.aggregator_layer = globals()[agg_method](self.aggregator_layer_config)
 
-    def forward(self, x):
+    def _node_preprocess(self, x: Dict[str, torch.Tensor]) -> torch.Tensor:
+        input_node_fea: torch.Tensor = x["node_features"]  # shape: (batch_size, node_num, node_feature_dim)
+        input_node_coord: torch.Tensor = x["node_coord"]  # shape: (batch_size, node_num, coord_dim)
+
+        return torch.concat([input_node_fea, input_node_coord], dim=-1)
+
+    def _edge_preprocess(self, x: Dict[str, torch.Tensor]) -> torch.Tensor:
+        # parse input data
+        # === read node feature/coord and corresponding neighbours
+        input_node_fea: torch.Tensor = x["node_features"]  # shape: (batch_size, node_num, node_feature_dim)
+        input_node_coord: torch.Tensor = x["node_coord"]  # shape: (batch_size, node_num, node_coord_dim)
+        input_edge_indices: torch.Tensor = x["edges_indices"]  # shape: (batch_size, node_num, seq)
+
+        fea_dim: int = input_node_fea.shape[-1]  # feature for each of the node
+        coord_dim: int = input_node_coord.shape[-1]  # coord for each of the node
+        seq: int = input_edge_indices.shape[-1]  # neighbours seq for each of the center node
+
+        # === expand node feature to match indices shape
+        # shape: (batch_size, node_num, node_feature_dim/node_coord_dim) =>
+        # (batch_size, node_num, 1, node_feature_dim/node_coord_dim) =>
+        # (batch_size, node_num, seq, node_feature_dim/node_coord_dim)
+        node_fea_expanded: torch.Tensor = input_node_fea.unsqueeze(2).expand(-1, -1, seq, -1)
+        node_coord_expanded: torch.Tensor = input_node_coord.unsqueeze(2).expand(-1, -1, seq, -1)
+
+        # parse seq data
+        # === expand indices to match feature shape
+        # shape: (batch_size, node_num, seq) =>
+        # (batch_size, node_num, seq, 1) =>
+        # (batch_size, node_num, seq, node_feature_dim/node_coord_dim)
+        indices_fea_expanded: torch.Tensor = input_edge_indices.unsqueeze(-1).expand(-1, -1, -1, fea_dim)
+        indices_coord_expanded: torch.Tensor = input_edge_indices.unsqueeze(-1).expand(-1, -1, -1, coord_dim)
+
+        # === mask part of indices if the seq length is variance
+        indices_fea_expanded_mask: torch.Tensor = torch.eq(indices_fea_expanded, self.default_padding_value)
+        indices_coord_expanded_mask: torch.Tensor = torch.eq(indices_coord_expanded, self.default_padding_value)
+
+        indices_fea_expanded_w_mask: torch.Tensor = torch.where(
+            indices_fea_expanded_mask, torch.zeros_like(indices_fea_expanded), indices_fea_expanded
+        )
+
+        indices_coord_expanded_w_mask: torch.Tensor = torch.where(
+            indices_coord_expanded_mask, torch.zeros_like(indices_coord_expanded), indices_coord_expanded
+        )
+
+        # === gather feature/coord
+        node_seq_fea: torch.Tensor = torch.gather(node_fea_expanded, 1, indices_fea_expanded_w_mask)
+        node_seq_coord: torch.Tensor = torch.gather(node_coord_expanded, 1, indices_coord_expanded_w_mask)
+
+        # combine node data + seq data => edge data
+        # shape: (batch_size, node_num, seq, node_feature_dim/node_coord_dim) =>
+        # (batch_size, node_num, seq, 2 * node_feature_dim/node_coord_dim)
+        edge_fea: torch.Tensor = torch.concat([node_fea_expanded, node_seq_fea], dim=-1)
+        edge_vertex_coord: torch.Tensor = torch.concat([node_coord_expanded, node_seq_coord], dim=-1)
+        edge_coord: torch.Tensor = node_coord_expanded - node_seq_coord
+
+        return torch.concat([edge_fea, edge_coord, edge_vertex_coord], dim=-1)
+
+    def forward(self, x: Dict[str, torch.Tensor]):
         # ====== Input data (squeeze to align to previous project)
-        input_node = x["nodes"].squeeze(dim=0)  # shape: (1, 126, 1) => (126, 1)
-        input_edge = x["edges"].squeeze(dim=0)  # shape: (1, 440, 3) => (440, 3)
-        input_theta = x["theta_vals"]  # shape: (1, 2)
-        input_z_global = x["shape_coeffs"]  # shape: (1, 2)
+        input_theta = x["theta_vals"]  # shape: (batch_size, graph_feature)
+        input_z_global = x["shape_coeffs"]  # shape: (batch_size, graph_feature)
 
-        # ====== Encoder:
-        # encode vertices and edges
-        node = self.node_encode_mlp_layer(input_node)  # shape: (126, 40)
-        edge = self.edge_encode_mlp_layer(input_edge)  # shape: (440, 40)
+        input_node = self._node_preprocess(x)  # shape: (batch_size, node_num, node_feature_dim+coord_dim)
+        input_edge = self._edge_preprocess(x)  # shape: (batch_size, node_num, seq, 2*(node_feature/coord_dim))
 
-        # perform K rounds of message passing
-        node, edge = self.message_passing_layer(node, edge)  # shape: (126, 40), (440, 40)
+        # ====== Encoder & Aggregate
+        node_emb = self.node_encode_mlp_layer(input_node)  # shape: (batch_size, node_num, node_emb)
 
-        # aggregate incoming messages to each node
-        incoming_message = segment_sum(edge, self.receivers, self.n_total_nodes)  # shape: (126, 40)
+        edge_emb: Optional[torch.Tensor] = None
+        for _ in range(self.neighbour_layers):
+            edge_emb_k = self.edge_encode_mlp_layer(input_edge)  # shape: (batch_size, node_num, seq, emb)
 
-        # final local learned representation is a concatenation of vector embedding and incoming messages
-        z_local = torch.concat((node, incoming_message), dim=-1)  # shape: (126, 80)
+            edge_aggregate_emb = self.aggregator_layer(edge_emb_k)  # shape: (batch_size, node_num, edge_emb)
 
-        # only need local representation for real nodes
-        z_local = z_local[self.real_node_indices,]  # shape: (96, 80)
+            # shape: (batch_size, node_num, emb)
+            if edge_emb is not None:
+                edge_emb = torch.concat([edge_emb, edge_aggregate_emb], dim=-1)
+            else:
+                edge_emb = edge_aggregate_emb
+
+        z_local = torch.concat([node_emb, edge_emb], dim=-1)  # shape: (batch_size, node_num, node_emb + edge_emb)
 
         # encode global parameters theta
-        z_theta = self.theta_encode_mlp_layer(input_theta)  # shape: (1, 2) => (1, 40)
+        z_theta = self.theta_encode_mlp_layer(input_theta)  # shape: (batch_size, theta_feature)
 
         # tile global values (z_theta and optionally z_global) to each individual real node
-        if input_z_global is None:
-            globals_array = torch.tile(z_theta, (z_local.shape[0], 1))  # shape: (96, 40)
-        else:
-            # stack z_global with z_theta if z_global is inputted
-            global_embedding = torch.hstack((z_theta, input_z_global))  # shape: (1, 40) + (1, 2) => (1, 42)
-            globals_array = torch.tile(global_embedding, (z_local.shape[0], 1))  # shape: (96, 42)
+        global_fea = torch.concat((z_theta, input_z_global), dim=-1)  # shape: (batch_size, emb)
+        global_fea = global_fea.unsqueeze(dim=-2)  # shape: (batch_size, 1, emb)
+        global_fea_expanded = torch.tile(global_fea, (1, z_local.shape[1], 1))  # shape: (batch_size, node_num, emb)
 
-        # final learned representation is (z_theta, z_local) or (z_theta, z_global, z_local)
-        final_representation = torch.hstack((globals_array, z_local))  # shape: (96, 122)
+        encoding_emb = torch.concat((global_fea_expanded, z_local), dim=-1)  # shape: (batch_size, node_num, emb)
 
         # ====== Decoder:
         # make prediction for forward displacement using different decoder mlp for each dimension
         individual_mlp_predictions = [
-            decode_mlp(final_representation) for decode_mlp in self.decoder_layer
-        ]  # shape: (96, 1), (96, 1)
+            decode_mlp(encoding_emb) for decode_mlp in self.decoder_layer
+        ]  # shape: List[(batch_size, node_num, 1)]
 
         # concatenate the predictions of each individual decoder mlp
-        Upred = torch.hstack(individual_mlp_predictions)  # shape: (96, 2)
+        output = torch.concat(individual_mlp_predictions, dim=-1)  # shape: (batch_size, node_num, 1)
+        return output
 
-        return Upred
-
-
-
-class GraphSAGE2(nn.Module):
-    def __init__(self, input_dim, hidden_dims, output_dim,
-                 agg_class=MaxPoolAggregator, dropout=0.5, num_samples=25,
-                 device='cpu'):
-        """
-        Parameters
-        ----------
-        input_dim : int
-            Dimension of input node features.
-        hidden_dims : list of ints
-            Dimension of hidden layers. Must be non empty.
-        output_dim : int
-            Dimension of output node features.
-        agg_class : An aggregator class.
-            Aggregator. One of the aggregator classes imported at the top of
-            this module. Default: MaxPoolAggregator.
-        dropout : float
-            Dropout rate. Default: 0.5.
-        num_samples : int
-            Number of neighbors to sample while aggregating. Default: 25.
-        device : str
-            'cpu' or 'cuda:0'. Default: 'cpu'.
-        """
-        super(GraphSAGE, self).__init__()
-
-        self.input_dim = input_dim
-        self.hidden_dims = hidden_dims
-        self.output_dim = output_dim
-        self.agg_class = agg_class
-        self.num_samples = num_samples
-        self.device = device
-        self.num_layers = len(hidden_dims) + 1
-
-        self.aggregators = nn.ModuleList([agg_class(input_dim, input_dim, device)])
-        self.aggregators.extend([agg_class(dim, dim, device) for dim in hidden_dims])
-
-
-        c = 3 if agg_class == LSTMAggregator else 2
-        self.fcs = nn.ModuleList([nn.Linear(c*input_dim, hidden_dims[0])])
-        self.fcs.extend([nn.Linear(c*hidden_dims[i-1], hidden_dims[i]) for i in range(1, len(hidden_dims))])
-        self.fcs.extend([nn.Linear(c*hidden_dims[-1], output_dim)])
-
-        self.bns = nn.ModuleList([nn.BatchNorm1d(hidden_dim) for hidden_dim in hidden_dims])
-
-        self.dropout = nn.Dropout(dropout)
-
-        self.relu = nn.ReLU()
-
-    def forward(self, features, node_layers, mappings, rows):
-        """
-        Parameters
-        ----------
-        features : torch.Tensor
-            An (n' x input_dim) tensor of input node features.
-        node_layers : list of numpy array
-            node_layers[i] is an array of the nodes in the ith layer of the
-            computation graph.
-        mappings : list of dictionary
-            mappings[i] is a dictionary mapping node v (labelled 0 to |V|-1)
-            in node_layers[i] to its position in node_layers[i]. For example,
-            if node_layers[i] = [2,5], then mappings[i][2] = 0 and
-            mappings[i][5] = 1.
-        rows : numpy array
-            rows[i] is an array of neighbors of node i.
-
-        Returns
-        -------
-        out : torch.Tensor
-            An (len(node_layers[-1]) x output_dim) tensor of output node features.
-        """
-        out = features
-        for k in range(self.num_layers):
-            nodes = node_layers[k+1]
-            mapping = mappings[k]
-            init_mapped_nodes = np.array([mappings[0][v] for v in nodes], dtype=np.int64)
-            cur_rows = rows[init_mapped_nodes]
-            aggregate = self.aggregators[k](out, nodes, mapping, cur_rows,
-                                            self.num_samples)
-            cur_mapped_nodes = np.array([mapping[v] for v in nodes], dtype=np.int64)
-            out = torch.cat((out[cur_mapped_nodes, :], aggregate), dim=1)
-            out = self.fcs[k](out)
-            if k+1 < self.num_layers:
-                out = self.relu(out)
-                out = self.bns[k](out)
-                out = self.dropout(out)
-                out = out.div(out.norm(dim=1, keepdim=True)+1e-6)
-
-        return out

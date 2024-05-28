@@ -1,14 +1,15 @@
 task_base:
-  task_name: passive_lv_gnn_emul
-  exp_name: 13
+  task_name: graph_sage
+  exp_name: 2
   overwrite_exp_folder: True
   gpu: True
 task_data:
   task_data_name: lvData
+  edge_indices_generate_method: 0
   n_shape_coeff: 32  # Number of shape coefficients to input to the emulator
 task_trainer:
-  model_name: PassiveLvGNNEmul
-  epochs: 300
+  model_name: GraphSAGEModel
+  epochs: 3000
   optimizer_param:
     name: adam
     learning_rate: 0.00005  # Learning rate for training the network
@@ -27,38 +28,29 @@ task_trainer:
       update_freq: 1
   dataset_param:
     batch_size: 1
-    shuffle: True
     train_shuffle: True
-  static_graph: True
-  fixed_geom: False
+  static_graph: False
 task_train:
-#  init_weight_file_path: "array_init.npy"
+  neighbour_layers: 1
   node_input_mlp_layer:
-    unit_sizes: [10, 128, 128, 40]
+    unit_sizes: [13, 128, 128, 40]
     layer_norm: True
     activation: tanh
   edge_input_mlp_layer:
-    unit_sizes: [4, 128, 128, 40]
+    unit_sizes: [29, 128, 128, 40]
     layer_norm: True
     activation: tanh
+  aggregator_layer:
+    agg_method: SUMAggregator
+    agg_dim: 2
+    keep_dim: False
   theta_input_mlp_layer:
     unit_sizes: [4, 128, 128, 40]
     layer_norm: True
     activation: tanh
-  message_passing_layer:
-    edge_mlp_layer:
-      unit_sizes: [120, 128, 128, 40]
-      layer_norm: True
-      activation: tanh
-    node_mlp_layer:
-      unit_sizes: [80, 128, 128, 40]
-      layer_norm: True
-      activation: tanh
-    K: 5
   decoder_layer:
     mlp_layer:
       unit_sizes: [152, 128, 128, 1]
       layer_norm: False
       activation: tanh
     output_dim: 3
-  fixed_geom: False  # Set whether the dataset is for varying or fixed geometries

@@ -242,7 +242,7 @@ class BaseTrainer(abc.ABC):
         )
         validation_data_loader = DataLoader(
             dataset=validation_dataset,
-            batch_size=dataset_param.get("batch_size", 1),
+            batch_size=dataset_param.get("val_batch_size", len(validation_dataset)),
             shuffle=dataset_param.get("test_shuffle", False),
             # num_workers=dataset_param.get("num_workers", 0),
             # prefetch_factor=dataset_param.get("prefetch_factor", None)
@@ -256,7 +256,7 @@ class BaseTrainer(abc.ABC):
             logger.info(f"cuda version: {torch.version.cuda}")
             logger.info(f"model device check: {next(model.parameters()).device}")
 
-        self.print_model(model, train_dataset.get_head_inputs())
+        self.print_model(model, train_dataset.get_head_inputs(dataset_param.get("batch_size", 1)))
 
         if self.static_graph:
             model = torch.jit.trace(model, train_dataset.get_head_inputs())
@@ -291,9 +291,7 @@ class BaseTrainer(abc.ABC):
         return metrics_func(predictions, labels)
 
     def train_step(self, model: nn.Module, dataloder: DataLoader) -> Dict:
-        task_trainer = self.task_trainer
-
-        data_size = 0
+        batch_cnt = 0
         metrics = {}
 
         model.train()
@@ -307,8 +305,11 @@ class BaseTrainer(abc.ABC):
             outputs = model(train_inputs)
             loss = self.compute_loss(outputs, train_labels)
 
+            batch_size = train_labels.shape[0]
+            batch_cnt += 1
             metrics["train_loss"] = metrics["train_loss"] + loss.item() if "train_loss" in metrics else loss.item()
-            data_size += train_labels.shape[0]
+
+            print(f"===> {batch}, {batch_size}, {loss}, {metrics['train_loss']}, {batch_cnt}, {metrics['train_loss'] / batch_cnt}")
 
             # Before the backward pass, use the optimizer object to zero all the
             # gradients for the variables it will update (which are the learnable
@@ -323,15 +324,10 @@ class BaseTrainer(abc.ABC):
             # Calling the step function on an Optimizer makes an update to its parameters
             self.optimizer.step()
 
-            # Compute metrics
-            # for p in self.metrics:
-            #     results = self.compute_metrics(self.metrics[p], outputs, train_labels).detach().numpy()
-            #     metrics[f"train_{p}"] = metrics[p] + results if p in metrics else results
+            if batch_cnt == 1:
+                break
 
-        # for p in self.metrics:
-        #     metrics[f"train_{p}"] = metrics[f"train_{p}"] / data_size
-
-        metrics = {"train_loss": metrics[f"train_loss"] / data_size}
+        metrics = {"train_loss": metrics[f"train_loss"] / batch_cnt}
 
         return metrics
 
@@ -341,15 +337,15 @@ class BaseTrainer(abc.ABC):
     def validation_step(self, model: nn.Module, dataloder: DataLoader) -> Dict:
         # Set the model to evaluation mode, disabling dropout and using population
         # statistics for batch normalization.
-        task_trainer = self.task_trainer
-
-        data_size = 0
+        batch_cnt = 0
         metrics = {}
 
         model.eval()
 
         with torch.no_grad():
             for batch, val_data in enumerate(dataloder):
+                batch_cnt += 1
+
                 val_inputs, val_labels = val_data
 
                 outputs = model(val_inputs)
@@ -363,9 +359,9 @@ class BaseTrainer(abc.ABC):
                     results = self.compute_metrics(self.metrics[p], outputs, val_labels)
                     metrics[f"val_{p}"] = metrics[f"val_{p}"] + results.item() if p in metrics else results.item()
 
-                data_size += val_labels.shape[0]
+                print(f"===> {batch}, {loss}, {metrics}, {batch_cnt}, {val_labels.shape[0]}")
 
         for p in metrics:
-            metrics[p] = metrics[p] / data_size
+            metrics[p] = metrics[p] / batch_cnt
 
         return metrics

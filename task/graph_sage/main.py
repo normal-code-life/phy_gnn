@@ -1,6 +1,6 @@
-from task.passive_lv_gnn_emul.train.model import PassiveLvGNNEmulTrainer
+from task.graph_sage.train.model import GraphSAGETrainer
 
 if __name__ == "__main__":
     # fetch config path and serve to our model
-    model = PassiveLvGNNEmulTrainer()
+    model = GraphSAGETrainer()
     model.train()
