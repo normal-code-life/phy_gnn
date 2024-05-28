@@ -309,7 +309,7 @@ class BaseTrainer(abc.ABC):
             batch_cnt += 1
             metrics["train_loss"] = metrics["train_loss"] + loss.item() if "train_loss" in metrics else loss.item()
 
-            print(f"===> {batch}, {batch_size}, {loss}, {metrics['train_loss']}, {batch_cnt}, {metrics['train_loss'] / batch_cnt}")
+            # print(f"===> {batch}, {batch_size}, {loss}, {metrics['train_loss']}, {batch_cnt}, {metrics['train_loss'] / batch_cnt}")
 
             # Before the backward pass, use the optimizer object to zero all the
             # gradients for the variables it will update (which are the learnable
@@ -323,9 +323,6 @@ class BaseTrainer(abc.ABC):
 
             # Calling the step function on an Optimizer makes an update to its parameters
             self.optimizer.step()
-
-            if batch_cnt == 1:
-                break
 
         metrics = {"train_loss": metrics[f"train_loss"] / batch_cnt}
 
