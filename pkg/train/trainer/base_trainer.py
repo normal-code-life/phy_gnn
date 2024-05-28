@@ -23,6 +23,8 @@ from pkg.utils.model_summary import summary
 logger = init_logger("BASE_TRAINER")
 
 
+torch.cuda.set_device("cuda:1")
+
 class TrainerConfig(BaseConfig):
     """TrainerConfig class is inherent from BaseConfig class defining the structure for Trainer configuration."""
 
