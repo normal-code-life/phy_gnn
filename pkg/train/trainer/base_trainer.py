@@ -355,8 +355,6 @@ class BaseTrainer(abc.ABC):
                     results = self.compute_metrics(self.metrics[p], outputs, val_labels)
                     metrics[f"val_{p}"] = metrics[f"val_{p}"] + results.item() if p in metrics else results.item()
 
-                print(f"===> {batch}, {loss}, {metrics}, {batch_cnt}, {val_labels.shape[0]}")
-
         for p in metrics:
             metrics[p] = metrics[p] / batch_cnt
 
