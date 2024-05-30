@@ -27,7 +27,7 @@ task_trainer:
     logs:
       update_freq: 1
   dataset_param:
-    batch_size: 50
+    batch_size: 1
     val_batch_size: 50
     train_shuffle: True
   static_graph: False
@@ -41,17 +41,26 @@ task_train:
     unit_sizes: [29, 128, 128, 40]
     layer_norm: True
     activation: tanh
-  aggregator_layer:
+  message_passing_layer:
     agg_method: SUMAggregator
-    agg_dim: 2
-    keep_dim: False
+    message_layer_num: 1
+    agg_layer:
+      agg_dim: 2
+      keep_dim: False
+    node_mlp_layer:
+      unit_sizes: [ 80, 128, 128, 40 ]
+      layer_norm: True
+      activation: tanh
+    edge_mlp_layer:
+      unit_sizes: [40, 128, 128, 40]
+      layer_norm: True
+      activation: tanh
   theta_input_mlp_layer:
     unit_sizes: [4, 128, 128, 40]
     layer_norm: True
     activation: tanh
   decoder_layer:
-    mlp_layer:
-      unit_sizes: [152, 128, 128, 1]
-      layer_norm: False
-      activation: tanh
+    unit_sizes: [ 152, 128, 128, 1 ]
+    layer_norm: False
+    activation: tanh
     output_dim: 3

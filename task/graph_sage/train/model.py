@@ -2,7 +2,6 @@ from typing import Dict, Optional
 import torch
 import torch.nn as nn
 from common.constant import TRAIN_NAME
-from pkg.dnn_utils.method import segment_sum
 from pkg.train.model.base_model import BaseModule
 from pkg.train.layer.pooling_layer import SUMAggregator
 from pkg.train.trainer.base_trainer import BaseTrainer, TrainerConfig
@@ -62,8 +61,12 @@ class GraphSAGEModel(BaseModule):
         self.theta_input_mlp_layer_config = config["theta_input_mlp_layer"]
         self.decoder_layer_config = config["decoder_layer"]
 
-        # aggregator config
-        self.aggregator_layer_config = config["aggregator_layer"]
+        # message config
+        self.message_passing_layer_config = config["message_passing_layer"]
+        self.message_layer_num = self.message_passing_layer_config["message_layer_num"]
+
+        self.node_update_fn = nn.ModuleList()
+        self.edge_update_fn = nn.ModuleList()
 
         self._init_graph()
 
@@ -74,11 +77,8 @@ class GraphSAGEModel(BaseModule):
             "node_input_mlp_layer": self.node_input_mlp_layer,
             "edge_input_mlp_layer": self.edge_input_mlp_layer,
             "theta_input_mlp_layer": self.theta_input_mlp_layer_config,
-            "message_passing_layer_config": self.message_passing_layer_config,
+            "message_config": self.message_layer_config,
             "decoder_layer_config": self.decoder_layer_config,
-            "receivers": self.receivers,
-            "n_total_nodes": self.n_total_nodes,
-            "real_node_indices": self.real_node_indices,
         }
 
         return {**base_config, **mlp_config}
@@ -88,6 +88,18 @@ class GraphSAGEModel(BaseModule):
         self.node_encode_mlp_layer = MLPLayerLN(self.node_input_mlp_layer_config, prefix_name="node_encode")
         self.edge_encode_mlp_layer = MLPLayerLN(self.edge_input_mlp_layer_config, prefix_name="edge_encode")
 
+        # aggregator pooling
+        agg_method = self.message_passing_layer_config["agg_method"]
+        self.message_agg_pooling = globals()[agg_method](self.message_passing_layer_config["agg_layer"])
+
+        for i in range(self.message_layer_num):
+            self.node_update_fn.append(
+                MLPLayerLN(self.message_passing_layer_config["node_mlp_layer"], prefix_name=f"message_edge_{i}")
+            )
+            self.edge_update_fn.append(
+                MLPLayerLN(self.message_passing_layer_config["edge_mlp_layer"], prefix_name=f"message_node_{i}")
+            )
+
         # theta mlp
         self.theta_encode_mlp_layer = MLPLayerLN(self.theta_input_mlp_layer_config, prefix_name="theta_encode")
 
@@ -95,14 +107,10 @@ class GraphSAGEModel(BaseModule):
         decoder_layer_config = self.decoder_layer_config
         self.decoder_layer = nn.ModuleList(
             [
-                MLPLayerLN(decoder_layer_config["mlp_layer"], prefix_name=f"decode_{i}")
+                MLPLayerLN(decoder_layer_config, prefix_name=f"decode_{i}")
                 for i in range(decoder_layer_config["output_dim"])
             ]
         )
-
-        # aggregator pooling
-        agg_method = self.aggregator_layer_config["agg_method"]
-        self.aggregator_layer = globals()[agg_method](self.aggregator_layer_config)
 
     def _node_preprocess(self, x: Dict[str, torch.Tensor]) -> torch.Tensor:
         input_node_fea: torch.Tensor = x["node_features"]  # shape: (batch_size, node_num, node_feature_dim)
@@ -161,6 +169,18 @@ class GraphSAGEModel(BaseModule):
 
         return torch.concat([edge_fea, edge_coord, edge_vertex_coord], dim=-1)
 
+    def message_passing_layer(self, node_emb: torch.Tensor, edge_seq_emb: torch.Tensor) -> torch.Tensor:
+        edge_emb = self.message_agg_pooling(edge_seq_emb)  # shape: (batch_size, node_num, edge_emb)
+
+        for i in range(self.message_layer_num):
+            edge_emb = self.edge_update_fn[i](edge_emb)  # shape: (batch_size, node_num, edge_emb)
+
+            node_edge_concat = torch.concat([node_emb, edge_emb], dim=-1)
+
+            node_emb = self.node_update_fn[i](node_edge_concat)  # shape: (batch_size, node_num, node_emb)
+
+        return torch.concat([node_emb, edge_emb], dim=-1)  # shape: (batch_size, node_num, node_emb)
+
     def forward(self, x: Dict[str, torch.Tensor]):
         # ====== Input data (squeeze to align to previous project)
         input_theta = x["theta_vals"]  # shape: (batch_size, graph_feature)
@@ -171,20 +191,9 @@ class GraphSAGEModel(BaseModule):
 
         # ====== Encoder & Aggregate
         node_emb = self.node_encode_mlp_layer(input_node)  # shape: (batch_size, node_num, node_emb)
+        edge_seq_emb = self.edge_encode_mlp_layer(input_edge)  # shape: (batch_size, node_num, seq, emb)
 
-        edge_emb: Optional[torch.Tensor] = None
-        for _ in range(self.neighbour_layers):
-            edge_emb_k = self.edge_encode_mlp_layer(input_edge)  # shape: (batch_size, node_num, seq, emb)
-
-            edge_aggregate_emb = self.aggregator_layer(edge_emb_k)  # shape: (batch_size, node_num, edge_emb)
-
-            # shape: (batch_size, node_num, emb)
-            if edge_emb is not None:
-                edge_emb = torch.concat([edge_emb, edge_aggregate_emb], dim=-1)
-            else:
-                edge_emb = edge_aggregate_emb
-
-        z_local = torch.concat([node_emb, edge_emb], dim=-1)  # shape: (batch_size, node_num, node_emb + edge_emb)
+        z_local = self.message_passing_layer(node_emb, edge_seq_emb)
 
         # encode global parameters theta
         z_theta = self.theta_encode_mlp_layer(input_theta)  # shape: (batch_size, theta_feature)

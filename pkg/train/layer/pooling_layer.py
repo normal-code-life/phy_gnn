@@ -245,9 +245,8 @@ class MeanAggregator(PoolingLayer):
 
 class SUMAggregator(PoolingLayer):
     def __init__(self, config: Dict, *args, **kwargs) -> None:
-        config["prefix_name"] = "sum_pooling_agg"
-
         super(SUMAggregator, self).__init__(config, *args, **kwargs)
+        self.prefix_name = "sum_pooling_agg"
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """

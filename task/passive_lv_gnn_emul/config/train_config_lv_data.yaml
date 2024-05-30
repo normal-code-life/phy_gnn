@@ -29,7 +29,7 @@ task_trainer:
     batch_size: 1
     shuffle: True
     train_shuffle: True
-  static_graph: True
+  static_graph: False
   fixed_geom: False
 task_train:
 #  init_weight_file_path: "array_init.npy"
