@@ -1,7 +1,7 @@
 task_base:
   task_name: graph_sage
-  exp_name: 2
-  overwrite_exp_folder: True
+  exp_name: 5
+  overwrite_exp_folder: False
   gpu: True
 task_data:
   task_data_name: lvData
@@ -27,18 +27,18 @@ task_trainer:
     logs:
       update_freq: 1
   dataset_param:
-    batch_size: 1
+    batch_size: 50
     val_batch_size: 50
     train_shuffle: True
   static_graph: False
 task_train:
   neighbour_layers: 1
   node_input_mlp_layer:
-    unit_sizes: [13, 256, 128, 64]
+    unit_sizes: [13, 128, 128, 40]
     layer_norm: True
     activation: tanh
   edge_input_mlp_layer:
-    unit_sizes: [29, 256, 128, 64]
+    unit_sizes: [29, 128, 128, 40]
     layer_norm: True
     activation: tanh
   message_passing_layer:
@@ -48,19 +48,19 @@ task_train:
       agg_dim: 2
       keep_dim: False
     node_mlp_layer:
-      unit_sizes: [128, 256, 128, 64]
+      unit_sizes: [ 80, 128, 128, 40 ]
       layer_norm: True
       activation: tanh
     edge_mlp_layer:
-      unit_sizes: [64, 256, 128, 64]
+      unit_sizes: [40, 128, 128, 40]
       layer_norm: True
       activation: tanh
   theta_input_mlp_layer:
-    unit_sizes: [4, 16]
+    unit_sizes: [4, 128, 128, 40]
     layer_norm: True
     activation: tanh
   decoder_layer:
-    unit_sizes: [ 176, 128, 128, 1 ]
+    unit_sizes: [ 152, 128, 128, 1 ]
     layer_norm: False
     activation: tanh
     output_dim: 3
