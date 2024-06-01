@@ -1,6 +1,6 @@
 task_base:
   task_name: graph_sage
-  exp_name: 5
+  exp_name: 6
   overwrite_exp_folder: False
   gpu: True
 task_data:
@@ -9,7 +9,7 @@ task_data:
   n_shape_coeff: 32  # Number of shape coefficients to input to the emulator
 task_trainer:
   model_name: GraphSAGEModel
-  epochs: 20000
+  epochs: 4000
   optimizer_param:
     name: adam
     learning_rate: 0.00005  # Learning rate for training the network
@@ -26,9 +26,10 @@ task_trainer:
       save_freq: 500
     logs:
       update_freq: 1
+      save_task_code: True
   dataset_param:
-    batch_size: 50
-    val_batch_size: 50
+    batch_size: 1
+    val_batch_size: 150
     train_shuffle: True
   static_graph: False
 task_train:
@@ -43,16 +44,16 @@ task_train:
     activation: tanh
   message_passing_layer:
     agg_method: SUMAggregator
-    message_layer_num: 1
+    message_layer_num: 5
     agg_layer:
       agg_dim: 2
       keep_dim: False
     node_mlp_layer:
-      unit_sizes: [ 80, 128, 128, 40 ]
+      unit_sizes: [80, 128, 128, 40]
       layer_norm: True
       activation: tanh
     edge_mlp_layer:
-      unit_sizes: [40, 128, 128, 40]
+      unit_sizes: [80, 128, 128, 40]
       layer_norm: True
       activation: tanh
   theta_input_mlp_layer:
@@ -60,7 +61,7 @@ task_train:
     layer_norm: True
     activation: tanh
   decoder_layer:
-    unit_sizes: [ 152, 128, 128, 1 ]
+    unit_sizes: [112, 128, 128, 1]
     layer_norm: False
     activation: tanh
     output_dim: 3

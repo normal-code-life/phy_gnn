@@ -15,11 +15,22 @@ class LogCallback(CallBack):
 
         self.update_freq = param.get("update_freq", "epoch")
 
+        self.save_config = param.get("save_config", False)
+
+        self.save_task_code = param.get("save_task_code", False)
+
         self.logger = init_logger("LOGS_CALLBACK")
 
-    def on_train_end(self, **kwargs):
-        os.system(f"cp {self.config_path} {self.log_dir}")
+    def on_train_begin(self, **kwargs):
+        if self.save_config:
+            cmd = f"cp {self.config_path} {self.log_dir}/"
+            self.logger.info(f"execute {cmd}")
+            os.system(cmd)
 
+        if self.save_task_code:
+            cmd = f"cp -r {self.task_dir} {self.log_dir}/code/"
+            self.logger.info(f"execute {cmd}")
+            os.system(cmd)
 
     def on_epoch_end(self, epoch, **kwargs):
         if "train_metrics" in kwargs:
