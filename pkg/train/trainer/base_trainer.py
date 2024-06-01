@@ -23,7 +23,7 @@ from pkg.utils.model_summary import summary
 logger = init_logger("BASE_TRAINER")
 
 
-torch.cuda.set_device("cuda:1")
+# torch.cuda.set_device("cuda:1")
 
 class TrainerConfig(BaseConfig):
     """TrainerConfig class is inherent from BaseConfig class defining the structure for Trainer configuration."""
@@ -258,7 +258,7 @@ class BaseTrainer(abc.ABC):
             logger.info(f"cuda version: {torch.version.cuda}")
             logger.info(f"model device check: {next(model.parameters()).device}")
 
-        self.print_model(model, train_dataset.get_head_inputs(dataset_param.get("batch_size", 1)))
+        # self.print_model(model, train_dataset.get_head_inputs(dataset_param.get("batch_size", 1)))
 
         if self.static_graph:
             model = torch.jit.trace(model, train_dataset.get_head_inputs())

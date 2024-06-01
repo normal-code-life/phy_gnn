@@ -1,7 +1,7 @@
 task_base:
   task_name: passive_lv_gnn_emul
-  exp_name: 13
-  overwrite_exp_folder: True
+  exp_name: 14_1
+  overwrite_exp_folder: False
   gpu: True
 task_data:
   task_data_name: lvData
@@ -27,12 +27,13 @@ task_trainer:
       update_freq: 1
   dataset_param:
     batch_size: 1
+    val_batch_size: 1
     shuffle: True
     train_shuffle: True
   static_graph: False
   fixed_geom: False
 task_train:
-#  init_weight_file_path: "array_init.npy"
+  # init_weight_file_path: "array_init_LvData.npy"
   node_input_mlp_layer:
     unit_sizes: [10, 128, 128, 40]
     layer_norm: True

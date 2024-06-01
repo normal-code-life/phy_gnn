@@ -9,8 +9,7 @@ from pkg.train.model.base_model import BaseModule
 from pkg.train.trainer.base_trainer import BaseTrainer, TrainerConfig
 from pkg.utils.logging import init_logger
 from task.passive_lv_gnn_emul.train.datasets import LvDataset
-from task.passive_lv_gnn_emul.train.message_passing_layer import \
-    MessagePassingModule
+from task.passive_lv_gnn_emul.train.message_passing_layer import MessagePassingModule
 from task.passive_lv_gnn_emul.train.mlp_layer_ln import MLPLayerLN
 
 logger = init_logger("PassiveLvGNNEmul")
