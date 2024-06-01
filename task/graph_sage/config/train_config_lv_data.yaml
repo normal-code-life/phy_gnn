@@ -1,6 +1,6 @@
 task_base:
   task_name: graph_sage
-  exp_name: 6
+  exp_name: 7
   overwrite_exp_folder: False
   gpu: True
 task_data:
@@ -28,7 +28,7 @@ task_trainer:
       update_freq: 1
       save_task_code: True
   dataset_param:
-    batch_size: 1
+    batch_size: 50
     val_batch_size: 150
     train_shuffle: True
   static_graph: False
