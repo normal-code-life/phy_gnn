@@ -225,10 +225,8 @@ class GraphSAGEModel(BaseModule):
 
         input_node = self._node_preprocess(x)  # shape: (batch_size, node_num, node_feature_dim+coord_dim)
 
-        input_edge_fea = self._edge_fea_preprocess(x)  # shape: (batch_size, node_num, seq, 2*(node_feature/coord_dim))
-        input_edge_coord = self._edge_coord_preprocess(
-            x
-        )  # shape: (batch_size, node_num, seq, 2*(node_feature/coord_dim))
+        input_edge_fea = self._edge_fea_preprocess(x)  # shape: (batch_size, node_num, seq, 2*node_feature)
+        input_edge_coord = self._edge_coord_preprocess(x)  # shape: (batch_size, node_num, seq, 2*coord_dim)
         input_edge = torch.concat(
             [input_edge_fea, input_edge_coord], dim=-1
         )  # shape: (batch_size, node_num, seq, 2*(node_feature/coord_dim))

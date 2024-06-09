@@ -1,15 +1,15 @@
 task_base:
   task_name: graph_sage
-  exp_name: 7
+  exp_name: 8
   overwrite_exp_folder: False
   gpu: True
 task_data:
   task_data_name: lvData
-  edge_indices_generate_method: 0
+  edge_indices_generate_method: 1
   n_shape_coeff: 32  # Number of shape coefficients to input to the emulator
 task_trainer:
   model_name: GraphSAGEModel
-  epochs: 4000
+  epochs: 5000
   optimizer_param:
     name: adam
     learning_rate: 0.00005  # Learning rate for training the network
@@ -28,7 +28,7 @@ task_trainer:
       update_freq: 1
       save_task_code: True
   dataset_param:
-    batch_size: 50
+    batch_size: 1
     val_batch_size: 150
     train_shuffle: True
   static_graph: False

@@ -25,7 +25,7 @@ from pkg.utils.model_summary import summary
 logger = init_logger("BASE_TRAINER")
 
 
-torch.cuda.set_device("cuda:1")
+# torch.cuda.set_device("cuda:1")
 
 
 class TrainerConfig(BaseConfig):
@@ -61,6 +61,7 @@ class TrainerConfig(BaseConfig):
 
         # task dataset info
         self.task_data = self.config.get("task_data", {})
+        self.task_data["task_path"] = task_path
         task_data_name = self.task_data.get("task_data_name", self.task_name)
         self.task_data["task_data_path"] = self.task_data.get(
             "task_data_path", f"{repo_path}/pkg/data/{task_data_name}"

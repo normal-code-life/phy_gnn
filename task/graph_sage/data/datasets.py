@@ -37,6 +37,7 @@ class GraphSageDataset(BaseDataset):
 
         # fetch data from local path
         base_data_path = f"{data_config['task_data_path']}"
+        base_task_path = f"{data_config['task_path']}"
 
         if not os.path.isdir(base_data_path):
             raise NotADirectoryError(f"No directory at: {base_data_path}")
@@ -48,6 +49,8 @@ class GraphSageDataset(BaseDataset):
         topology_data_path = f"{base_data_path}/topologyData"
         stats_data_path = f"{base_data_path}/normalisationStatistics"
 
+        logger.info(f"base_data_path is {base_data_path}")
+        logger.info(f"base_task_path is {base_task_path}")
         logger.info(f"processed_data_path is {processed_data_path}")
         logger.info(f"topology_data_path is {topology_data_path}")
         logger.info(f"stats_data_path is {stats_data_path}")
@@ -88,8 +91,20 @@ class GraphSageDataset(BaseDataset):
             edges = self._calculate_edge_from_topology(topology_data_path)
             edges = np.repeat(edges[np.newaxis, :, :], node_coords.shape[0], axis=0)
         elif edge_indices_generate_method == 1:
-            sorted_indices_by_dist = self._calculate_node_neighbour_distance(node_coords)
-            edges = self._calculate_edge_by_top_k(sorted_indices_by_dist, 5)
+            edges = self._calculate_edge_from_topology(topology_data_path)
+
+            column1 = np.zeros((edges.shape[0], 1), np.int64)
+            column2 = np.full((edges.shape[0], 1), 1500, np.int64)
+            edges = np.concatenate((edges, column1, column2), axis=-1)
+            edges = np.repeat(edges[np.newaxis, :, :], node_coords.shape[0], axis=0)
+
+        elif edge_indices_generate_method == 2:
+            edge_file_path = f"{base_task_path}/data/node_neighbours_distance.npy"
+            if os.path.exists(edge_file_path):
+                edges = np.load(edge_file_path).astype(np.float32)
+            else:
+                edges = self._calculate_node_neighbour_distance(node_coords)
+                np.save(edge_file_path, edges)
         else:
             raise ValueError("please check and define the edge_generate_method properly")
 
