@@ -1,9 +1,11 @@
-from typing import Dict, Optional
+from typing import Dict
+
 import torch
 import torch.nn as nn
+
 from common.constant import TRAIN_NAME
+from pkg.train.layer.pooling_layer import *  # noqa
 from pkg.train.model.base_model import BaseModule
-from pkg.train.layer.pooling_layer import SUMAggregator
 from pkg.train.trainer.base_trainer import BaseTrainer, TrainerConfig
 from pkg.utils.logging import init_logger
 from task.graph_sage.data.datasets import GraphSageDataset
@@ -45,10 +47,9 @@ class GraphSAGETrainer(BaseTrainer):
 
 
 class GraphSAGEModel(BaseModule):
-    '''
-    https://github.com/raunakkmr/GraphSAGE
-    '''
-    def __init__(self,config: Dict, *args, **kwargs) -> None:
+    """https://github.com/raunakkmr/GraphSAGE."""
+
+    def __init__(self, config: Dict, *args, **kwargs) -> None:
         super().__init__(config, *args, **kwargs)
 
         # hyper-parameter config
@@ -121,11 +122,9 @@ class GraphSAGEModel(BaseModule):
     def _edge_coord_preprocess(self, x: Dict[str, torch.Tensor]) -> torch.Tensor:
         # parse input data
         # === read node feature/coord and corresponding neighbours
-        input_node_fea: torch.Tensor = x["node_features"]  # shape: (batch_size, node_num, node_feature_dim)
         input_node_coord: torch.Tensor = x["node_coord"]  # shape: (batch_size, node_num, node_coord_dim)
         input_edge_indices: torch.Tensor = x["edges_indices"]  # shape: (batch_size, node_num, seq)
 
-        fea_dim: int = input_node_fea.shape[-1]  # feature for each of the node
         coord_dim: int = input_node_coord.shape[-1]  # coord for each of the node
         seq: int = input_edge_indices.shape[-1]  # neighbours seq for each of the center node
 
@@ -221,16 +220,15 @@ class GraphSAGEModel(BaseModule):
 
     def forward(self, x: Dict[str, torch.Tensor]):
         # ====== Input data (squeeze to align to previous project)
-        input_node_fea: torch.Tensor = x["node_features"]  # shape: (batch_size, node_num, node_feature_dim)
-        input_node_coord: torch.Tensor = x["node_coord"]  # shape: (batch_size, node_num, node_coord_dim)
-        input_edge_indices: torch.Tensor = x["edges_indices"]  # shape: (batch_size, node_num, seq)
         input_theta = x["theta_vals"]  # shape: (batch_size, graph_feature)
         input_z_global = x["shape_coeffs"]  # shape: (batch_size, graph_feature)
 
         input_node = self._node_preprocess(x)  # shape: (batch_size, node_num, node_feature_dim+coord_dim)
 
         input_edge_fea = self._edge_fea_preprocess(x)  # shape: (batch_size, node_num, seq, 2*(node_feature/coord_dim))
-        input_edge_coord = self._edge_coord_preprocess(x)  # shape: (batch_size, node_num, seq, 2*(node_feature/coord_dim))
+        input_edge_coord = self._edge_coord_preprocess(
+            x
+        )  # shape: (batch_size, node_num, seq, 2*(node_feature/coord_dim))
         input_edge = torch.concat(
             [input_edge_fea, input_edge_coord], dim=-1
         )  # shape: (batch_size, node_num, seq, 2*(node_feature/coord_dim))
@@ -260,4 +258,3 @@ class GraphSAGEModel(BaseModule):
         # concatenate the predictions of each individual decoder mlp
         output = torch.concat(individual_mlp_predictions, dim=-1)  # shape: (batch_size, node_num, 1)
         return output
-

@@ -1,7 +1,8 @@
 import os
-from typing import Dict, Sequence, Optional
-import pandas as pd
+from typing import Dict, Optional
+
 import numpy as np
+import pandas as pd
 import torch
 
 from pkg.train.datasets.base_datasets import BaseDataset
@@ -13,18 +14,22 @@ logger = init_logger("GraphSage_Dataset")
 class GraphSageDataset(BaseDataset):
     """Data loader for graph-formatted input-output data with common, fixed topology."""
 
-    def __init__(self,
-                 data_config: Dict,
-                 data_type: str,
-                 coord_max_norm_val: Optional[np.array] = None,
-                 coord_min_norm_val: Optional[np.array] = None,
-                 distance_max_norm_val: Optional[np.array] = None,
-                 distance_min_norm_val: Optional[np.array] = None,
-                 ) -> None:
+    def __init__(
+        self,
+        data_config: Dict,
+        data_type: str,
+        coord_max_norm_val: Optional[np.array] = None,
+        coord_min_norm_val: Optional[np.array] = None,
+        distance_max_norm_val: Optional[np.array] = None,
+        distance_min_norm_val: Optional[np.array] = None,
+    ) -> None:
         super().__init__(data_config, data_type)
 
         self.coord_max_norm_val, self.coord_min_norm_val, self.distance_max_norm_val, self.distance_min_norm_val = (
-            coord_max_norm_val, coord_min_norm_val, distance_max_norm_val, distance_min_norm_val
+            coord_max_norm_val,
+            coord_min_norm_val,
+            distance_max_norm_val,
+            distance_min_norm_val,
         )
 
         self.default_padding_value = data_config.get("default_padding_value", -1)
@@ -56,16 +61,21 @@ class GraphSageDataset(BaseDataset):
         # node_distance = np.expand_dims(np.sqrt((node_coords ** 2).sum(axis=2)), axis=2)
 
         # === max min calculation
-        if (self.coord_max_norm_val is None and self.coord_min_norm_val is None and
-                self.distance_max_norm_val is None and self.distance_min_norm_val is None):
+        if (
+            self.coord_max_norm_val is None
+            and self.coord_min_norm_val is None
+            and self.distance_max_norm_val is None
+            and self.distance_min_norm_val is None
+        ):
             self.coord_max_norm_val = np.max(node_coords, axis=(0, 1))
             self.coord_min_norm_val = np.min(node_coords, axis=(0, 1))
             # self.distance_max_norm_val = np.max(node_distance, axis=(0, 1))
             # self.distance_min_norm_val = np.min(node_distance, axis=(0, 1))
         else:
-            logger.info(f"{data_type} dataset preset max_norm and min_norm is "
-                        f"{self.coord_max_norm_val} {self.coord_min_norm_val} "
-                        f"{self.distance_max_norm_val} {self.distance_min_norm_val}"
+            logger.info(
+                f"{data_type} dataset preset max_norm and min_norm is "
+                f"{self.coord_max_norm_val} {self.coord_min_norm_val} "
+                f"{self.distance_max_norm_val} {self.distance_min_norm_val}"
             )
 
         self._node_features = node_features
@@ -113,7 +123,7 @@ class GraphSageDataset(BaseDataset):
             )
 
             # retain n_shape_coeff of these to input to the emulator
-            self._shape_coeffs = shape_coeffs[:, :self.n_shape_coeff]
+            self._shape_coeffs = shape_coeffs[:, : self.n_shape_coeff]
 
         else:
             self._shape_coeffs = [None] * self._data_size
@@ -168,8 +178,10 @@ class GraphSageDataset(BaseDataset):
         real_topology_indices = sparse_topology[checked_topology_indices]
         reversed_topology_indices = real_topology_indices[:, ::-1]
 
-        df_edge = pd.DataFrame(np.concatenate((real_topology_indices, reversed_topology_indices), axis=0), columns=['sender', 'receiver'])
-        edge = df_edge.groupby('sender')['receiver'].apply(lambda x: sorted(list(set(x))))
+        df_edge = pd.DataFrame(
+            np.concatenate((real_topology_indices, reversed_topology_indices), axis=0), columns=["sender", "receiver"]
+        )
+        edge = df_edge.groupby("sender")["receiver"].apply(lambda x: sorted(list(set(x))))
 
         # Use groupby and apply a lambda function that converts data into a set.
         return np.array(list(map(list, zip_longest(*edge, fillvalue=self.default_padding_value)))).T
@@ -229,28 +241,26 @@ class GraphSageDataset(BaseDataset):
         return self.coord_min_norm_val
 
 
-
-
 # # edge features
-        # # === real node indices
-        # node_layer_labels = np.load(f"{topology_data_path}/node-layer-labels.npy")
-        # real_node_indices = np.where(node_layer_labels == 0)
-        #
-        # # load mesh topology (assumed fixed for each graph)
-        # sparse_topology = np.load(f"{topology_data_path}/sparse-topology.npy").astype(np.int32)
-        #
-        # checked_topology_indices = np.all(np.isin(sparse_topology, real_node_indices), axis=1)
-        # real_topology_indices = sparse_topology[checked_topology_indices]
-        # self._senders = real_topology_indices[:, 0]
-        # self._receivers = real_topology_indices[:, 1]
-        #
-        # # ==== calculate edge features
-        # edge = self.generate_topology_data(real_topology_indices, node_coords)
-        #
-        # # === calculate edge distance
-        # edge_distance = np.expand_dims(np.sqrt((edge ** 2).sum(axis=2)), axis=2)
-        #
-        # self._edges = torch.from_numpy(np.concatenate((edge, edge_distance), axis=2))
+# # === real node indices
+# node_layer_labels = np.load(f"{topology_data_path}/node-layer-labels.npy")
+# real_node_indices = np.where(node_layer_labels == 0)
+#
+# # load mesh topology (assumed fixed for each graph)
+# sparse_topology = np.load(f"{topology_data_path}/sparse-topology.npy").astype(np.int32)
+#
+# checked_topology_indices = np.all(np.isin(sparse_topology, real_node_indices), axis=1)
+# real_topology_indices = sparse_topology[checked_topology_indices]
+# self._senders = real_topology_indices[:, 0]
+# self._receivers = real_topology_indices[:, 1]
+#
+# # ==== calculate edge features
+# edge = self.generate_topology_data(real_topology_indices, node_coords)
+#
+# # === calculate edge distance
+# edge_distance = np.expand_dims(np.sqrt((edge ** 2).sum(axis=2)), axis=2)
+#
+# self._edges = torch.from_numpy(np.concatenate((edge, edge_distance), axis=2))
 
-        # array holding the displacement between end and start diastole
-        # (normalised for training data, un-normalised for validation and test data)
+# array holding the displacement between end and start diastole
+# (normalised for training data, un-normalised for validation and test data)

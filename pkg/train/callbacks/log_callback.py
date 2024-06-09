@@ -1,6 +1,7 @@
 import os
 import time
-from typing import Dict, Optional, Union
+from typing import Dict
+
 from pkg.train.callbacks.base_callback import CallBack
 from pkg.utils.logging import init_logger
 
@@ -46,7 +47,7 @@ class LogCallback(CallBack):
         if self.update_freq == "epoch" or epoch % self.update_freq == 0:
             train_logs = {
                 **{name: val for name, val in train_metrics.items()},
-                **{name: val for name, val in val_metrics.items()}
+                **{name: val for name, val in val_metrics.items()},
             }
             msg = " - ".join(f"{name}: {round(val, 5)}" for name, val in train_logs.items())
             self.logger.info(f"metrics: {epoch} - {round(time.time() - self.start_time, 2)}s - {msg}")

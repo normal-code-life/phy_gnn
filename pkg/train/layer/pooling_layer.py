@@ -1,10 +1,8 @@
-import math
-import numpy as np
-import torch
-import torch.nn as nn
-from pkg.train.model.base_model import BaseModule
 from typing import Dict
 
+import torch
+
+from pkg.train.model.base_model import BaseModule
 
 # class Aggregator(nn.Module):
 #
@@ -260,4 +258,3 @@ class SUMAggregator(PoolingLayer):
         Aggregated feature.
         """
         return torch.sum(x, dim=self.agg_dim, keepdim=self.keep_dim)
-

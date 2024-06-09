@@ -9,7 +9,8 @@ from pkg.train.model.base_model import BaseModule
 from pkg.train.trainer.base_trainer import BaseTrainer, TrainerConfig
 from pkg.utils.logging import init_logger
 from task.passive_lv_gnn_emul.train.datasets import LvDataset
-from task.passive_lv_gnn_emul.train.message_passing_layer import MessagePassingModule
+from task.passive_lv_gnn_emul.train.message_passing_layer import \
+    MessagePassingModule
 from task.passive_lv_gnn_emul.train.mlp_layer_ln import MLPLayerLN
 
 logger = init_logger("PassiveLvGNNEmul")
@@ -28,9 +29,11 @@ class PassiveLvGNNEmulTrainer(BaseTrainer):
 
         super().__init__(config)
 
-        self.task_train[
-            "init_weight_file_path"
-        ] = f"{config.task_base['task_path']}/train/{config.task_train['init_weight_file_path']}" if "init_weight_file_path" in config.task_train else None
+        self.task_train["init_weight_file_path"] = (
+            f"{config.task_base['task_path']}/train/{config.task_train['init_weight_file_path']}"
+            if "init_weight_file_path" in config.task_train
+            else None
+        )
 
         # config relative to dataset
         dataset_config = self.dataset_class(self.task_data, TRAIN_NAME)

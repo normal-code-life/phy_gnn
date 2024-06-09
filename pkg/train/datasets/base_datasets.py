@@ -1,6 +1,6 @@
-import numpy as np
 from typing import Dict
 
+import numpy as np
 from torch.utils.data import Dataset
 
 from pkg.utils.logging import init_logger
@@ -19,7 +19,6 @@ class BaseDataset(Dataset):
         raise NotImplementedError("please implement __len__ func")
 
     def get_head_inputs(self, batch_size) -> Dict:
-
         inputs, _ = self.__getitem__(np.arange(0, batch_size))
 
         return {key: data for key, data in inputs.items()}

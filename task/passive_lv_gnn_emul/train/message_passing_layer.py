@@ -72,8 +72,12 @@ class MessagePassingModule(BaseModule):
         messages_receivers = self.edge_update_fn[i](edge_input_receivers)  # shape: (440, 40)
         messages_senders = self.edge_update_fn[i](edge_input_senders)  # shape: (440, 40)
 
-        received_messages_ij = self.aggregate_incoming_messages(messages_receivers, receivers, n_total_nodes)  # shape: (126, 40)
-        received_messages_ji = self.aggregate_incoming_messages(messages_senders, senders, n_total_nodes)  # shape: (126, 40)
+        received_messages_ij = self.aggregate_incoming_messages(
+            messages_receivers, receivers, n_total_nodes
+        )  # shape: (126, 40)
+        received_messages_ji = self.aggregate_incoming_messages(
+            messages_senders, senders, n_total_nodes
+        )  # shape: (126, 40)
 
         # concatenate node representation with incoming messages and then update node representation
         node_input = torch.concat((node, received_messages_ij + received_messages_ji), dim=-1)  # shape: (126, 80)
