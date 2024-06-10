@@ -1,6 +1,6 @@
 task_base:
   task_name: graph_sage
-  exp_name: 8
+  exp_name: 8_1
   overwrite_exp_folder: False
   gpu: True
 task_data:

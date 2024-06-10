@@ -93,9 +93,14 @@ class GraphSageDataset(BaseDataset):
         elif edge_indices_generate_method == 1:
             edges = self._calculate_edge_from_topology(topology_data_path)
 
-            column1 = np.zeros((edges.shape[0], 1), np.int64)
-            column2 = np.full((edges.shape[0], 1), 1500, np.int64)
-            edges = np.concatenate((edges, column1, column2), axis=-1)
+            # column1 = np.zeros((edges.shape[0], 1), np.int64)
+            # column2 = np.full((edges.shape[0], 1), 1500, np.int64)
+            # edges = np.concatenate((edges, column1, column2), axis=-1)
+            # edges = np.repeat(edges[np.newaxis, :, :], node_coords.shape[0], axis=0)
+
+            for i in range(1, 6700, 700):
+                edge_column = np.full((edges.shape[0], 1), i, np.int64)
+                edges = np.concatenate((edges, edge_column), axis=-1)
             edges = np.repeat(edges[np.newaxis, :, :], node_coords.shape[0], axis=0)
 
         elif edge_indices_generate_method == 2:

@@ -262,7 +262,7 @@ class BaseTrainer(abc.ABC):
             logger.info(f"cuda version: {torch.version.cuda}")
             logger.info(f"model device check: {next(model.parameters()).device}")
 
-        # self.print_model(model, train_dataset.get_head_inputs(dataset_param.get("batch_size", 1)))
+        self.print_model(model, train_dataset.get_head_inputs(dataset_param.get("batch_size", 1)))
 
         if self.static_graph:
             model = torch.jit.trace(model, train_dataset.get_head_inputs())
