@@ -98,8 +98,13 @@ class GraphSageDataset(BaseDataset):
             # edges = np.concatenate((edges, column1, column2), axis=-1)
             # edges = np.repeat(edges[np.newaxis, :, :], node_coords.shape[0], axis=0)
 
-            for i in range(1, 6700, 700):
-                edge_column = np.full((edges.shape[0], 1), i, np.int64)
+            # for i in range(1, 6700, 700):
+            #     edge_column = np.full((edges.shape[0], 1), i, np.int64)
+            #     edges = np.concatenate((edges, edge_column), axis=-1)
+            # edges = np.repeat(edges[np.newaxis, :, :], node_coords.shape[0], axis=0)
+
+            for i in range(5):
+                edge_column = np.random.randint(low=1, high=6700, size=(edges.shape[0], 1))
                 edges = np.concatenate((edges, edge_column), axis=-1)
             edges = np.repeat(edges[np.newaxis, :, :], node_coords.shape[0], axis=0)
 
