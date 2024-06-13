@@ -13,7 +13,7 @@ if __name__ == "__main__":
         "task_path": f"{repo_root_path}/task/graph_sage",
         "gpu": False,
         "n_shape_coeff": 32,
-        "edge_indices_generate_method": 1,
+        "edge_indices_generate_method": 2,
         "default_padding_value": -1,
     }
 

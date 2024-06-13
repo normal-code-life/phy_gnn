@@ -1,11 +1,12 @@
 task_base:
   task_name: graph_sage
-  exp_name: 8_2
+  exp_name: 9
   overwrite_exp_folder: False
   gpu: True
+  cuda_core: "cuda:1"
 task_data:
   task_data_name: lvData
-  edge_indices_generate_method: 1
+  edge_indices_generate_method: 2
   n_shape_coeff: 32  # Number of shape coefficients to input to the emulator
 task_trainer:
   model_name: GraphSAGEModel

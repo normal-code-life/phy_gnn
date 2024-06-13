@@ -109,7 +109,7 @@ class GraphSageDataset(BaseDataset):
             edges = np.repeat(edges[np.newaxis, :, :], node_coords.shape[0], axis=0)
 
         elif edge_indices_generate_method == 2:
-            edge_file_path = f"{base_task_path}/data/node_neighbours_distance.npy"
+            edge_file_path = f"{base_task_path}/data/node_neighbours_distance_{data_type}.npy"
             if os.path.exists(edge_file_path):
                 edges = np.load(edge_file_path).astype(np.float32)
             else:
@@ -212,15 +212,44 @@ class GraphSageDataset(BaseDataset):
         return np.array(list(map(list, zip_longest(*edge, fillvalue=self.default_padding_value)))).T
 
     def _calculate_node_neighbour_distance(self, node_coord: np.ndarray, batch_size: int = 20) -> np.ndarray:
-        num_nodes = 2  # node_coord.shape[0]
-        sorted_indices_by_dist = np.empty((num_nodes, node_coord.shape[1], node_coord.shape[1]), dtype=np.int64)
+        num_nodes = node_coord.shape[0]
+        sorted_indices_by_dist = np.empty((num_nodes, node_coord.shape[1], 100), dtype=np.int16)
         for i in range(0, num_nodes, batch_size):
             end = min(i + batch_size, num_nodes)
             relative_positions = node_coord[i:end, :, np.newaxis, :] - node_coord[i:end, np.newaxis, :, :]
             relative_distance = np.sqrt(np.sum(np.square(relative_positions), axis=-1, keepdims=True))
-            sorted_indices_by_dist[i:end] = np.argsort(relative_distance.squeeze(axis=-1), axis=-1)
+            sorted_indices = np.argsort(relative_distance.squeeze(axis=-1), axis=-1)
+            sorted_indices_by_dist[i:end] = self._random_select_nodes(sorted_indices)
 
-        return sorted_indices_by_dist
+            logger.info(f"calculate sorted_indices_by_dist for {i} done")
+
+        return sorted_indices_by_dist[...,1:]  # remove the node itself
+
+    def _random_select_nodes(self, indices: np.ndarray) -> np.ndarray:
+        batch_size, rows, cols = indices.shape
+        sections = [0, 20, 200, 1000, cols]
+        max_select_node = [20, 40, 30, 10]
+        num_select_total = sum(max_select_node)
+
+        selected_indices = np.zeros((batch_size, rows, num_select_total), dtype=np.int32)
+
+        for i in range(len(sections) - 1):
+            start_idx = 0 if i == 0 else sum(max_select_node[:i])
+            num_random_indices = max_select_node[i]
+            range_start = sections[i]
+            range_end = sections[i + 1]
+
+            for b in range(batch_size):
+                for r in range(rows):
+                    random_indices = np.random.permutation(range_end - range_start)[:num_random_indices]
+                    selected_indices[b, r, start_idx:start_idx + num_random_indices] = random_indices + range_start
+
+        # Gather the selected indices from the original indices
+        batch_indices = np.arange(batch_size)[:, None, None]
+        row_indices = np.arange(rows)[None, :, None]
+        selected_values = indices[batch_indices, row_indices, selected_indices]
+
+        return selected_values
 
     def _calculate_edge_by_top_k(self, sorted_indices_by_dist: np.ndarray, k: int) -> np.ndarray:
         return sorted_indices_by_dist[..., :k]

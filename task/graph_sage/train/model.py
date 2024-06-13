@@ -196,6 +196,54 @@ class GraphSAGEModel(BaseModule):
 
         return edge_fea
 
+    def _node_emb(self, node_emb: torch.Tensor, input_edge_indices: torch.Tensor) -> torch.Tensor:
+        fea_dim: int = node_emb.shape[-1]  # feature for each of the node
+        seq: int = input_edge_indices.shape[-1]  # neighbours seq for each of the center node
+
+        # === expand node feature to match indices shape
+        # shape: (batch_size, node_num, node_feature_dim/node_coord_dim) =>
+        # (batch_size, node_num, 1, node_feature_dim) =>
+        # (batch_size, node_num, seq, node_feature_dim)
+        node_emb_expanded: torch.Tensor = node_emb.unsqueeze(2).expand(-1, -1, seq, -1)
+
+        # parse seq data
+        # === expand indices to match feature shape
+        # shape: (batch_size, node_num, seq) =>
+        # (batch_size, node_num, seq, 1) =>
+        # (batch_size, node_num, seq, node_feature_dim)
+        indices_fea_expanded: torch.Tensor = input_edge_indices.unsqueeze(-1).expand(-1, -1, -1, fea_dim)
+
+        # === gather feature/coord
+        return torch.gather(node_emb_expanded, 1, indices_fea_expanded)
+
+    def _edge_coord(self, input_node_coord: torch.Tensor, input_edge_indices: torch.Tensor) -> torch.Tensor:
+        coord_dim: int = input_node_coord.shape[-1]  # coord for each of the node
+        seq: int = input_edge_indices.shape[-1]  # neighbours seq for each of the center node
+
+        # === expand node feature to match indices shape
+        # shape: (batch_size, node_num, node_coord_dim) =>
+        # (batch_size, node_num, 1, node_coord_dim) =>
+        # (batch_size, node_num, seq, node_coord_dim)
+        node_coord_expanded: torch.Tensor = input_node_coord.unsqueeze(2).expand(-1, -1, seq, -1)
+
+        # parse seq data
+        # === expand indices to match feature shape
+        # shape: (batch_size, node_num, seq) =>
+        # (batch_size, node_num, seq, 1) =>
+        # (batch_size, node_num, seq, node_coord_dim)
+        indices_coord_expanded: torch.Tensor = input_edge_indices.unsqueeze(-1).expand(-1, -1, -1, coord_dim)
+
+        # === gather coord
+        node_seq_coord: torch.Tensor = torch.gather(node_coord_expanded, 1, indices_coord_expanded)
+
+        # combine node data + seq data => edge data
+        # shape: (batch_size, node_num, seq, node_coord_dim) =>
+        # (batch_size, node_num, seq, 2 * node_coord_dim)
+        edge_vertex_coord: torch.Tensor = torch.concat([node_coord_expanded, node_seq_coord], dim=-1)
+        edge_coord: torch.Tensor = node_coord_expanded - node_seq_coord
+
+        return torch.concat([edge_coord, edge_vertex_coord], dim=-1)
+
     def message_passing_layer(self, node_emb: torch.Tensor, edge_seq_emb: torch.Tensor) -> (torch.Tensor, torch.Tensor):
         seq: int = edge_seq_emb.shape[-2]
 
@@ -218,7 +266,68 @@ class GraphSAGEModel(BaseModule):
 
         return node_emb
 
+    def random_select_nodes(self, indices: torch.Tensor) -> torch.Tensor:
+        batch_size, rows, cols = indices.shape
+        sections = [0, 20, 200, 1000, cols]
+        max_select_node = [4, 3, 2, 1]
+        max_num_select_per_section = 4
+        num_select_total = 10
+
+        selected_indices = torch.zeros(batch_size, rows, num_select_total, dtype=torch.long)
+
+        for i in range(len(sections) - 1):
+            start_idx = 0 if i == 0 else sum(max_select_node[: i])
+
+            random_indices = torch.randperm(sections[i+1] - sections[i])[: max_num_select_per_section - i]
+            selected_indices[:, :, start_idx: start_idx + sections[i]] = random_indices + sections[i]
+
+        return torch.gather(indices, -1, selected_indices)
+
+    def random_select_nodes_v2(self, indices: torch.Tensor) -> torch.Tensor:
+        num_select = 7
+
+        batch_size, rows, cols = indices.shape
+
+        random_indices = torch.randint(0, cols, (batch_size, rows, num_select), dtype=torch.long)
+
+        batch_indices = torch.arange(batch_size)[:, None, None]
+
+        row_indices = torch.arange(rows)[None, :, None]
+
+        return indices[batch_indices, row_indices, random_indices]
+
+    def message_passing_layer_v2(self, x: Dict, node_emb: torch.Tensor) -> (torch.Tensor, torch.Tensor):
+        input_edge_indices: torch.Tensor = x["edges_indices"]  # shape: (batch_size, node_num, seq)
+        input_node_coord: torch.Tensor = x["node_coord"]  # shape: (batch_size, node_num, coord_dim)
+
+        for i in range(self.message_layer_num):
+            selected_edge = self.random_select_nodes_v2(input_edge_indices)  # shape: (batch_size, node_num, seq)
+            seq: int = selected_edge.shape[-1]
+
+            edge_seq_emb = self._node_emb(node_emb, selected_edge)  # shape: (batch_size, node_num, seq, emb)
+            edge_coord = self._edge_coord(input_node_coord, selected_edge)  # shape: (batch_size, node_num, seq, emb)
+
+            # shape: (batch_size, node_num, 1, node_emb) => (batch_size, node_num, seq, node_emb)
+            node_emb_expanded = node_emb.unsqueeze(dim=-2).expand(-1, -1, seq, -1)
+
+            edge_seq_emb_up = torch.concat([node_emb_expanded, edge_seq_emb, edge_coord], dim=-1)
+
+            edge_seq_emb_up = self.edge_update_fn[i](edge_seq_emb_up)  # shape: (batch_size, node_num, seq, edge_emb)
+
+            edge_emb_pooling = self.message_agg_pooling(edge_seq_emb_up)  # shape: (batch_size, node_num, edge_emb)
+
+            node_emb_up = torch.concat([node_emb, edge_emb_pooling], dim=-1)
+
+            node_emb_up = self.node_update_fn[i](node_emb_up)  # shape: (batch_size, node_num, node_emb)
+
+            node_emb = node_emb + node_emb_up
+
+        return node_emb
+
     def forward(self, x: Dict[str, torch.Tensor]):
+        return self.forward_v2(x)
+
+    def forward_v1(self, x: Dict[str, torch.Tensor]):
         # ====== Input data (squeeze to align to previous project)
         input_theta = x["theta_vals"]  # shape: (batch_size, graph_feature)
         input_z_global = x["shape_coeffs"]  # shape: (batch_size, graph_feature)
@@ -236,6 +345,38 @@ class GraphSAGEModel(BaseModule):
         edge_seq_emb = self.edge_encode_mlp_layer(input_edge)  # shape: (batch_size, node_num, seq, emb)
 
         z_local = self.message_passing_layer(node_emb, edge_seq_emb)  # shape: (batch_size, node_num, node_emb)
+
+        # encode global parameters theta
+        z_theta = self.theta_encode_mlp_layer(input_theta)  # shape: (batch_size, theta_feature)
+
+        # tile global values (z_theta and optionally z_global) to each individual real node
+        global_fea = torch.concat((z_theta, input_z_global), dim=-1)  # shape: (batch_size, emb)
+        global_fea = global_fea.unsqueeze(dim=-2)  # shape: (batch_size, 1, emb)
+        global_fea_expanded = torch.tile(global_fea, (1, z_local.shape[1], 1))  # shape: (batch_size, node_num, emb)
+
+        encoding_emb = torch.concat((global_fea_expanded, z_local), dim=-1)  # shape: (batch_size, node_num, emb)
+
+        # ====== Decoder:
+        # make prediction for forward displacement using different decoder mlp for each dimension
+        individual_mlp_predictions = [
+            decode_mlp(encoding_emb) for decode_mlp in self.decoder_layer
+        ]  # shape: List[(batch_size, node_num, 1)]
+
+        # concatenate the predictions of each individual decoder mlp
+        output = torch.concat(individual_mlp_predictions, dim=-1)  # shape: (batch_size, node_num, 1)
+        return output
+
+    def forward_v2(self, x: Dict[str, torch.Tensor]):
+        # ====== Input data (squeeze to align to previous project)
+        input_theta = x["theta_vals"]  # shape: (batch_size, graph_feature)
+        input_z_global = x["shape_coeffs"]  # shape: (batch_size, graph_feature)
+
+        input_node = self._node_preprocess(x)  # shape: (batch_size, node_num, node_feature_dim+coord_dim)
+
+        # ====== message passing layer: Encoder & Aggregate
+        node_emb = self.node_encode_mlp_layer(input_node)  # shape: (batch_size, node_num, node_emb)
+
+        z_local = self.message_passing_layer_v2(x, node_emb)  # shape: (batch_size, node_num, node_emb)
 
         # encode global parameters theta
         z_theta = self.theta_encode_mlp_layer(input_theta)  # shape: (batch_size, theta_feature)
