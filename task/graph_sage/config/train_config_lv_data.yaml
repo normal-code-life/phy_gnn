@@ -54,7 +54,7 @@ task_train:
       layer_norm: True
       activation: tanh
     edge_mlp_layer:
-      unit_sizes: [80, 128, 128, 40]
+      unit_sizes: [89, 128, 128, 40]
       layer_norm: True
       activation: tanh
   theta_input_mlp_layer:

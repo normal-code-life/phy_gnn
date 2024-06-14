@@ -115,6 +115,7 @@ class GraphSageDataset(BaseDataset):
             else:
                 edges = self._calculate_node_neighbour_distance(node_coords)
                 np.save(edge_file_path, edges)
+            edges = edges.astype(np.int64)
         else:
             raise ValueError("please check and define the edge_generate_method properly")
 
@@ -219,11 +220,11 @@ class GraphSageDataset(BaseDataset):
             relative_positions = node_coord[i:end, :, np.newaxis, :] - node_coord[i:end, np.newaxis, :, :]
             relative_distance = np.sqrt(np.sum(np.square(relative_positions), axis=-1, keepdims=True))
             sorted_indices = np.argsort(relative_distance.squeeze(axis=-1), axis=-1)
-            sorted_indices_by_dist[i:end] = self._random_select_nodes(sorted_indices)
+            sorted_indices_by_dist[i:end] = self._random_select_nodes(sorted_indices[..., 1:])
 
             logger.info(f"calculate sorted_indices_by_dist for {i} done")
 
-        return sorted_indices_by_dist[...,1:]  # remove the node itself
+        return sorted_indices_by_dist  # remove the node itself
 
     def _random_select_nodes(self, indices: np.ndarray) -> np.ndarray:
         batch_size, rows, cols = indices.shape

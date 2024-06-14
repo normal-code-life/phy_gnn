@@ -273,7 +273,7 @@ class GraphSAGEModel(BaseModule):
         max_num_select_per_section = 4
         num_select_total = 10
 
-        selected_indices = torch.zeros(batch_size, rows, num_select_total, dtype=torch.long)
+        selected_indices = torch.zeros(batch_size, rows, num_select_total, dtype=torch.int64)
 
         for i in range(len(sections) - 1):
             start_idx = 0 if i == 0 else sum(max_select_node[: i])
@@ -288,7 +288,7 @@ class GraphSAGEModel(BaseModule):
 
         batch_size, rows, cols = indices.shape
 
-        random_indices = torch.randint(0, cols, (batch_size, rows, num_select), dtype=torch.long)
+        random_indices = torch.randint(0, cols, (batch_size, rows, num_select), dtype=torch.int64)
 
         batch_indices = torch.arange(batch_size)[:, None, None]
 
