@@ -14,6 +14,7 @@ class BaseDataset(Dataset):
         logger.info(data_config)
 
         self.gpu = data_config["gpu"]
+        self.data_type = data_type
 
     def __len__(self):
         raise NotImplementedError("please implement __len__ func")
