@@ -196,7 +196,7 @@ class GraphSAGEModel(BaseModule):
 
         return edge_fea
 
-    def _node_emb(self, node_emb: torch.Tensor, input_edge_indices: torch.Tensor) -> torch.Tensor:
+    def _edge_emb(self, node_emb: torch.Tensor, input_edge_indices: torch.Tensor) -> torch.Tensor:
         fea_dim: int = node_emb.shape[-1]  # feature for each of the node
         seq: int = input_edge_indices.shape[-1]  # neighbours seq for each of the center node
 
@@ -304,7 +304,7 @@ class GraphSAGEModel(BaseModule):
             selected_edge = self.random_select_nodes_v2(input_edge_indices)  # shape: (batch_size, node_num, seq)
             seq: int = selected_edge.shape[-1]
 
-            edge_seq_emb = self._node_emb(node_emb, selected_edge)  # shape: (batch_size, node_num, seq, emb)
+            edge_seq_emb = self._edge_emb(node_emb, selected_edge)  # shape: (batch_size, node_num, seq, emb)
             edge_coord = self._edge_coord(input_node_coord, selected_edge)  # shape: (batch_size, node_num, seq, emb)
 
             # shape: (batch_size, node_num, 1, node_emb) => (batch_size, node_num, seq, node_emb)
