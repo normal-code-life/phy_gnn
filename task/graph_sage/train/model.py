@@ -284,7 +284,10 @@ class GraphSAGEModel(BaseModule):
         return torch.gather(indices, -1, selected_indices)
 
     def random_select_nodes_v2(self, indices: torch.Tensor) -> torch.Tensor:
-        num_select = 7
+        if self.training:
+            num_select = 7
+        else:
+            num_select = 15
 
         batch_size, rows, cols = indices.shape
 

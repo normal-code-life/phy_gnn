@@ -10,28 +10,16 @@ from pkg.utils.logging import init_logger
 
 logger = init_logger("GraphSage_Dataset")
 
+norm_stats_file = "normalisationStatistics"
+real_node_coord_max_norm = "real_node_coord_max_norm"
+real_node_coord_min_norm = "real_node_coord_min_norm"
 
-class GraphSageDatasetV2(BaseDataset):
+
+class GraphSageDataset(BaseDataset):
     """Data loader for graph-formatted input-output data with common, fixed topology."""
 
-    def __init__(
-        self,
-        data_config: Dict,
-        data_type: str,
-        coord_max_norm_val: Optional[np.array] = None,
-        coord_min_norm_val: Optional[np.array] = None,
-        distance_max_norm_val: Optional[np.array] = None,
-        distance_min_norm_val: Optional[np.array] = None,
-    ) -> None:
+    def __init__(self, data_config: Dict, data_type: str) -> None:
         super().__init__(data_config, data_type)
-
-        self.coord_max_norm_val, self.coord_min_norm_val, self.distance_max_norm_val, self.distance_min_norm_val = (
-            coord_max_norm_val,
-            coord_min_norm_val,
-            distance_max_norm_val,
-            distance_min_norm_val,
-        )
-
         # fetch data from local path
         base_data_path = f"{data_config['task_data_path']}"
         base_task_path = f"{data_config['task_path']}"
@@ -48,7 +36,7 @@ class GraphSageDatasetV2(BaseDataset):
         self.raw_data_path = f"{base_data_path}/rawData/{data_type}"
         self.processed_data_path = f"{base_data_path}/processedData/{data_type}"
         self.topology_data_path = f"{base_data_path}/topologyData"
-        self.stats_data_path = f"{base_data_path}/normalisationStatistics"
+        self.stats_data_path = f"{base_data_path}/{norm_stats_file}"
 
         logger.info(f"base_data_path is {base_data_path}")
         logger.info(f"base_task_path is {base_task_path}")
@@ -65,62 +53,27 @@ class GraphSageDatasetV2(BaseDataset):
         # node_distance = np.expand_dims(np.sqrt((node_coords ** 2).sum(axis=2)), axis=2)
 
         # === max min calculation
-        if (
-            self.coord_max_norm_val is None
-            and self.coord_min_norm_val is None
-            and self.distance_max_norm_val is None
-            and self.distance_min_norm_val is None
-        ):
-            self.coord_max_norm_val = np.max(node_coords, axis=(0, 1))
-            self.coord_min_norm_val = np.min(node_coords, axis=(0, 1))
-            # self.distance_max_norm_val = np.max(node_distance, axis=(0, 1))
-            # self.distance_min_norm_val = np.min(node_distance, axis=(0, 1))
-        else:
+        coord_max_norm_path = f"{self.stats_data_path}/{real_node_coord_max_norm}.npy"
+        coord_min_norm_path = f"{self.stats_data_path}/{real_node_coord_min_norm}.npy"
+
+        if os.path.exists(coord_max_norm_path) and os.path.exists(coord_max_norm_path):
+            self._coord_max_norm_val = np.load(coord_max_norm_path).astype(np.float32)
+            self._coord_min_norm_val = np.load(coord_min_norm_path).astype(np.float32)
+
             logger.info(
-                f"{data_type} dataset preset max_norm and min_norm is "
-                f"{self.coord_max_norm_val} {self.coord_min_norm_val} "
-                f"{self.distance_max_norm_val} {self.distance_min_norm_val}"
+                f"{self.data_type} dataset preset max_norm and min_norm is "
+                f"{self._coord_max_norm_val} {self._coord_min_norm_val}"
             )
 
-        self._node_features = node_features
-        self._node_coord_origin = node_coords
-        self._node_coord = self.coord_normalization_max_min(node_coords)
-        logger.info(f"node_features shape: {self._node_features.shape}, node_coord: {self._node_coord.shape}")
+            self._node_features = node_features
+            self._node_coord = self._coord_normalization_max_min(node_coords)
+            logger.info(f"node_features shape: {self._node_features.shape}, node_coord: {self._node_coord.shape}")
 
         # edge features
-        edge_indices_generate_method = data_config["edge_indices_generate_method"]
-        if edge_indices_generate_method == 0:
-            edges = self._calculate_edge_from_topology(self.topology_data_path)
-            edges = np.repeat(edges[np.newaxis, :, :], node_coords.shape[0], axis=0)
-        elif edge_indices_generate_method == 1:
-            edges = self._calculate_edge_from_topology(self.topology_data_path)
-
-            # column1 = np.zeros((edges.shape[0], 1), np.int64)
-            # column2 = np.full((edges.shape[0], 1), 1500, np.int64)
-            # edges = np.concatenate((edges, column1, column2), axis=-1)
-            # edges = np.repeat(edges[np.newaxis, :, :], node_coords.shape[0], axis=0)
-
-            # for i in range(1, 6700, 700):
-            #     edge_column = np.full((edges.shape[0], 1), i, np.int64)
-            #     edges = np.concatenate((edges, edge_column), axis=-1)
-            # edges = np.repeat(edges[np.newaxis, :, :], node_coords.shape[0], axis=0)
-
-            for i in range(5):
-                edge_column = np.random.randint(low=1, high=6700, size=(edges.shape[0], 1))
-                edges = np.concatenate((edges, edge_column), axis=-1)
-            edges = np.repeat(edges[np.newaxis, :, :], node_coords.shape[0], axis=0)
-
-        elif edge_indices_generate_method == 2:
-            edge_file_path = f"{self.processed_data_path}/node_neighbours_distance_{data_type}_9_2.npy"
-            if os.path.exists(edge_file_path):
-                edges = np.load(edge_file_path).astype(np.float32)
-
-            edges = edges.astype(np.int64)
-        else:
-            raise ValueError("please check and define the edge_generate_method properly")
-
-        self._edges_indices = edges
-        logger.info(f"edges shape: {self._edges_indices.shape}")
+        edge_file_path = f"{self.processed_data_path}/node_neighbours_all_distance_{self.data_type}.npy"
+        if os.path.exists(edge_file_path):
+            self._edges_indices = np.load(edge_file_path, mmap_mode="r").astype(np.int64)
+            logger.info(f"edges shape: {self._edges_indices.shape}")
 
         # global variables are the same for each node in the graph (e.g. global material stiffness parameters)
         self._theta_vals = np.load(f"{self.processed_data_path}/global-features.npy").astype(np.float32)
@@ -154,32 +107,26 @@ class GraphSageDatasetV2(BaseDataset):
         else:
             self._shape_coeffs = [None] * self._data_size
 
-        self._node_features = torch.from_numpy(self._node_features)
-        self._node_coord = torch.from_numpy(self._node_coord)
-        self._edges_indices = torch.from_numpy(self._edges_indices)
-        self._theta_vals = torch.from_numpy(self._theta_vals)
-        self._displacement = torch.from_numpy(self._displacement)
-        self._shape_coeffs = torch.from_numpy(self._shape_coeffs)
-
-        if self.gpu:
-            self._node_features = self._node_features.cuda()
-            self._node_coord = self._node_coord.cuda()
-            self._edges_indices = self._edges_indices.cuda()
-            self._theta_vals = self._theta_vals.cuda()
-            self._shape_coeffs = self._shape_coeffs.cuda()
-            self._displacement = self._displacement.cuda()
-
     def __len__(self):
         return self._data_size
 
     def __getitem__(self, index) -> (Dict, torch.Tensor):
-        node_features = self._node_features[index]
-        node_coord = self._node_coord[index]
-        edges_indices = self._edges_indices[index]
-        shape_coeffs = self._shape_coeffs[index]
-        theta_vals = self._theta_vals[index]
+        node_features = torch.from_numpy(self._node_features[index])
+        node_coord = torch.from_numpy(self._node_coord[index])
+        edges_indices = torch.from_numpy(self._edges_indices[index])
+        theta_vals = torch.from_numpy(self._theta_vals[index])
+        shape_coeffs = torch.from_numpy(self._shape_coeffs[index])
 
-        labels = self._displacement[index]
+        labels = torch.from_numpy(self._displacement[index])
+
+        if self.gpu:
+            node_features = node_features.cuda()
+            node_coord = node_coord.cuda()
+            edges_indices = edges_indices.cuda()
+            theta_vals = theta_vals.cuda()
+            shape_coeffs = shape_coeffs.cuda()
+
+            labels = labels.cuda()
 
         sample = {
             "node_features": node_features,
@@ -191,56 +138,6 @@ class GraphSageDatasetV2(BaseDataset):
 
         return sample, labels
 
-    # method 0: read original default topology data
-    def _calculate_edge_from_topology(self, data_path: str):
-        from itertools import zip_longest
-
-        node_layer_labels = np.load(f"{data_path}/node-layer-labels.npy")
-        real_node_indices = np.where(node_layer_labels == 0)
-        # load mesh topology (assumed fixed for each graph)
-        sparse_topology = np.load(f"{data_path}/sparse-topology.npy").astype(np.int32)
-
-        checked_topology_indices = np.all(np.isin(sparse_topology, real_node_indices), axis=1)
-        real_topology_indices = sparse_topology[checked_topology_indices]
-        reversed_topology_indices = real_topology_indices[:, ::-1]
-
-        df_edge = pd.DataFrame(
-            np.concatenate((real_topology_indices, reversed_topology_indices), axis=0), columns=["sender", "receiver"]
-        )
-        edge = df_edge.groupby("sender")["receiver"].apply(lambda x: sorted(list(set(x))))
-
-        # Use groupby and apply a lambda function that converts data into a set.
-        return np.array(list(map(list, zip_longest(*edge, fillvalue=self.default_padding_value)))).T
-
-    def _random_select_nodes(self, indices: np.ndarray) -> np.ndarray:
-        batch_size, rows, cols = indices.shape
-        sections = [0, 60, 100, 200, 500]
-        max_select_node = [60, 20, 15, 5]
-        num_select_total = sum(max_select_node)
-
-        selected_indices = np.zeros((batch_size, rows, num_select_total), dtype=np.int32)
-
-        for i in range(len(sections) - 1):
-            start_idx = 0 if i == 0 else sum(max_select_node[:i])
-            num_random_indices = max_select_node[i]
-            range_start = sections[i]
-            range_end = sections[i + 1]
-
-            for b in range(batch_size):
-                for r in range(rows):
-                    random_indices = np.random.permutation(range_end - range_start)[:num_random_indices]
-                    selected_indices[b, r, start_idx:start_idx + num_random_indices] = random_indices + range_start
-
-        # Gather the selected indices from the original indices
-        batch_indices = np.arange(batch_size)[:, None, None]
-        row_indices = np.arange(rows)[None, :, None]
-        selected_values = indices[batch_indices, row_indices, selected_indices]
-
-        return selected_values
-
-    def _calculate_edge_by_top_k(self, sorted_indices_by_dist: np.ndarray, k: int) -> np.ndarray:
-        return sorted_indices_by_dist[..., :k]
-
     def get_displacement_mean(self) -> torch.tensor:
         _displacement_mean = torch.from_numpy(self._displacement_mean)
         return self._displacement_mean if not self.gpu else _displacement_mean.cuda()
@@ -249,43 +146,17 @@ class GraphSageDatasetV2(BaseDataset):
         _displacement_std = torch.from_numpy(self._displacement_std)
         return _displacement_std if not self.gpu else _displacement_std.cuda()
 
-    def generate_topology_data(self, topology_indices: np.ndarray, node_coord: np.ndarray) -> np.ndarray:
-        shape = np.shape(node_coord)
-
-        senders = node_coord[np.arange(shape[0])[:, None], topology_indices[:, 0], :]
-        receivers = node_coord[np.arange(shape[0])[:, None], topology_indices[:, 1], :]
-
-        return senders - receivers
-
-    def coord_normalization_max_min(self, array: np.ndarray) -> np.ndarray:
-        max_val = np.expand_dims(self.coord_max_norm_val, axis=(0, 1))
-        min_val = np.expand_dims(self.coord_min_norm_val, axis=(0, 1))
+    def _coord_normalization_max_min(self, array: np.ndarray) -> np.ndarray:
+        max_val = np.expand_dims(self._coord_max_norm_val, axis=(0, 1))
+        min_val = np.expand_dims(self._coord_min_norm_val, axis=(0, 1))
 
         return (array - min_val) / (max_val - min_val)
-
-    def distance_normalization_max_min(self, array: np.ndarray) -> np.ndarray:
-        max_val = np.expand_dims(self.distance_max_norm_val, axis=(0, 1))
-        min_val = np.expand_dims(self.distance_min_norm_val, axis=(0, 1))
-
-        return (array - min_val) / (max_val - min_val)
-
-    def get_distance_max_norm_val(self) -> np.array:
-        return self.distance_max_norm_val
-
-    def get_distance_min_norm_val(self) -> np.array:
-        return self.distance_min_norm_val
-
-    def get_coord_max_norm_val(self) -> np.array:
-        return self.coord_max_norm_val
-
-    def get_coord_min_norm_val(self) -> np.array:
-        return self.coord_min_norm_val
 
     def preprocess_node_neighbours(self, chunk_size: int = 50) -> None:
         file_path = f"{self.processed_data_path}/node_neighbours_all_distance_{self.data_type}.npy"
 
-        # if os.path.exists(file_path):
-        #     return
+        if os.path.exists(file_path):
+            return
 
         if self.gpu:
             self._preprocess_edge_by_gpu(file_path, chunk_size)
@@ -295,7 +166,7 @@ class GraphSageDatasetV2(BaseDataset):
         return
 
     def _preprocess_edge_by_cpu(self, file_path: str, chunk_size: int) -> None:
-        node = self._node_coord_origin
+        node = np.load(f"{self.processed_data_path}/real-node-coords.npy").astype(np.float32)
 
         node_shape = node.shape
 
@@ -316,7 +187,7 @@ class GraphSageDatasetV2(BaseDataset):
                 logger.info(f"calculate sorted_indices_by_dist for {i} - {i + chunk_size - 1} done")
 
     def _preprocess_edge_by_gpu(self, file_path: str, chunk_size: int) -> None:
-        node = self._node_coord_origin
+        node = np.load(f"{self.processed_data_path}/real-node-coords.npy").astype(np.float32)
 
         node_shape = node.shape
 
@@ -337,3 +208,13 @@ class GraphSageDatasetV2(BaseDataset):
                 chunk.tofile(f)  # 写入文件
 
                 logger.info(f"calculate sorted_indices_by_dist for {i} - {i + chunk_size - 1} done")
+
+    def preprocess_node_coord(self) -> None:
+        node_coords = np.load(f"{self.processed_data_path}/real-node-coords.npy").astype(np.float32)
+
+        coord_max_norm_val = np.max(node_coords, axis=(0, 1))
+        coord_min_norm_val = np.min(node_coords, axis=(0, 1))
+
+        np.save(f"{self.stats_data_path}/{real_node_coord_max_norm}", coord_max_norm_val)
+        np.save(f"{self.stats_data_path}/{real_node_coord_min_norm}", coord_min_norm_val)
+
