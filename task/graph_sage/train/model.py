@@ -276,15 +276,15 @@ class GraphSAGEModel(BaseModule):
         selected_indices = torch.zeros(batch_size, rows, num_select_total, dtype=torch.int64)
 
         for i in range(len(sections) - 1):
-            start_idx = 0 if i == 0 else sum(max_select_node[: i])
+            start_idx = 0 if i == 0 else sum(max_select_node[:i])
 
-            random_indices = torch.randperm(sections[i+1] - sections[i])[: max_num_select_per_section - i]
-            selected_indices[:, :, start_idx: start_idx + sections[i]] = random_indices + sections[i]
+            random_indices = torch.randperm(sections[i + 1] - sections[i])[: max_num_select_per_section - i]
+            selected_indices[:, :, start_idx : start_idx + sections[i]] = random_indices + sections[i]
 
         return torch.gather(indices, -1, selected_indices)
 
     def random_select_nodes_v2(self, indices: torch.Tensor) -> torch.Tensor:
-        num_select = 7
+        num_select = 12
 
         batch_size, rows, cols = indices.shape
 

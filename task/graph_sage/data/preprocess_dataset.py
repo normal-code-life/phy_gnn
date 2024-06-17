@@ -2,7 +2,7 @@ import os
 import sys
 
 from pkg.utils import io
-from task.graph_sage.data.datasets_v2 import GraphSageTrainDataset
+from task.graph_sage.data.datasets_v2 import GraphSagePreprocessDataset
 
 if __name__ == "__main__":
     cur_path = os.path.abspath(sys.argv[0])
@@ -18,8 +18,6 @@ if __name__ == "__main__":
         "exp_name": "9_3",
     }
 
-    data = GraphSageTrainDataset(data_config, "validation")
+    data = GraphSagePreprocessDataset(data_config, "validation")
 
-    data.preprocess_node_neighbours()
-
-    data.preprocess_node_coord()
+    data.preprocess()
