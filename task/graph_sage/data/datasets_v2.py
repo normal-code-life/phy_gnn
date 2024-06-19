@@ -1,17 +1,18 @@
 import os
+import sys
 from typing import Dict, Optional
 
 import numpy as np
 import pandas as pd
 import torch
 
-from pkg.train.datasets.base_datasets import BaseDataset
+from pkg.train.datasets.base_datasets import BaseIterableDataset
 from pkg.utils.logging import init_logger
 
 logger = init_logger("GraphSage_Dataset")
 
 
-class GraphSageDataset(BaseDataset):
+class GraphSageDataset(BaseIterableDataset):
     """Data loader for graph-formatted input-output data with common, fixed topology."""
 
     def __init__(self, data_config: Dict, data_type: str) -> None:
@@ -24,6 +25,7 @@ class GraphSageDataset(BaseDataset):
         self.exp_name = data_config.get("exp_name", None)
         self.default_padding_value = data_config.get("default_padding_value", -1)
         self.n_shape_coeff = data_config.get("n_shape_coeff", 2)
+        self.chunk_size = data_config.get("chunk_size", 50)
 
         if not os.path.isdir(base_data_path):
             raise NotADirectoryError(f"No directory at: {base_data_path}")
@@ -73,29 +75,27 @@ class GraphSagePreprocessDataset(GraphSageDataset):
 
         self.preprocess_node_coord()
 
-        self.generate_train_data()
-
-    def preprocess_node_neighbours(self, chunk_size: int = 50) -> None:
+    def preprocess_node_neighbours(self) -> None:
         file_path = self.edge_file_path
 
         if os.path.exists(file_path):
             return
 
         if self.gpu:
-            self._preprocess_edge_by_gpu(file_path, chunk_size)
+            self._preprocess_edge_by_gpu(file_path)
         else:
-            self._preprocess_edge_by_cpu(file_path, chunk_size)
+            self._preprocess_edge_by_cpu(file_path)
 
         return
 
-    def _preprocess_edge_by_cpu(self, file_path: str, chunk_size: int) -> None:
+    def _preprocess_edge_by_cpu(self, file_path: str) -> None:
         node = np.load(self.real_node_coord_path, mmap_mode="r").astype(np.float32)
 
         node_shape = node.shape
 
         with open(file_path, "wb") as f:
-            for i in range(0, node_shape[0], chunk_size):
-                end = min(i + chunk_size, node_shape[0])
+            for i in range(0, node_shape[0], self.chunk_size):
+                end = min(i + self.chunk_size, node_shape[0])
 
                 relative_positions = node[i:end, :, np.newaxis, :] - node[i:end, np.newaxis, :, :]
 
@@ -107,9 +107,9 @@ class GraphSagePreprocessDataset(GraphSageDataset):
 
                 chunk.tofile(f)
 
-                logger.info(f"calculate sorted_indices_by_dist for {i} - {i + chunk_size - 1} done")
+                logger.info(f"calculate sorted_indices_by_dist for {i} - {i + self.chunk_size - 1} done")
 
-    def _preprocess_edge_by_gpu(self, file_path: str, chunk_size: int) -> None:
+    def _preprocess_edge_by_gpu(self, file_path: str) -> None:
         node = np.load(self.real_node_coord_path, mmap_mode="r").astype(np.float32)
 
         node_shape = node.shape
@@ -117,8 +117,8 @@ class GraphSagePreprocessDataset(GraphSageDataset):
         node = torch.tensor(node, device="cuda")  # 将节点数据移到 GPU
 
         with open(file_path, "wb") as f:
-            for i in range(0, node_shape[0], chunk_size):
-                end = min(i + chunk_size, node_shape[0])
+            for i in range(0, node_shape[0], self.chunk_size):
+                end = min(i + self.chunk_size, node_shape[0])
 
                 relative_positions = node[i:end, :, None, :] - node[i:end, None, :, :]  # 计算相对位置
 
@@ -130,7 +130,7 @@ class GraphSagePreprocessDataset(GraphSageDataset):
 
                 chunk.tofile(f)  # 写入文件
 
-                logger.info(f"calculate sorted_indices_by_dist for {i} - {i + chunk_size - 1} done")
+                logger.info(f"calculate sorted_indices_by_dist for {i} - {i + self.chunk_size - 1} done")
 
     def preprocess_node_coord(self) -> None:
         node_coords = np.load(f"{self.processed_data_path}/real-node-coords.npy", mmap_mode="r").astype(np.float32)
@@ -141,87 +141,6 @@ class GraphSagePreprocessDataset(GraphSageDataset):
         np.save(self.coord_max_norm_path, coord_max_norm_val)
         np.save(self.coord_min_norm_path, coord_min_norm_val)
 
-    def _normal_max_min(self, array: np.ndarray, max_norm_val: np.float32, min_norm_val: np.float32) -> np.ndarray:
-        max_val = np.expand_dims(max_norm_val, axis=(0, 1))
-        min_val = np.expand_dims(min_norm_val, axis=(0, 1))
-
-        return (array - min_val) / (max_val - min_val)
-
-    def generate_train_data(self, chunk_size: int = 50) -> None:
-        # node features/coord (used real node features)
-        # === coord max min calculation
-        node_coords = np.load(self.real_node_coord_path, mmap_mode="r").astype(np.float32)
-
-        coord_max_norm_val = np.load(self.coord_max_norm_path).astype(np.float32)
-        coord_min_norm_val = np.load(self.coord_min_norm_path).astype(np.float32)
-        logger.info(
-            f"{self.data_type} dataset preset max_norm and min_norm is " f"{coord_max_norm_val} {coord_min_norm_val}"
-        )
-
-        node_coords = self._normal_max_min(node_coords, coord_max_norm_val, coord_min_norm_val)
-        node_features = np.load(self.real_node_features_path, mmap_mode="r").astype(np.float32)
-
-        logger.info(f"node_features shape: {node_features.shape}, node_coord: {node_coords.shape}")
-
-        # edge features
-        edges_indices = np.load(self.edge_file_path, mmap_mode="r").astype(np.int64)
-        logger.info(f"edges shape: {edges_indices.shape}")
-
-        # global variables are the same for each node in the graph (e.g. global material stiffness parameters)
-        theta_vals = np.load(self.theta_vals_path, mmap_mode="r").astype(np.float32)
-        logger.info(f"theta vals shape: {theta_vals.shape}")
-
-        # labels
-        displacement = np.load(self.displacement_path, mmap_mode="r").astype(np.float32)
-        logger.info(f"displacement shape: {displacement.shape}")
-
-        shape_coeffs = np.load(self.coeffs_path, mmap_mode="r").astype(np.float32)[:, : self.n_shape_coeff]
-        logger.info(f"shape_coeffs shape: {shape_coeffs.shape}")
-
-        assert (
-            node_coords.shape[0]
-            == node_features.shape[0]
-            == edges_indices.shape[0]
-            == theta_vals.shape[0]
-            == displacement.shape[0]
-            == shape_coeffs.shape[0]
-        ), (
-            f"Variables are not equal: "
-            f"node_coords.shape[0]={node_coords.shape[0]}, "
-            f"node_features.shape[0]={node_features.shape[0]}, "
-            f"edges_indices.shape[0]={edges_indices.shape[0]}, "
-            f"theta_vals.shape[0]={theta_vals.shape[0]}, "
-            f"displacement.shape[0]={displacement.shape[0]} "
-            f"shape_coeffs.shape[0]={shape_coeffs.shape[0]}"
-        )
-
-        assert node_coords.shape[1] == node_features.shape[1] == edges_indices.shape[1] == displacement.shape[1], (
-            f"Variables are not equal: "
-            f"node_coords.shape[0]={node_coords.shape[0]}, "
-            f"node_features.shape[0]={node_features.shape[0]}, "
-            f"edges_indices.shape[0]={edges_indices.shape[0]}, "
-            f"displacement.shape[0]={displacement.shape[0]} "
-        )
-
-        data_size = displacement.shape[0]
-
-        os.makedirs(self.pt_data_path, exist_ok=True)
-
-        for i in range(0, data_size, chunk_size):
-            chunk_path = os.path.join(self.pt_data_path, f"pt_data_{i}.pt")
-
-            chunk_data = {
-                "node_features": torch.from_numpy(node_features[i : i + chunk_size]),
-                "node_coord": torch.from_numpy(node_coords[i : i + chunk_size]),
-                "edges_indices": torch.from_numpy(edges_indices[i : i + chunk_size]),
-                "theta_vals": torch.from_numpy(theta_vals[i : i + chunk_size]),
-                "shape_coeffs": torch.from_numpy(shape_coeffs[i : i + chunk_size]),
-            }
-
-            torch.save(chunk_data, chunk_path)
-
-        logger.info(f"Tensor data saved to '{self.pt_data_path}' directory")
-
 
 class GraphSageTrainDataset(GraphSageDataset):
     """Data loader for graph-formatted input-output data with common, fixed topology."""
@@ -229,98 +148,118 @@ class GraphSageTrainDataset(GraphSageDataset):
     def __init__(self, data_config: Dict, data_type: str) -> None:
         super().__init__(data_config, data_type)
 
-        # node features (used real node features)
-        # === fetch node features
-        node_features = np.load(self.real_node_features_path).astype(np.float32)
-        node_coords = np.load(self.real_node_coord_path).astype(np.float32)
+        # node features/coord (used real node features)
+        # === coord max min calculation
+        node_coords = np.load(self.real_node_coord_path, mmap_mode="r").astype(np.float32)
 
-        # === distance calculation
-        # node_distance = np.expand_dims(np.sqrt((node_coords ** 2).sum(axis=2)), axis=2)
-
-        # === max min calculation
-        self._coord_max_norm_val = np.load(self.coord_max_norm_path).astype(np.float32)
-        self._coord_min_norm_val = np.load(self.coord_min_norm_path).astype(np.float32)
-
+        self.coord_max_norm_val = np.load(self.coord_max_norm_path).astype(np.float32)
+        self.coord_min_norm_val = np.load(self.coord_min_norm_path).astype(np.float32)
         logger.info(
-            f"{self.data_type} dataset preset max_norm and min_norm is "
-            f"{self._coord_max_norm_val} {self._coord_min_norm_val}"
+            f"{self.data_type} dataset max and min norm is " f"{self.coord_max_norm_val} {self.coord_min_norm_val}"
         )
 
-        self._node_features = node_features
-        self._node_coord = self._coord_normalization_max_min(node_coords)
-        logger.info(f"node_features shape: {self._node_features.shape}, node_coord: {self._node_coord.shape}")
+        self._node_coords = self._normal_max_min_transform(node_coords, self.coord_max_norm_val, self.coord_min_norm_val)
+        self._node_features = np.load(self.real_node_features_path, mmap_mode="r").astype(np.float32)
 
-        # edge features
-        self._edges_indices = np.load(self.edge_file_path, mmap_mode="r").astype(np.int64)
-        logger.info(f"edges shape: {self._edges_indices.shape}")
+        logger.info(f"node_features shape: {self._node_features.shape}, node_coord: {self._node_coords.shape}")
 
         # global variables are the same for each node in the graph (e.g. global material stiffness parameters)
-        self._theta_vals = np.load(self.theta_vals_path).astype(np.float32)
-
-        # summary statistics for global variables, calculated on training data
-        self._theta_mean = np.load(self.theta_mean_path).astype(np.float32)
-        self._theta_std = np.load(self.theta_std_path).astype(np.float32)
+        self._theta_vals = np.load(self.theta_vals_path, mmap_mode="r").astype(np.float32)
+        logger.info(f"theta vals shape: {self._theta_vals.shape}")
 
         # labels
-        self._displacement = np.load(self.displacement_path).astype(np.float32)
+        self._displacement = np.load(self.displacement_path, mmap_mode="r").astype(np.float32)
+        logger.info(f"displacement shape: {self._displacement.shape}")
 
         # summary statistics for displacement values calculated on training data
-        self._displacement_mean = np.load(self.displacement_mean_path).astype(np.float32)
-        self._displacement_std = np.load(self.displacement_std_path).astype(np.float32)
+        self.displacement_mean = np.load(self.displacement_mean_path).astype(np.float32)
+        self.displacement_std = np.load(self.displacement_std_path).astype(np.float32)
 
-        self._data_size = self._displacement.shape[0]
+        self._shape_coeffs = np.load(self.coeffs_path, mmap_mode="r").astype(np.float32)[:, : self.n_shape_coeff]
+        logger.info(f"shape_coeffs shape: {self._shape_coeffs.shape}")
 
-        if self.n_shape_coeff > 0:
-            # load shape coefficients
-            shape_coeffs = np.load(self.coeffs_path).astype(np.float32)
+        self.data_size, self.node_size, _ = self._displacement.shape
 
-            assert shape_coeffs.shape[-1] >= self.n_shape_coeff, (
-                f"Number of shape coefficients to retain "
-                f"({self.n_shape_coeff}) must be <= number of columns in "
-                f"'shape-coeffs.npy' ({shape_coeffs.shape[-1]})"
-            )
+        # edge features
+        self._edges_indices = np.memmap(self.edge_file_path, dtype=np.int32, mode='r', shape=(self.data_size, self.node_size, self.node_size - 1))
+        logger.info(f"edges shape: {self._edges_indices.shape}")
 
-            # retain n_shape_coeff of these to input to the emulator
-            self._shape_coeffs = shape_coeffs[:, : self.n_shape_coeff]
+        assert (
+                self._node_coords.shape[0]
+                == self._node_features.shape[0]
+                == self._edges_indices.shape[0]
+                == self._theta_vals.shape[0]
+                == self._displacement.shape[0]
+                == self._shape_coeffs.shape[0]
+        ), (
+            f"Variables are not equal: "
+            f"node_coords.shape[0]={self._node_coords.shape[0]}, "
+            f"node_features.shape[0]={self._node_features.shape[0]}, "
+            f"edges_indices.shape[0]={self._edges_indices.shape[0]}, "
+            f"theta_vals.shape[0]={self._theta_vals.shape[0]}, "
+            f"displacement.shape[0]={self._displacement.shape[0]} "
+            f"shape_coeffs.shape[0]={self._shape_coeffs.shape[0]}"
+        )
 
-        else:
-            self._shape_coeffs = [None] * self._data_size
+        assert (node_coords.shape[1] ==
+                self._node_features.shape[1] ==
+                self._edges_indices.shape[1] ==
+                self._displacement.shape[1]
+                ), (
+            f"Variables are not equal: "
+            f"node_coords.shape[0]={self._node_coords.shape[0]}, "
+            f"node_features.shape[0]={self._node_features.shape[0]}, "
+            f"edges_indices.shape[0]={self._edges_indices.shape[0]}, "
+            f"displacement.shape[0]={self._displacement.shape[0]} "
+        )
 
     def __len__(self):
-        return self._data_size
+        return self.data_size
 
-    def __getitem__(self, index) -> (Dict, torch.Tensor):
-        node_features = torch.from_numpy(self._node_features[index])
-        node_coord = torch.from_numpy(self._node_coord[index])
-        edges_indices = torch.from_numpy(self._edges_indices[index])
-        theta_vals = torch.from_numpy(self._theta_vals[index])
-        shape_coeffs = torch.from_numpy(self._shape_coeffs[index])
+    def __iter__(self) -> (Dict, torch.Tensor):
 
-        labels = torch.from_numpy(self._displacement[index])
+        for sample in zip(
+                self._node_coords, self._node_features, self._edges_indices,
+                self._theta_vals, self._shape_coeffs, self._displacement
+        ):
 
-        if self.gpu:
-            node_features = node_features.cuda()
-            node_coord = node_coord.cuda()
-            edges_indices = edges_indices.cuda()
-            theta_vals = theta_vals.cuda()
-            shape_coeffs = shape_coeffs.cuda()
+            node_coord = torch.from_numpy(sample[0])
+            node_features = torch.from_numpy(sample[1])
+            edges_indices = torch.from_numpy(sample[2])
+            theta_vals = torch.from_numpy(sample[3])
+            shape_coeffs = torch.from_numpy(sample[4])
 
-            labels = labels.cuda()
+            labels = torch.from_numpy(sample[5])
 
-        sample = {
-            "node_features": node_features,
-            "node_coord": node_coord,
-            "edges_indices": edges_indices,
-            "shape_coeffs": shape_coeffs,
-            "theta_vals": theta_vals,
-        }
+            if self.gpu:
+                node_coord = node_coord.cuda()
+                node_features = node_features.cuda()
+                edges_indices = edges_indices.cuda()
+                theta_vals = theta_vals.cuda()
+                shape_coeffs = shape_coeffs.cuda()
 
-        return sample, labels
+                labels = labels.cuda()
+
+            yield {
+                "node_coord": node_coord,
+                "node_features": node_features,
+                "edges_indices": edges_indices,
+                "shape_coeffs": shape_coeffs,
+                "theta_vals": theta_vals,
+            }, labels
+
+    def _normal_max_min_transform(
+            self, array: np.ndarray, max_norm_val: np.float32, min_norm_val: np.float32
+    ) -> np.ndarray:
+        max_val = np.expand_dims(max_norm_val, axis=(0, 1))
+        min_val = np.expand_dims(min_norm_val, axis=(0, 1))
+
+        return (array - min_val) / (max_val - min_val)
 
     def get_displacement_mean(self) -> torch.tensor:
-        _displacement_mean = torch.from_numpy(self._displacement_mean)
-        return self._displacement_mean if not self.gpu else _displacement_mean.cuda()
+        _displacement_mean = torch.from_numpy(self.displacement_mean)
+        return self.displacement_mean if not self.gpu else _displacement_mean.cuda()
 
     def get_displacement_std(self) -> torch.tensor:
-        _displacement_std = torch.from_numpy(self._displacement_std)
+        _displacement_std = torch.from_numpy(self.displacement_std)
         return _displacement_std if not self.gpu else _displacement_std.cuda()

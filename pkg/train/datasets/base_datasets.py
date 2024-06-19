@@ -2,6 +2,7 @@ import abc
 from typing import Dict
 
 import numpy as np
+import torch
 from torch.utils.data import Dataset, IterableDataset
 
 from pkg.utils.logging import init_logger
@@ -38,9 +39,16 @@ class BaseIterableDataset(BaseAbstractDataset, IterableDataset):
         super().__init__(data_config, data_type, args, kwargs)
 
     def get_head_inputs(self, batch_size) -> Dict:
-        inputs, _ = self.__iter__()
+        res = {}
+        for i in range(batch_size):
+            inputs, _ = next(self.__iter__())
 
-        return {key: data for key, data in inputs.items()}
+            inputs = {key: inputs[key].unsqueeze(0) for key in inputs}
+
+            for key in inputs:
+                res[key] = torch.concat([res[key], inputs[key]], dim=0) if key in res else inputs[key]
+
+        return res
 
     def __iter__(self):
         raise NotImplementedError("please implement __iter__ func")
