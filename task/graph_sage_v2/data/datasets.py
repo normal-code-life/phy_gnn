@@ -1,9 +1,7 @@
 import os
-import sys
-from typing import Dict, Optional
+from typing import Dict
 
 import numpy as np
-import pandas as pd
 import torch
 
 from pkg.train.datasets.base_datasets import BaseIterableDataset
@@ -32,8 +30,8 @@ class GraphSageDataset(BaseIterableDataset):
         else:
             logger.info(f"base_data_path is {base_data_path}")
 
-        self.raw_data_path = f"{base_data_path}/rawData/{data_type}"
-        self.processed_data_path = f"{base_data_path}/processedData/{data_type}"
+        self.raw_data_path = f"{base_data_path}/rawData/{self.data_type}"
+        self.processed_data_path = f"{base_data_path}/processedData/{self.data_type}"
         self.topology_data_path = f"{base_data_path}/topologyData"
         self.stats_data_path = f"{base_data_path}/normalisationStatistics"
         self.pt_data_path = f"{base_data_path}/ptData"
@@ -150,7 +148,7 @@ class GraphSageTrainDataset(GraphSageDataset):
 
         # node features/coord (used real node features)
         # === coord max min calculation
-        node_coords = np.load(self.real_node_coord_path, mmap_mode="r").astype(np.float32)
+        self._node_coords = np.load(self.real_node_coord_path).astype(np.float32)
 
         self.coord_max_norm_val = np.load(self.coord_max_norm_path).astype(np.float32)
         self.coord_min_norm_val = np.load(self.coord_min_norm_path).astype(np.float32)
@@ -158,17 +156,17 @@ class GraphSageTrainDataset(GraphSageDataset):
             f"{self.data_type} dataset max and min norm is " f"{self.coord_max_norm_val} {self.coord_min_norm_val}"
         )
 
-        self._node_coords = self._normal_max_min_transform(node_coords, self.coord_max_norm_val, self.coord_min_norm_val)
-        self._node_features = np.load(self.real_node_features_path, mmap_mode="r").astype(np.float32)
+        self._node_coords = self._normal_max_min_transform(self._node_coords, self.coord_max_norm_val, self.coord_min_norm_val)
+        self._node_features = np.load(self.real_node_features_path).astype(np.float32)
 
         logger.info(f"node_features shape: {self._node_features.shape}, node_coord: {self._node_coords.shape}")
 
         # global variables are the same for each node in the graph (e.g. global material stiffness parameters)
-        self._theta_vals = np.load(self.theta_vals_path, mmap_mode="r").astype(np.float32)
+        self._theta_vals = np.load(self.theta_vals_path).astype(np.float32)
         logger.info(f"theta vals shape: {self._theta_vals.shape}")
 
         # labels
-        self._displacement = np.load(self.displacement_path, mmap_mode="r").astype(np.float32)
+        self._displacement = np.load(self.displacement_path).astype(np.float32)
         logger.info(f"displacement shape: {self._displacement.shape}")
 
         # summary statistics for displacement values calculated on training data
@@ -181,7 +179,9 @@ class GraphSageTrainDataset(GraphSageDataset):
         self.data_size, self.node_size, _ = self._displacement.shape
 
         # edge features
-        self._edges_indices = np.memmap(self.edge_file_path, dtype=np.int32, mode='r', shape=(self.data_size, self.node_size, self.node_size - 1))
+        self._edges_indices = np.memmap(
+            self.edge_file_path, dtype=np.int32, mode='r', shape=(self.data_size, self.node_size, self.node_size - 1)
+        )
         logger.info(f"edges shape: {self._edges_indices.shape}")
 
         assert (
@@ -201,7 +201,7 @@ class GraphSageTrainDataset(GraphSageDataset):
             f"shape_coeffs.shape[0]={self._shape_coeffs.shape[0]}"
         )
 
-        assert (node_coords.shape[1] ==
+        assert (self._node_coords.shape[1] ==
                 self._node_features.shape[1] ==
                 self._edges_indices.shape[1] ==
                 self._displacement.shape[1]
@@ -225,7 +225,7 @@ class GraphSageTrainDataset(GraphSageDataset):
 
             node_coord = torch.from_numpy(sample[0])
             node_features = torch.from_numpy(sample[1])
-            edges_indices = torch.from_numpy(sample[2])
+            edges_indices = torch.from_numpy(sample[2].astype(np.int64))
             theta_vals = torch.from_numpy(sample[3])
             shape_coeffs = torch.from_numpy(sample[4])
 

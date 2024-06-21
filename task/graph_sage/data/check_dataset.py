@@ -2,7 +2,7 @@ import os
 import sys
 
 from pkg.utils import io
-from task.graph_sage.data.datasets_v2 import GraphSagePreprocessDataset, GraphSageTrainDataset
+from task.graph_sage.data.datasets import GraphSageDataset
 
 if __name__ == "__main__":
     cur_path = os.path.abspath(sys.argv[0])
@@ -19,26 +19,5 @@ if __name__ == "__main__":
         "chunk_size": 50
     }
 
-    data_preprocess = GraphSagePreprocessDataset(data_config, "validation")
+    data_preprocess = GraphSageDataset(data_config, "validation")
 
-    data_preprocess.preprocess()
-
-    dataset = GraphSageTrainDataset(data_config, "validation")
-
-    batch = 0
-
-    res = dataset.get_head_inputs(2)
-
-    for k in res:
-        print(res[k].shape)
-
-
-    # for sample, labels in dataset:
-    #     if batch > 1:
-    #         break
-    #
-    #     print(sample)
-    #     print(labels)
-    #
-    #     batch += 1
-    #
