@@ -2,7 +2,8 @@ import os
 import sys
 
 from pkg.utils import io
-from task.graph_sage.data.datasets_v2 import GraphSagePreprocessDataset
+from task.graph_sage_v2.data.datasets import GraphSagePreprocessDataset, GraphSageTrainDataset
+
 
 if __name__ == "__main__":
     cur_path = os.path.abspath(sys.argv[0])
@@ -15,9 +16,11 @@ if __name__ == "__main__":
         "n_shape_coeff": 32,
         "edge_indices_generate_method": 0,
         "default_padding_value": -1,
-        "exp_name": "9_3",
+        "exp_name": "10",
+        "chunk_size": 20
     }
 
-    data = GraphSagePreprocessDataset(data_config, "validation")
+    train_data = GraphSageTrainDataset(data_config, "train")
 
-    data.preprocess()
+    for i in train_data:
+        print(i)

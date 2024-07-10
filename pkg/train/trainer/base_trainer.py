@@ -11,16 +11,16 @@ from torch.utils.data import DataLoader
 from common.constant import TRAIN_NAME, VALIDATION_NAME
 from pkg.train.callbacks.base_callback import CallbackList
 from pkg.train.callbacks.log_callback import LogCallback
-from pkg.train.callbacks.model_checkpoint_callback import \
-    ModelCheckpointCallback
+from pkg.train.callbacks.model_checkpoint_callback import ModelCheckpointCallback
 from pkg.train.callbacks.tensorboard_callback import TensorBoardCallback
 from pkg.train.config.base_config import BaseConfig
-from pkg.train.datasets.base_datasets import BaseDataset
+from pkg.train.datasets.base_datasets import BaseAbstractDataset, BaseDataset
 from pkg.train.model.base_model import BaseModule
 from pkg.train.module.loss import EuclideanDistanceMSE
 from pkg.utils.io import load_yaml
 from pkg.utils.logging import init_logger
 from pkg.utils.model_summary import summary
+from pkg.train.datasets.shuffle_iterable_datasets import ShuffledIterableDataset
 
 logger = init_logger("BASE_TRAINER")
 
@@ -119,7 +119,7 @@ class TrainerConfig(BaseConfig):
 
 
 class BaseTrainer(abc.ABC):
-    dataset_class: BaseDataset = BaseDataset
+    dataset_class: BaseAbstractDataset = BaseAbstractDataset
 
     def __init__(self, config: TrainerConfig):
         logger.info("====== Init Trainer ====== ")
@@ -143,7 +143,7 @@ class BaseTrainer(abc.ABC):
         self.static_graph: bool = self.task_trainer.get("static_graph", False)
 
     # === dataset ===
-    def create_dataset(self) -> (BaseDataset, BaseDataset):
+    def create_dataset(self) -> (BaseAbstractDataset, BaseAbstractDataset):
         task_data = self.task_data
 
         train_dataset = self.dataset_class(task_data, TRAIN_NAME)
@@ -240,20 +240,39 @@ class BaseTrainer(abc.ABC):
         train_dataset, validation_dataset = self.create_dataset()
 
         # ====== Generate dataloder ======
-        train_data_loader = DataLoader(
-            dataset=train_dataset,
-            batch_size=dataset_param.get("batch_size", 1),
-            shuffle=dataset_param.get("train_shuffle", True),
-            # num_workers=dataset_param.get("num_workers", 0),
-            # prefetch_factor=dataset_param.get("prefetch_factor", None)
-        )
-        validation_data_loader = DataLoader(
-            dataset=validation_dataset,
-            batch_size=dataset_param.get("val_batch_size", len(validation_dataset)),
-            shuffle=dataset_param.get("test_shuffle", False),
-            # num_workers=dataset_param.get("num_workers", 0),
-            # prefetch_factor=dataset_param.get("prefetch_factor", None)
-        )
+        if isinstance(train_dataset, BaseDataset):
+            train_data_loader = DataLoader(
+                dataset=train_dataset,
+                batch_size=dataset_param.get("batch_size", 1),
+                shuffle=dataset_param.get("train_shuffle", True),
+                # num_workers=dataset_param.get("num_workers", 0),
+                # prefetch_factor=dataset_param.get("prefetch_factor", None)
+            )
+            validation_data_loader = DataLoader(
+                dataset=validation_dataset,
+                batch_size=dataset_param.get("val_batch_size", len(validation_dataset)),
+                shuffle=dataset_param.get("test_shuffle", False),
+                # num_workers=dataset_param.get("num_workers", 0),
+                # prefetch_factor=dataset_param.get("prefetch_factor", None)
+            )
+        else:
+            train_dataset = ShuffledIterableDataset(train_dataset, dataset_param.get("shuffle_size", 1))
+
+            train_data_loader = DataLoader(
+                dataset=train_dataset,
+                batch_size=dataset_param.get("batch_size", 1),
+                # num_workers=dataset_param.get("num_workers", 0),
+                # prefetch_factor=dataset_param.get("prefetch_factor", None)
+            )
+
+            validation_dataset = ShuffledIterableDataset(validation_dataset, dataset_param.get("shuffle_size", 1))
+
+            validation_data_loader = DataLoader(
+                dataset=validation_dataset,
+                batch_size=dataset_param.get("val_batch_size", 1),
+                # num_workers=dataset_param.get("num_workers", 0),
+                # prefetch_factor=dataset_param.get("prefetch_factor", None)
+            )
 
         # ====== Create model ======
         model = self.create_model()
@@ -266,7 +285,7 @@ class BaseTrainer(abc.ABC):
         self.print_model(model, train_dataset.get_head_inputs(dataset_param.get("batch_size", 1)))
 
         if self.static_graph:
-            model = torch.jit.trace(model, train_dataset.get_head_inputs())
+            model = torch.jit.trace(model, train_dataset.get_head_inputs(1))
 
         # ====== Init optimizer ======
         self.create_optimize(model)
