@@ -17,10 +17,15 @@ if __name__ == "__main__":
         "edge_indices_generate_method": 0,
         "default_padding_value": -1,
         "exp_name": "10",
-        "chunk_size": 20
+        "chunk_size": 20,
+        "shuffle_queue_size": 3,
     }
 
-    train_data = GraphSageTrainDataset(data_config, "train")
+    train_data = GraphSageTrainDataset(data_config, "validation")
 
-    for i in train_data:
-        print(i)
+    s = 0
+
+    for context, labels in train_data:
+        s += 1
+        print(s)
+        print(context, labels)

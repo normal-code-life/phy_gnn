@@ -3,7 +3,7 @@ from typing import Dict, Tuple, List, Any
 
 import numpy as np
 import torch
-
+import torch.utils.data
 from pkg.train.datasets.base_datasets import BaseIterableDataset
 from pkg.utils.logging import init_logger
 import tfrecord
@@ -181,6 +181,9 @@ class GraphSagePreprocessDataset(GraphSageDataset):
         self._total_data_size()
 
     def _data_node_coords_stats(self) -> None:
+        if os.path.exists(self.coord_max_norm_path) and os.path.exists(self.coord_min_norm_path):
+            return
+
         node_coords = np.load(f"{self.raw_data_path}/real-node-coords.npy", mmap_mode="r").astype(np.float32)
 
         coord_max_norm_val = np.max(node_coords, axis=(0, 1))
@@ -190,6 +193,9 @@ class GraphSagePreprocessDataset(GraphSageDataset):
         np.save(self.coord_min_norm_path, coord_min_norm_val)
 
     def _total_data_size(self) -> None:
+        if os.path.exists(self.data_size_path):
+            return
+
         node_coords = np.load(f"{self.raw_data_path}/real-node-coords.npy", mmap_mode="r").astype(np.float32)
 
         np.save(self.data_size_path, node_coords.shape[0])
@@ -219,7 +225,10 @@ class GraphSageTrainDataset(GraphSageDataset):
         # labels
         self.data_size = np.load(self.data_size_path).astype(np.int64).item()
 
+        self.data_path = f"{self.tfrecord_path}"
+        self.index_path = None
         self.context_description = None
+        self.compression_type = None
         self.sequence_description = {
             "node_coord": "float",
             "node_features": "float",
@@ -228,48 +237,63 @@ class GraphSageTrainDataset(GraphSageDataset):
             "theta_vals": "float",
             "labels": "float",
         }
-
-        self.loader = tfrecord.tfrecord_loader(
-            f"{self.tfrecord_path}",
-            None,
-            self.context_description,
-            sequence_description=self.sequence_description
-        )
+        self.shuffle_queue_size = data_config.get("shuffle_queue_size", 5)
 
     def __len__(self):
         return self.data_size
 
     def __iter__(self) -> (Dict, torch.Tensor):
-        context_feature, seq_feature = next(iter(self.loader))
+        worker_info = torch.utils.data.get_worker_info()
+        if worker_info is not None:
+            shard = worker_info.id, worker_info.num_workers
+            np.random.seed(worker_info.seed % np.iinfo(np.uint32).max)
+        else:
+            shard = None
 
-        node_coord = self._normal_max_min_transform(
-            torch.tensor(np.array(seq_feature["node_coord"]), dtype=torch.float32),
-            self.coord_max_norm_val,
-            self.coord_min_norm_val,
-        )
+        it = tfrecord.tfrecord_loader(data_path=self.data_path,
+                                      index_path=self.index_path,
+                                      description=self.context_description,
+                                      shard=shard,
+                                      sequence_description=self.sequence_description,
+                                      compression_type=self.compression_type)
 
-        node_features = torch.tensor(np.array(seq_feature["node_features"]), dtype=torch.float32)
-        edges_indices = torch.tensor(np.array(seq_feature["edges_indices"]), dtype=torch.int64)
-        theta_vals = torch.tensor(np.array(seq_feature["theta_vals"]), dtype=torch.float32).squeeze(dim=-1)
-        shape_coeffs = torch.tensor(np.array(seq_feature["shape_coeffs"]), dtype=torch.float32).squeeze(dim=-1)
-        labels = torch.tensor(np.array(seq_feature["labels"]), dtype=torch.float32)
+        if self.shuffle_queue_size:
+            it = tfrecord.shuffle_iterator(it, self.shuffle_queue_size)
 
-        if self.gpu:
-            node_coord = node_coord.cuda()
-            node_features = node_features.cuda()
-            edges_indices = edges_indices.cuda()
-            theta_vals = theta_vals.cuda()
-            shape_coeffs = shape_coeffs.cuda()
+        print(it)
 
-            labels = labels.cuda()
+        return it
 
-        yield {
-            "node_coord": node_coord,
-            "node_features": node_features,
-            "edges_indices": edges_indices,
-            "shape_coeffs": shape_coeffs,
-            "theta_vals": theta_vals,
-        }, labels
+        # context_feature, seq_feature = it
+        #
+        # node_coord = self._normal_max_min_transform(
+        #     torch.tensor(np.array(seq_feature["node_coord"]), dtype=torch.float32),
+        #     self.coord_max_norm_val,
+        #     self.coord_min_norm_val,
+        # )
+        #
+        # node_features = torch.tensor(np.array(seq_feature["node_features"]), dtype=torch.float32)
+        # edges_indices = torch.tensor(np.array(seq_feature["edges_indices"]), dtype=torch.int64)
+        # theta_vals = torch.tensor(np.array(seq_feature["theta_vals"]), dtype=torch.float32).squeeze(dim=-1)
+        # shape_coeffs = torch.tensor(np.array(seq_feature["shape_coeffs"]), dtype=torch.float32).squeeze(dim=-1)
+        # labels = torch.tensor(np.array(seq_feature["labels"]), dtype=torch.float32)
+        #
+        # if self.gpu:
+        #     node_coord = node_coord.cuda()
+        #     node_features = node_features.cuda()
+        #     edges_indices = edges_indices.cuda()
+        #     theta_vals = theta_vals.cuda()
+        #     shape_coeffs = shape_coeffs.cuda()
+        #
+        #     labels = labels.cuda()
+        #
+        # yield {
+        #     "node_coord": node_coord,
+        #     "node_features": node_features,
+        #     "edges_indices": edges_indices,
+        #     "shape_coeffs": shape_coeffs,
+        #     "theta_vals": theta_vals,
+        # }, labels
 
     def _normal_max_min_transform(
             self, array: torch.Tensor, max_norm_val: np.float32, min_norm_val: np.float32
