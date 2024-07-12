@@ -1,6 +1,7 @@
 import os
 from typing import Dict, Tuple, List, Any
-
+from torchvision import transforms
+from pkg.train.module.data_transform import TFRecordToTensor
 import numpy as np
 import torch
 import torch.utils.data
@@ -227,9 +228,8 @@ class GraphSageTrainDataset(GraphSageDataset):
 
         self.data_path = f"{self.tfrecord_path}"
         self.index_path = None
-        self.context_description = None
-        self.compression_type = None
-        self.sequence_description = {
+        self.context_description: Dict[str, str] = dict()
+        self.feature_description: Dict[str, str] = {
             "node_coord": "float",
             "node_features": "float",
             "edges_indices": "float",
@@ -238,6 +238,11 @@ class GraphSageTrainDataset(GraphSageDataset):
             "labels": "float",
         }
         self.shuffle_queue_size = data_config.get("shuffle_queue_size", 5)
+        self.compression_type = None
+
+        self.transform = transforms.Compose([
+            TFRecordToTensor(self.context_description, self.feature_description)
+        ])
 
     def __len__(self):
         return self.data_size
@@ -254,13 +259,13 @@ class GraphSageTrainDataset(GraphSageDataset):
                                       index_path=self.index_path,
                                       description=self.context_description,
                                       shard=shard,
-                                      sequence_description=self.sequence_description,
+                                      sequence_description=self.feature_description,
                                       compression_type=self.compression_type)
 
         if self.shuffle_queue_size:
             it = tfrecord.shuffle_iterator(it, self.shuffle_queue_size)
 
-        print(it)
+        it = map(self.transform, it)
 
         return it
 
