@@ -288,14 +288,13 @@ class GraphSAGEModel(BaseModule):
         # ====== Input data (squeeze to align to previous project)
         input_edge_indices: torch.Tensor = x["edges_indices"]  # shape: (batch_size, node_num, seq)
         input_node_coord: torch.Tensor = x["node_coord"]  # shape: (batch_size, node_num, coord_dim)
-        input_theta = x["theta_vals"]  # shape: (batch_size, graph_feature)
-        input_z_global = x["shape_coeffs"]  # shape: (batch_size, graph_feature)
+        input_theta: torch.Tensor = x["theta_vals"]  # shape: (batch_size, graph_feature)
+        input_z_global: torch.Tensor = x["shape_coeffs"]  # shape: (batch_size, graph_feature)
 
         input_node = self._node_preprocess(x)  # shape: (batch_size, node_num, node_feature_dim+coord_dim)
-
-        # ====== message passing layer: Encoder & Aggregate
         node_emb = self.node_encode_mlp_layer(input_node)  # shape: (batch_size, node_num, node_emb)
 
+        # ====== message passing layer: Encoder & Aggregate
         z_local = self.message_passing_layer(input_edge_indices, input_node_coord, node_emb)
 
         # encode global parameters theta

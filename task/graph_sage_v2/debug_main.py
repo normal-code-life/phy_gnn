@@ -11,7 +11,5 @@ if __name__ == "__main__":
     task_dir = io.get_repo_path(cur_path)
     sys.argv.extend(["--repo_path", f"{task_dir}", "--task_name", "graph_sage_v2", "--config_name=train_config_lv_data"])
 
-
-
     model = GraphSAGETrainer()
     model.train()

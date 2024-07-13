@@ -1,7 +1,7 @@
 task_base:
   task_name: graph_sage_v2
   exp_name: 30
-  overwrite_exp_folder: False
+  overwrite_exp_folder: True
   gpu: True
   cuda_core: "cuda:1"
 task_data:
@@ -30,9 +30,9 @@ task_trainer:
       save_task_code: True
   dataset_param:
     batch_size: 1
-    val_batch_size: 150
-    train_shuffle: True
-    shuffle_size: 20
+    val_batch_size: 5
+    num_workers: 3
+    val_prefetch_factor: 5
   static_graph: False
 task_train:
   neighbour_layers: 1

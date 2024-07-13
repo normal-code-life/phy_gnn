@@ -158,7 +158,7 @@ class BaseTrainer(abc.ABC):
     def create_model(self) -> BaseModule:
         raise NotImplementedError("please implement create_model func")
 
-    def print_model(self, model: nn.Module, inputs: List[List]):
+    def print_model(self, model: nn.Module, inputs: Dict):
         model_summary = self.task_trainer.get(
             "model_summary",
             {
@@ -256,22 +256,18 @@ class BaseTrainer(abc.ABC):
                 # prefetch_factor=dataset_param.get("prefetch_factor", None)
             )
         else:
-            train_dataset = ShuffledIterableDataset(train_dataset, dataset_param.get("shuffle_size", 1))
-
             train_data_loader = DataLoader(
                 dataset=train_dataset,
                 batch_size=dataset_param.get("batch_size", 1),
-                # num_workers=dataset_param.get("num_workers", 0),
-                # prefetch_factor=dataset_param.get("prefetch_factor", None)
+                num_workers=dataset_param.get("num_workers", 0),
+                prefetch_factor=dataset_param.get("prefetch_factor", None)
             )
-
-            validation_dataset = ShuffledIterableDataset(validation_dataset, dataset_param.get("shuffle_size", 1))
 
             validation_data_loader = DataLoader(
                 dataset=validation_dataset,
                 batch_size=dataset_param.get("val_batch_size", 1),
-                # num_workers=dataset_param.get("num_workers", 0),
-                # prefetch_factor=dataset_param.get("prefetch_factor", None)
+                num_workers=dataset_param.get("num_workers", 0),
+                prefetch_factor=dataset_param.get("val_prefetch_factor", None)
             )
 
         # ====== Create model ======
@@ -310,7 +306,9 @@ class BaseTrainer(abc.ABC):
 
         self.callback.on_train_end(epoch=epoch)
 
-    def compute_loss(self, predictions: torch.Tensor, labels: torch.Tensor):
+    def compute_loss(self, predictions: torch.Tensor, labels: Union[torch.Tensor, Dict]):
+        if isinstance(labels, Dict):
+            raise ValueError("by default, we consider it as a single objective, please overwrite this func")
         return self.loss(predictions, labels)
 
     def compute_metrics(self, metrics_func: callable, predictions: torch.Tensor, labels: torch.Tensor):
@@ -334,14 +332,7 @@ class BaseTrainer(abc.ABC):
             batch_cnt += 1
             metrics["train_loss"] = metrics["train_loss"] + loss.item() if "train_loss" in metrics else loss.item()
 
-            # print(
-            # f"===> {batch},
-            # {batch_size},
-            # {loss},
-            # {metrics['train_loss']},
-            # {batch_cnt},
-            # {metrics['train_loss'] / batch_cnt}"
-            # )
+            # print(f"===> {batch}, {loss}, {metrics['train_loss']}, {batch_cnt}, {metrics['train_loss'] / batch_cnt}")
 
             # Before the backward pass, use the optimizer object to zero all the
             # gradients for the variables it will update (which are the learnable

@@ -1,7 +1,7 @@
 task_base:
   task_name: graph_sage
   exp_name: 9_1_final
-  overwrite_exp_folder: True
+  overwrite_exp_folder: False
   gpu: True
   cuda_core: "cuda:1"
 task_data:
@@ -45,7 +45,7 @@ task_train:
     activation: tanh
   message_passing_layer:
     agg_method: SUMAggregator
-    message_layer_num: 1
+    message_layer_num: 5
     agg_layer:
       agg_dim: 2
       keep_dim: False
