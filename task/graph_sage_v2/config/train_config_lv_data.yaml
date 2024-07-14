@@ -3,7 +3,7 @@ task_base:
   exp_name: 30
   overwrite_exp_folder: True
   gpu: True
-  cuda_core: "cuda:1"
+  cuda_core: "cuda:0"
 task_data:
   task_data_name: lvData
   edge_indices_generate_method: 2
@@ -30,9 +30,10 @@ task_trainer:
       save_task_code: True
   dataset_param:
     batch_size: 1
-    val_batch_size: 5
-    num_workers: 3
-    val_prefetch_factor: 5
+    val_batch_size: 10
+    num_workers: 5
+    prefetch_factor: 1
+    val_prefetch_factor: 10
   static_graph: False
 task_train:
   neighbour_layers: 1

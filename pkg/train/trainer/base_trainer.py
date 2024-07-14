@@ -314,13 +314,13 @@ class BaseTrainer(abc.ABC):
     def compute_metrics(self, metrics_func: callable, predictions: torch.Tensor, labels: torch.Tensor):
         return metrics_func(predictions, labels)
 
-    def train_step(self, model: nn.Module, dataloder: DataLoader) -> Dict:
+    def train_step(self, model: nn.Module, data_loader: DataLoader) -> Dict:
         batch_cnt = 0
         metrics = {}
 
         model.train()
 
-        for batch, data in enumerate(dataloder):
+        for batch, data in enumerate(data_loader):
             # Forward pass: compute predicted y by passing x to the model.
             # note: by default, we assume batch size = 1
             train_inputs, train_labels = data
@@ -332,7 +332,7 @@ class BaseTrainer(abc.ABC):
             batch_cnt += 1
             metrics["train_loss"] = metrics["train_loss"] + loss.item() if "train_loss" in metrics else loss.item()
 
-            # print(f"===> {batch}, {loss}, {metrics['train_loss']}, {batch_cnt}, {metrics['train_loss'] / batch_cnt}")
+            print(f"===> {batch}, {loss}, {metrics['train_loss']}, {batch_cnt}, {metrics['train_loss'] / batch_cnt}")
 
             # Before the backward pass, use the optimizer object to zero all the
             # gradients for the variables it will update (which are the learnable
