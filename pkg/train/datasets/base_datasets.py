@@ -15,6 +15,7 @@ class BaseAbstractDataset(abc.ABC):
         logger.info(data_config)
 
         self.gpu = data_config["gpu"]
+        self.cuda_core = data_config["cuda_core"]
 
         self.data_type = data_type
 

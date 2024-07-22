@@ -1,4 +1,5 @@
 import os
+import random
 from typing import Dict, Tuple
 from torchvision import transforms
 from pkg.train.module.data_transform import TFRecordToTensor, MaxMinNormalize, max_val_name, mim_val_name, TensorToGPU, CovertToModelInputs
@@ -9,6 +10,8 @@ import torch.utils.data
 from pkg.train.datasets.base_datasets import BaseIterableDataset
 from pkg.utils.logging import init_logger
 import tfrecord
+from tfrecord.torch.dataset import MultiTFRecordDataset
+import math
 
 logger = init_logger("GraphSage_Dataset")
 
@@ -26,7 +29,7 @@ class GraphSageDataset(BaseIterableDataset):
         self.exp_name = data_config.get("exp_name", None)
         self.default_padding_value = data_config.get("default_padding_value", -1)
         self.n_shape_coeff = data_config.get("n_shape_coeff", 2)
-        self.chunk_size = data_config.get("chunk_size", 1)
+        self.chunk_file_size = data_config.get("chunk_file_size", 50)
 
         if not os.path.isdir(base_data_path):
             raise NotADirectoryError(f"No directory at: {base_data_path}")
@@ -37,11 +40,12 @@ class GraphSageDataset(BaseIterableDataset):
         self.processed_data_path = f"{base_data_path}/processedData/{self.data_type}"
         self.topology_data_path = f"{base_data_path}/topologyData"
         self.stats_data_path = f"{base_data_path}/normalisationStatistics"
-        self.pt_data_path = f"{base_data_path}/ptData"
+        self.tfrecord_path = f"{base_data_path}/tfData/{self.data_type}"
 
         logger.info(f"base_data_path is {base_data_path}")
         logger.info(f"base_task_path is {base_task_path}")
         logger.info(f"processed_data_path is {self.processed_data_path}")
+        logger.info(f"tfrecord_path is {self.tfrecord_path}")
         logger.info(f"topology_data_path is {self.topology_data_path}")
         logger.info(f"stats_data_path is {self.stats_data_path}")
 
@@ -66,10 +70,22 @@ class GraphSageDataset(BaseIterableDataset):
 
         self.coeffs_path = f"{self.processed_data_path}/shape-coeffs.npy"
 
-        self.tfrecord_path = f"{self.processed_data_path}/{self.data_type}_data.tfrecord"
-
         # others
         self.data_size_path = f"{self.processed_data_path}/{self.data_type}_data_size.npy"
+
+        # features
+        self.context_description: Dict[str, str] = {
+            "index": "int",
+        }
+
+        self.feature_description: Dict[str, str] = {
+            "node_coord": "float",
+            "node_features": "float",
+            "edges_indices": "int",
+            "shape_coeffs": "float",
+            "theta_vals": "float",
+            "labels": "float",
+        }
 
 
 class GraphSagePreprocessDataset(GraphSageDataset):
@@ -83,20 +99,18 @@ class GraphSagePreprocessDataset(GraphSageDataset):
     def _preprocess_data(self):
         file_path = self.tfrecord_path
 
-        if os.path.exists(file_path):
+        if len(os.listdir(file_path)) > 0:
             return
 
         # node features/coord (used real node features)
-        # === coord max min calculation
-        self._node_coords = np.load(self.real_node_coord_path).astype(np.float32)
-
-        self.coord_max_norm_val = np.load(self.coord_max_norm_path).astype(np.float32)
-        self.coord_min_norm_val = np.load(self.coord_min_norm_path).astype(np.float32)
-        logger.info(
-            f"{self.data_type} dataset max and min norm is " f"{self.coord_max_norm_val} {self.coord_min_norm_val}"
-        )
-
         self._node_features = np.load(self.real_node_features_path).astype(np.float32)
+
+        self._node_coords = np.memmap(
+            self.real_node_coord_path,
+            dtype=np.float32,
+            mode='r',
+            shape=(self._node_features.shape[0], self._node_features.shape[1], 3),
+        )
 
         logger.info(f"node_features shape: {self._node_features.shape}, node_coord: {self._node_coords.shape}")
 
@@ -126,9 +140,9 @@ class GraphSagePreprocessDataset(GraphSageDataset):
             f"shape_coeffs.shape[0]={self._shape_coeffs.shape[0]}"
         )
 
-        assert (self._node_coords.shape[1] ==
-                self._node_features.shape[1] ==
-                self._displacement.shape[1]
+        assert (self._node_coords.shape[1]
+                == self._node_features.shape[1]
+                == self._displacement.shape[1]
                 ), (
             f"Variables are not equal: "
             f"node_coords.shape[0]={self._node_coords.shape[0]}, "
@@ -138,36 +152,42 @@ class GraphSagePreprocessDataset(GraphSageDataset):
 
         node_shape = self._node_coords.shape
 
-        writer = tfrecord.TFRecordWriter(file_path)
+        sample_indices = np.arange(node_shape[0])
+        np.random.shuffle(sample_indices)
+        sample_indices = np.array_split(sample_indices, node_shape[0] // self.chunk_file_size)
 
-        array = np.arange(node_shape[0])
-        np.random.shuffle(array)
+        for file_i, indices in enumerate(sample_indices):
+            file_path_group = f"{file_path}/data{file_i}.tfrecord"
+            writer = tfrecord.TFRecordWriter(file_path_group)
 
-        for i in array:
-            edge: np.ndarray = self._preprocess_edge(self._node_coords, i)
+            edge: np.ndarray = self._preprocess_edge(self._node_coords, indices)
 
-            seq_data: Dict[str, Tuple[np.ndarray, str]] = {
-                "node_coord": (self._node_coords[i], "float"),
-                "node_features": (self._node_features[i], "float"),
-                "edges_indices": (edge, "int"),
-                "shape_coeffs": (self._shape_coeffs[i], "float"),
-                "theta_vals": (self._theta_vals[i], "float"),
-                "labels": (self._displacement[i], "float"),
-            }
+            for i in range(len(indices)):
+                context_data = {
+                    "index": (indices[i], self.context_description["index"]),
+                }
+                feature_data: Dict[str, Tuple[np.ndarray, str]] = {
+                    "node_coord": (self._node_coords[indices[i]], self.feature_description["node_coord"]),
+                    "node_features": (self._node_features[indices[i]], self.feature_description["node_features"]),
+                    "edges_indices": (edge[i], self.feature_description["edges_indices"]),
+                    "shape_coeffs": (self._shape_coeffs[indices[i]], self.feature_description["shape_coeffs"]),
+                    "theta_vals": (self._theta_vals[indices[i]], self.feature_description["theta_vals"]),
+                    "labels": (self._displacement[indices[i]], self.feature_description["labels"]),
+                }
 
-            writer.write({}, seq_data)  # noqa
-            logger.info(f"write down the seq_data for {i}")
+                writer.write(context_data, feature_data)  # noqa
 
-        writer.close()
+            writer.close()
+            logger.info(f"File {file_i} written and closed")
 
-    def _preprocess_edge(self, node_coords: np.ndarray, i: int) -> np.ndarray:
+    def _preprocess_edge(self, node_coords: np.ndarray, indices: np.array) -> np.ndarray:
 
         if self.gpu:
             node_coords = torch.tensor(node_coords, device="cuda")
         else:
             node_coords = torch.tensor(node_coords)
 
-        relative_positions = node_coords[i, :, None, :] - node_coords[i, None, :, :]
+        relative_positions = node_coords[indices, :, None, :] - node_coords[indices, None, :, :]
 
         relative_distance = torch.sqrt(torch.sum(torch.square(relative_positions), dim=-1, keepdim=True))
 
@@ -209,7 +229,8 @@ class GraphSageTrainDataset(GraphSageDataset):
     def __init__(self, data_config: Dict, data_type: str) -> None:
         super().__init__(data_config, data_type)
 
-        if not os.path.exists(self.tfrecord_path):
+        # TODO: logic not reasonable here, need to be modified in the future
+        if not os.listdir(self.tfrecord_path):
             preprocess_data = GraphSagePreprocessDataset(data_config, data_type)
             preprocess_data.preprocess()
 
@@ -227,18 +248,10 @@ class GraphSageTrainDataset(GraphSageDataset):
         # labels
         self.data_size = np.load(self.data_size_path).astype(np.int64).item()
 
+        # file
+        self.num_of_files = len(os.listdir(self.tfrecord_path))
+
         # init tfrecord loader config
-        self.data_path = f"{self.tfrecord_path}"
-        self.index_path = None
-        self.context_description: Dict[str, str] = dict()
-        self.feature_description: Dict[str, str] = {
-            "node_coord": "float",
-            "node_features": "float",
-            "edges_indices": "float",  # bug, need to fix in the future
-            "shape_coeffs": "float",
-            "theta_vals": "float",
-            "labels": "float",
-        }
         self.shuffle_queue_size = data_config.get("shuffle_queue_size", 5)
         self.compression_type = None
 
@@ -255,7 +268,7 @@ class GraphSageTrainDataset(GraphSageDataset):
             },
         }
 
-        tensor_to_gpu_config = {"gpu": self.gpu}
+        tensor_to_gpu_config = {"gpu": self.gpu, "cuda_core": self.cuda_core}
 
         convert_data_dim_config = {
             "theta_vals": -1,
@@ -278,19 +291,29 @@ class GraphSageTrainDataset(GraphSageDataset):
         return self.data_size
 
     def __iter__(self) -> (Dict, torch.Tensor):
+        shift, num_workers = 0, 0
+
         worker_info = torch.utils.data.get_worker_info()
         if worker_info is not None:
-            shard = worker_info.id, worker_info.num_workers
-            np.random.seed(worker_info.seed % np.iinfo(np.uint32).max)
-        else:
-            shard = None
+            shift, num_workers = worker_info.id, worker_info.num_workers
 
-        it = tfrecord.tfrecord_loader(data_path=self.data_path,
-                                      index_path=self.index_path,
-                                      description=self.context_description,
-                                      shard=shard,
-                                      sequence_description=self.feature_description,
-                                      compression_type=self.compression_type)
+        if num_workers > self.num_of_files:
+            raise ValueError("the num of workers should be small or equal to num of files")
+
+        if num_workers == 0:
+            splits = {str(num): 1.0 for num in range(self.num_of_files)}
+        else:
+            splits = {str(num): 1.0 for num in range(self.num_of_files) if num % num_workers == shift}
+
+        it = tfrecord.multi_tfrecord_loader(
+            data_pattern=self.tfrecord_path+"/data{}.tfrecord",
+            index_pattern=None,
+            splits=splits,
+            description=self.context_description,
+            sequence_description=self.feature_description,
+            compression_type=self.compression_type,
+            infinite=False,
+        )
 
         if self.shuffle_queue_size:
             it = tfrecord.shuffle_iterator(it, self.shuffle_queue_size)  # noqa
@@ -298,14 +321,6 @@ class GraphSageTrainDataset(GraphSageDataset):
         it = map(self.transform, it)
 
         return it
-
-    def _normal_max_min_transform(
-            self, array: torch.Tensor, max_norm_val: np.float32, min_norm_val: np.float32
-    ) -> torch.Tensor:
-        max_val = torch.from_numpy(np.expand_dims(max_norm_val, axis=(0)))
-        min_val = torch.from_numpy(np.expand_dims(min_norm_val, axis=(0)))
-
-        return (array - min_val) / (max_val - min_val)
 
     def get_displacement_mean(self) -> torch.tensor:
         _displacement_mean = torch.from_numpy(self.displacement_mean)

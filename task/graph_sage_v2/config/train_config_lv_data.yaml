@@ -3,11 +3,12 @@ task_base:
   exp_name: 30
   overwrite_exp_folder: True
   gpu: True
-  cuda_core: "cuda:0"
+  cuda_core: "cuda:1"
 task_data:
   task_data_name: lvData
   edge_indices_generate_method: 2
   n_shape_coeff: 32  # Number of shape coefficients to input to the emulator
+  chunk_file_size: 10
 task_trainer:
   model_name: GraphSAGEModel
   epochs: 15000

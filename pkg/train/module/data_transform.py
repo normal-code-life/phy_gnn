@@ -8,6 +8,7 @@ import numpy as np
 max_val_name = "max_val"
 mim_val_name = "min_val"
 
+
 class DataTransform(abc.ABC):
     def __call__(self, *args, **kwargs):
         raise NotImplementedError(f"please implement this function __call__(self, *args, **kwargs)")
@@ -54,6 +55,7 @@ class TFRecordToTensor(DataTransform):
 class TensorToGPU(DataTransform):
     def __init__(self, config: Dict) -> None:
         self.gpu = config["gpu"]
+        self.cuda_core = config["cuda_core"]
 
     def __call__(self, sample: Tuple[Dict[str, Tensor], Dict[str, Tensor]]) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
         if not self.gpu:
@@ -62,10 +64,10 @@ class TensorToGPU(DataTransform):
         context, feature = sample
 
         for name, fea in context.items():
-            context[name] = fea.cuda()
+            context[name] = fea.cuda(device=self.cuda_core)
 
         for name, fea in feature.items():
-            feature[name] = fea.cuda()
+            feature[name] = fea.cuda(device=self.cuda_core)
 
         return context, feature
 
@@ -122,7 +124,5 @@ class CovertToModelInputs(DataTransform):
                 inputs[name] = fea
             else:
                 labels = fea
-
-        inputs["edges_indices"] = inputs["edges_indices"].to(torch.int64)  # TODO bugs that need to fix in the future
 
         return inputs, labels

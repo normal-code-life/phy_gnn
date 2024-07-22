@@ -15,7 +15,7 @@ if __name__ == "__main__":
         "n_shape_coeff": 32,
         "default_padding_value": -1,
         "exp_name": "v3_1",
-        "chunk_size": 5,
+        "num_of_files": 5,
     }
 
     for data_type in ["train", "validation"]:

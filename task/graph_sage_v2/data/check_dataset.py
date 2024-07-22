@@ -1,8 +1,8 @@
 import os
 import sys
-
+from torch.utils.data import DataLoader
 from pkg.utils import io
-from task.graph_sage_v2.data.datasets import GraphSagePreprocessDataset, GraphSageTrainDataset
+from task.graph_sage_v2.data.datasets import GraphSageTrainDataset
 
 
 if __name__ == "__main__":
@@ -21,11 +21,17 @@ if __name__ == "__main__":
         "shuffle_queue_size": 3,
     }
 
-    train_data = GraphSageTrainDataset(data_config, "validation")
+    train_data = GraphSageTrainDataset(data_config, "train")
+
+    train_data_loader = DataLoader(
+        dataset=train_data,
+        batch_size=data_config.get("batch_size", 1),
+        num_workers=data_config.get("num_workers", 3),
+        prefetch_factor=data_config.get("prefetch_factor", None)
+    )
 
     s = 0
-
-    for context, labels in train_data:
-        s += 1
-        print(s)
-        print(context, labels)
+    for i in range(5):
+        for context, labels in train_data_loader:
+            s += 1
+            print(s, context["index"])

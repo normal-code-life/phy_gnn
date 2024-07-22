@@ -53,7 +53,7 @@ class TrainerConfig(BaseConfig):
         self.task_base["logs_base_path"] = f"{repo_path}/tmp/{task_name}/{self.exp_name}"
 
         self.task_base["gpu"] = self.task_base["gpu"] and torch.cuda.is_available()
-        self.task_base["cuda_core"] = self.task_base.get("cuda_core", "cuda:0")
+        self.task_base["cuda_core"] = self.task_base.get("cuda_core", None)
 
         if self.task_base["gpu"]:
             torch.cuda.set_device(self.task_base["cuda_core"])
@@ -68,6 +68,7 @@ class TrainerConfig(BaseConfig):
             "task_data_path", f"{repo_path}/pkg/data/{task_data_name}"
         )
         self.task_data["gpu"] = self.task_base["gpu"]
+        self.task_data["cuda_core"] = self.task_base["cuda_core"]
 
         # task trainer
         self.task_trainer = self.config["task_trainer"]
