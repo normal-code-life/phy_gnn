@@ -29,7 +29,7 @@ class GraphSageDataset(BaseIterableDataset):
         self.exp_name = data_config.get("exp_name", None)
         self.default_padding_value = data_config.get("default_padding_value", -1)
         self.n_shape_coeff = data_config.get("n_shape_coeff", 2)
-        self.chunk_file_size = data_config.get("chunk_file_size", 50)
+        self.chunk_file_size = data_config.get("chunk_file_size", 10)
 
         if not os.path.isdir(base_data_path):
             raise NotADirectoryError(f"No directory at: {base_data_path}")
@@ -51,7 +51,7 @@ class GraphSageDataset(BaseIterableDataset):
 
         # node
         self.real_node_features_path = f"{self.raw_data_path}/real-node-features.npy"
-        self.real_node_coord_path = f"{self.raw_data_path}/real-node-coords.npy"
+        self.real_node_coord_path = f"{self.processed_data_path}/real-node-coords.npy"
         self.coord_max_norm_path = f"{self.stats_data_path}/real_node_coord_max_norm.npy"
         self.coord_min_norm_path = f"{self.stats_data_path}/real_node_coord_min_norm.npy"
 
@@ -105,12 +105,7 @@ class GraphSagePreprocessDataset(GraphSageDataset):
         # node features/coord (used real node features)
         self._node_features = np.load(self.real_node_features_path).astype(np.float32)
 
-        self._node_coords = np.memmap(
-            self.real_node_coord_path,
-            dtype=np.float32,
-            mode='r',
-            shape=(self._node_features.shape[0], self._node_features.shape[1], 3),
-        )
+        self._node_coords = np.load(f"{self.processed_data_path}/real-node-coords.npy").astype(np.float32)
 
         logger.info(f"node_features shape: {self._node_features.shape}, node_coord: {self._node_coords.shape}")
 
@@ -182,20 +177,39 @@ class GraphSagePreprocessDataset(GraphSageDataset):
 
     def _preprocess_edge(self, node_coords: np.ndarray, indices: np.array) -> np.ndarray:
 
-        if self.gpu:
-            node_coords = torch.tensor(node_coords, device="cuda")
-        else:
-            node_coords = torch.tensor(node_coords)
+        relative_positions = node_coords[indices, :, np.newaxis, :] - node_coords[indices, np.newaxis, :, :]
+        relative_distance = np.sqrt(np.sum(np.square(relative_positions), axis=-1, keepdims=True))
+        sorted_indices = np.argsort(relative_distance.squeeze(axis=-1), axis=-1)
 
-        relative_positions = node_coords[indices, :, None, :] - node_coords[indices, None, :, :]
+        sorted_indices = self._random_select_nodes(sorted_indices[..., 1: 1001])  # remove the node itself
 
-        relative_distance = torch.sqrt(torch.sum(torch.square(relative_positions), dim=-1, keepdim=True))
+        return sorted_indices if self.gpu else sorted_indices
 
-        sorted_indices = torch.argsort(relative_distance.squeeze(-1), dim=-1)
+    def _random_select_nodes(self, indices: np.ndarray) -> np.ndarray:
+        batch_size, rows, cols = indices.shape
+        sections = [0, 20, 100, 200, 500, 1000]
+        max_select_node = [20, 30, 30, 10, 10]
+        num_select_total = sum(max_select_node)
 
-        sorted_indices = sorted_indices[..., 1:].to(torch.int32)  # remove the node itself
+        selected_indices = np.zeros((batch_size, rows, num_select_total), dtype=np.int32)
 
-        return sorted_indices.cpu().numpy() if self.gpu else sorted_indices.numpy()
+        for i in range(len(sections) - 1):
+            start_idx = 0 if i == 0 else sum(max_select_node[:i])
+            num_random_indices = max_select_node[i]
+            range_start = sections[i]
+            range_end = sections[i + 1]
+
+            for b in range(batch_size):
+                for r in range(rows):
+                    random_indices = np.random.permutation(range_end - range_start)[:num_random_indices]
+                    selected_indices[b, r, start_idx : start_idx + num_random_indices] = random_indices + range_start
+
+        # Gather the selected indices from the original indices
+        batch_indices = np.arange(batch_size)[:, None, None]
+        row_indices = np.arange(rows)[None, :, None]
+        selected_values = indices[batch_indices, row_indices, selected_indices]
+
+        return selected_values
 
     def _data_stats(self) -> None:
         self._data_node_coords_stats()

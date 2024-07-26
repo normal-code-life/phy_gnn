@@ -19,5 +19,5 @@ if __name__ == "__main__":
         "chunk_size": 50
     }
 
-    data_preprocess = GraphSageDataset(data_config, "validation")
+    data_preprocess = GraphSageDataset(data_config, "train")
 

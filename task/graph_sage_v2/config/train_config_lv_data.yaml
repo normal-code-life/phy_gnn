@@ -48,7 +48,7 @@ task_train:
     activation: tanh
   message_passing_layer:
     agg_method: SUMAggregator
-    layer_threshold: [50, 200, 500, 1000, 6700]
+    layer_threshold: [20, 40, 60, 80, 100]
     layer_selected_node_num: [12, 12, 12, 12, 12]
     agg_layer:
       agg_dim: 2
