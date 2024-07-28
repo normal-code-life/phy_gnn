@@ -29,9 +29,11 @@ class PassiveLvGNNEmulTrainer(BaseTrainer):
 
         super().__init__(config)
 
-        self.task_train[
-            "init_weight_file_path"
-        ] = f"{config.task_base['task_path']}/train/{config.task_train['init_weight_file_path']}" if "init_weight_file_path" in config.task_train else None
+        self.task_train["init_weight_file_path"] = (
+            f"{config.task_base['task_path']}/train/{config.task_train['init_weight_file_path']}"
+            if "init_weight_file_path" in config.task_train
+            else None
+        )
 
         # config relative to dataset
         dataset_config = self.dataset_class(self.task_data, TRAIN_NAME)

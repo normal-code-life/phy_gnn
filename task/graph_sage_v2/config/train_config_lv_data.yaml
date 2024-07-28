@@ -1,14 +1,17 @@
 task_base:
-  task_name: passive_lv_gnn_emul
-  exp_name: 14_3
-  overwrite_exp_folder: False
+  task_name: graph_sage_v2
+  exp_name: 30
+  overwrite_exp_folder: True
   gpu: True
+  cuda_core: "cuda:1"
 task_data:
   task_data_name: lvData
+  edge_indices_generate_method: 2
   n_shape_coeff: 32  # Number of shape coefficients to input to the emulator
+  chunk_file_size: 10
 task_trainer:
-  model_name: PassiveLvGNNEmul
-  epochs: 30000
+  model_name: GraphSAGEModel
+  epochs: 15000
   optimizer_param:
     name: adam
     learning_rate: 0.00005  # Learning rate for training the network
@@ -25,41 +28,45 @@ task_trainer:
       save_freq: 500
     logs:
       update_freq: 1
+      save_task_code: True
   dataset_param:
     batch_size: 1
-    val_batch_size: 1
-    shuffle: True
-    train_shuffle: True
+    val_batch_size: 10
+    num_workers: 5
+    prefetch_factor: 1
+    val_prefetch_factor: 10
   static_graph: False
-  fixed_geom: False
 task_train:
-  # init_weight_file_path: "array_init_LvData.npy"
+  neighbour_layers: 1
   node_input_mlp_layer:
-    unit_sizes: [10, 128, 128, 40]
+    unit_sizes: [13, 128, 128, 40]
     layer_norm: True
     activation: tanh
   edge_input_mlp_layer:
-    unit_sizes: [4, 128, 128, 40]
-    layer_norm: True
-    activation: tanh
-  theta_input_mlp_layer:
-    unit_sizes: [4, 128, 128, 40]
+    unit_sizes: [29, 128, 128, 40]
     layer_norm: True
     activation: tanh
   message_passing_layer:
-    edge_mlp_layer:
-      unit_sizes: [120, 128, 128, 40]
-      layer_norm: True
-      activation: tanh
+    agg_method: SUMAggregator
+    layer_threshold: [20, 40, 60, 80, 100]
+    layer_selected_node_num: [12, 12, 12, 12, 12]
+    agg_layer:
+      agg_dim: 2
+      keep_dim: False
     node_mlp_layer:
       unit_sizes: [80, 128, 128, 40]
       layer_norm: True
       activation: tanh
-    K: 5
-  decoder_layer:
-    mlp_layer:
-      unit_sizes: [152, 128, 128, 1]
-      layer_norm: False
+    edge_mlp_layer:
+      unit_sizes: [89, 128, 128, 40]
+      layer_norm: True
       activation: tanh
+  theta_input_mlp_layer:
+    unit_sizes: [4, 128, 128, 40]
+    layer_norm: True
+    activation: tanh
+  decoder_layer:
+    unit_sizes: [112, 128, 128, 1]
+    layer_norm: False
+    activation: tanh
     output_dim: 3
-  fixed_geom: False  # Set whether the dataset is for varying or fixed geometries

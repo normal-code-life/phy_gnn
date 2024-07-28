@@ -1,6 +1,6 @@
 """export from keras."""
 import abc
-from typing import List, Optional, Dict
+from typing import Dict, List, Optional
 
 from torch import nn
 
@@ -15,12 +15,12 @@ class CallBack(abc.ABC):
     def __init__(self, task_base_param: Dict, logs_param: Dict):
         self.params: Dict = dict()
 
+        self.task_dir = task_base_param["task_path"]
+
         if "log_dir" not in logs_param:
             self.log_dir = task_base_param["logs_base_path"]
         else:
             self.log_dir = logs_param["log_dir"]
-
-
 
     def set_model(self, model: nn.Module):
         self.model = model

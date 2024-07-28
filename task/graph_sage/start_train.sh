@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export TASK_NAME="passive_lv_gnn_emul"
+export TASK_NAME="graph_sage"
 
 export PROJECT_PATH="$(cd `dirname $0`/../../; pwd)"
 echo "project root path: ${PROJECT_PATH}"

@@ -67,22 +67,24 @@ class MessagePassingModule(BaseModule):
         n_total_nodes = self.n_total_nodes
 
         # calculate messages along each directed edge with an edge feature vector assigned
-        edge_input = torch.concat((edge, node[receivers], node[senders]), dim=-1)  # shape: (440, 120)
-        messages = self.edge_update_fn[i](edge_input)  # shape: (440, 40)
+        edge_input_receivers = torch.concat((edge, node[senders], node[receivers]), dim=-1)  # shape: (440, 80)
+        edge_input_senders = torch.concat((-edge, node[receivers], node[senders]), dim=-1)  # shape: (440, 80)
+        messages_receivers = self.edge_update_fn[i](edge_input_receivers)  # shape: (440, 40)
+        messages_senders = self.edge_update_fn[i](edge_input_senders)  # shape: (440, 40)
 
-        # aggregate incoming messages m_{ij} from nodes i to j where i > j
-        received_messages_ij = self.aggregate_incoming_messages(messages, receivers, n_total_nodes)  # shape: (126: 40)
-
-        # aggregate incoming messages m_{ij} from nodes i to j where i < j
-        # m_{ij} = -m_{ji} where i < j (momentum conservation property of the message passing)
-        received_messages_ji = self.aggregate_incoming_messages(-messages, senders, n_total_nodes)  # shape: (126: 40)
+        received_messages_ij = self.aggregate_incoming_messages(
+            messages_receivers, receivers, n_total_nodes
+        )  # shape: (126, 40)
+        received_messages_ji = self.aggregate_incoming_messages(
+            messages_senders, senders, n_total_nodes
+        )  # shape: (126, 40)
 
         # concatenate node representation with incoming messages and then update node representation
-        node_input = torch.concat((node, received_messages_ij + received_messages_ji), dim=-1)  # shape: (126: 80)
+        node_input = torch.concat((node, received_messages_ij + received_messages_ji), dim=-1)  # shape: (126, 80)
         V = self.node_update_fn[i](node_input)  # shape: (126: 40)
 
         # return updated node and edge representations with residual connection
-        return node + V, edge + messages
+        return node + V, edge + messages_receivers + messages_senders
 
     def forward(self, node, edge):
         # node, edge
