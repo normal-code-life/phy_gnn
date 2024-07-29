@@ -16,8 +16,7 @@ if __name__ == "__main__":
         "edge_indices_generate_method": 0,
         "default_padding_value": -1,
         "exp_name": "9_3",
-        "chunk_size": 50
+        "chunk_size": 50,
     }
 
     data_preprocess = GraphSageDataset(data_config, "train")
-

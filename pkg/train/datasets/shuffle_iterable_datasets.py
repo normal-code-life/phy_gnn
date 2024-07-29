@@ -1,6 +1,8 @@
-import torch
 import random
+
+import torch
 from torch.utils.data import IterableDataset
+
 from pkg.train.datasets.base_datasets import BaseIterableDataset
 
 
@@ -33,4 +35,3 @@ class ShuffledIterableDataset(BaseIterableDataset):
     def __iter__(self):
         data_iter = iter(self.dataset)
         return iter(self.buffer_shuffle(data_iter))
-

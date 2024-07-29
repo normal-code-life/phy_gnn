@@ -1,27 +1,24 @@
-import math
 import os
-import random
 from typing import Dict, Tuple
-
+import math
 import numpy as np
 import tfrecord
 import torch
 import torch.utils.data
-from tfrecord.torch.dataset import MultiTFRecordDataset
 from torchvision import transforms
-
+from common.constant import TRAIN_NAME, VALIDATION_NAME
 from pkg.train.datasets.base_datasets import BaseIterableDataset
 from pkg.train.module.data_transform import (CovertToModelInputs,
                                              MaxMinNormalize, TensorToGPU,
                                              TFRecordToTensor, max_val_name,
                                              mim_val_name)
 from pkg.utils.logging import init_logger
-from task.graph_sage_v2.data.data_transform import ConvertDataDim
+from task.passive_biv_v1.data.data_transform import ConvertDataDim
 
-logger = init_logger("GraphSage_Dataset")
+logger = init_logger("PassiveBiV_Dataset")
 
 
-class GraphSageDataset(BaseIterableDataset):
+class PassiveBiVDataset(BaseIterableDataset):
     """Data loader for graph-formatted input-output data with common, fixed topology."""
 
     def __init__(self, data_config: Dict, data_type: str) -> None:
@@ -33,51 +30,43 @@ class GraphSageDataset(BaseIterableDataset):
 
         self.exp_name = data_config.get("exp_name", None)
         self.default_padding_value = data_config.get("default_padding_value", -1)
-        self.n_shape_coeff = data_config.get("n_shape_coeff", 2)
         self.chunk_file_size = data_config.get("chunk_file_size", 10)
+        self.train_test_split_ratio = data_config.get("train_test_split_ratio", 0.8)
 
-        if not os.path.isdir(base_data_path):
-            raise NotADirectoryError(f"No directory at: {base_data_path}")
-        else:
-            logger.info(f"base_data_path is {base_data_path}")
-
-        self.raw_data_path = f"{base_data_path}/rawData/{self.data_type}"
-        self.processed_data_path = f"{base_data_path}/processedData/{self.data_type}"
-        self.topology_data_path = f"{base_data_path}/topologyData"
-        self.stats_data_path = f"{base_data_path}/normalisationStatistics"
-        self.tfrecord_path = f"{base_data_path}/tfData/{self.data_type}"
+        self.inputs_data_path = f"{base_data_path}/record_inputs"
+        self.outputs_data_path = f"{base_data_path}/record_results"
+        self.stats_data_path = f"{base_data_path}/stats"
+        self.tfrecord_path = f"{base_data_path}/tfrecord"
+        self.tfrecord_data_path = f"{self.tfrecord_path}/{self.data_type}"
 
         logger.info(f"base_data_path is {base_data_path}")
         logger.info(f"base_task_path is {base_task_path}")
-        logger.info(f"processed_data_path is {self.processed_data_path}")
-        logger.info(f"tfrecord_path is {self.tfrecord_path}")
-        logger.info(f"topology_data_path is {self.topology_data_path}")
+        logger.info(f"inputs_data_path is {self.inputs_data_path}")
+        logger.info(f"outputs_data_path is {self.outputs_data_path}")
         logger.info(f"stats_data_path is {self.stats_data_path}")
+        logger.info(f"tfrecord_path is {self.tfrecord_path}")
+        logger.info(f"tfrecord_data_path is {self.tfrecord_data_path}")
 
-        # node
-        self.real_node_features_path = f"{self.raw_data_path}/real-node-features.npy"
-        self.real_node_coord_path = f"{self.processed_data_path}/real-node-coords.npy"
-        self.coord_max_norm_path = f"{self.stats_data_path}/real_node_coord_max_norm.npy"
-        self.coord_min_norm_path = f"{self.stats_data_path}/real_node_coord_min_norm.npy"
+        if not os.path.exists(self.stats_data_path):
+            os.makedirs(self.stats_data_path)
+
+        if not os.path.exists(self.tfrecord_path):
+            os.makedirs(self.tfrecord_path)
+
+        # global features
+        self.global_feature_data_path = f"{base_data_path}/record_global_feature.csv"
+        self.shape_data_path = f"{base_data_path}/record_shape.csv"
+
+        logger.info(f"global_feature_data_path is {self.global_feature_data_path}")
+        logger.info(f"shape_data_path is {self.shape_data_path}")
 
         # edge
-        self.edge_file_path = f"{self.processed_data_path}/node_neighbours_all_distance_{self.data_type}.npy"
 
         # theta
-        self.theta_vals_path = f"{self.processed_data_path}/global-features.npy"
-        self.theta_mean_path = f"{self.stats_data_path}/global-features-mean.npy"
-        self.theta_std_path = f"{self.stats_data_path}/global-features-std.npy"
 
         # displacement
-        self.displacement_path = f"{self.processed_data_path}/real-node-displacement.npy"
-        self.displacement_mean_path = f"{self.stats_data_path}/real-node-displacement-mean.npy"
-        self.displacement_std_path = f"{self.stats_data_path}/real-node-displacement-std.npy"
-
-        self.coeffs_path = f"{self.processed_data_path}/shape-coeffs.npy"
 
         # others
-        self.data_size_path = f"{self.processed_data_path}/{self.data_type}_data_size.npy"
-
         # features
         self.context_description: Dict[str, str] = {
             "index": "int",
@@ -93,89 +82,96 @@ class GraphSageDataset(BaseIterableDataset):
         }
 
 
-class GraphSagePreprocessDataset(GraphSageDataset):
+class PassiveBiVPreprocessDataset(PassiveBiVDataset):
     def __init__(self, data_config: Dict, data_type: str) -> None:
-        super(GraphSagePreprocessDataset, self).__init__(data_config, data_type)
+        super(PassiveBiVPreprocessDataset, self).__init__(data_config, data_type)
 
     def preprocess(self):
+        self._path_check()
         self._preprocess_data()
         self._data_stats()
 
+    def _path_check(self):
+        data_path = self.tfrecord_path
+        train_path = f"{data_path}/{TRAIN_NAME}"
+        validation_path = f"{data_path}/{VALIDATION_NAME}"
+
+        if os.path.exists(train_path):
+            if len(os.listdir(train_path)) > 0:
+                logger.info(f"{train_path} contains data, please double confirm if need to overwrite")
+                return
+        else:
+            os.makedirs(train_path)
+
+        if os.path.exists(validation_path):
+            if len(os.listdir(validation_path)) > 0:
+                logger.info(f"{validation_path} contains data, please double confirm if need to overwrite")
+                return
+        else:
+            os.makedirs(validation_path)
+
     def _preprocess_data(self):
-        file_path = self.tfrecord_path
+        data_path = self.tfrecord_path
+        train_path = f"{data_path}/{TRAIN_NAME}"
+        validation_path = f"{data_path}/{VALIDATION_NAME}"
 
-        if len(os.listdir(file_path)) > 0:
-            return
 
-        # node features/coord (used real node features)
-        self._node_features = np.load(self.real_node_features_path).astype(np.float32)
+        # read global features
+        data_global_feature = np.loadtxt(self.global_feature_data_path, delimiter=',')
+        data_shape_coeff = np.loadtxt(self.shape_data_path, delimiter=',')
 
-        self._node_coords = np.load(f"{self.processed_data_path}/real-node-coords.npy").astype(np.float32)
+        data_material = data_global_feature[:, 1: 7]  # first column corresponding to number of sample, dropped
+        data_pressure = data_global_feature[:, 8: 10]
 
-        logger.info(f"node_features shape: {self._node_features.shape}, node_coord: {self._node_coords.shape}")
+        # sample_size = data_global_feature.shape[0]
+        sample_size = 10
+        train_sample_size = int(sample_size * self.train_test_split_ratio)
+        validation_sample_size = sample_size - train_sample_size
 
-        # global variables are the same for each node in the graph (e.g. global material stiffness parameters)
-        self._theta_vals = np.load(self.theta_vals_path).astype(np.float32)
-        logger.info(f"theta vals shape: {self._theta_vals.shape}")
-
-        # labels
-        self._displacement = np.load(self.displacement_path).astype(np.float32)
-        logger.info(f"displacement shape: {self._displacement.shape}")
-
-        self._shape_coeffs = np.load(self.coeffs_path, mmap_mode="r").astype(np.float32)[:, : self.n_shape_coeff]
-        logger.info(f"shape_coeffs shape: {self._shape_coeffs.shape}")
-
-        assert (
-            self._node_coords.shape[0]
-            == self._node_features.shape[0]
-            == self._theta_vals.shape[0]
-            == self._displacement.shape[0]
-            == self._shape_coeffs.shape[0]
-        ), (
-            f"Variables are not equal: "
-            f"node_coords.shape[0]={self._node_coords.shape[0]}, "
-            f"node_features.shape[0]={self._node_features.shape[0]}, "
-            f"theta_vals.shape[0]={self._theta_vals.shape[0]}, "
-            f"displacement.shape[0]={self._displacement.shape[0]} "
-            f"shape_coeffs.shape[0]={self._shape_coeffs.shape[0]}"
-        )
-
-        assert self._node_coords.shape[1] == self._node_features.shape[1] == self._displacement.shape[1], (
-            f"Variables are not equal: "
-            f"node_coords.shape[0]={self._node_coords.shape[0]}, "
-            f"node_features.shape[0]={self._node_features.shape[0]}, "
-            f"displacement.shape[0]={self._displacement.shape[0]} "
-        )
-
-        node_shape = self._node_coords.shape
-
-        sample_indices = np.arange(node_shape[0])
+        sample_indices = np.arange(sample_size)
         np.random.shuffle(sample_indices)
-        sample_indices = np.array_split(sample_indices, node_shape[0] // self.chunk_file_size)
 
-        for file_i, indices in enumerate(sample_indices):
-            file_path_group = f"{file_path}/data{file_i}.tfrecord"
-            writer = tfrecord.TFRecordWriter(file_path_group)
+        train_indices = np.array_split(sample_indices[: train_sample_size], train_sample_size // self.chunk_file_size)
+        validation_indices = np.array_split(sample_indices[train_sample_size:], max(validation_sample_size // self.chunk_file_size, 1))
 
-            edge: np.ndarray = self._preprocess_edge(self._node_coords, indices)
+        sample_indices_dict = {
+            TRAIN_NAME: train_indices,
+            VALIDATION_NAME: validation_indices
+        }
 
-            for i in range(len(indices)):
-                context_data = {
-                    "index": (indices[i], self.context_description["index"]),
-                }
-                feature_data: Dict[str, Tuple[np.ndarray, str]] = {
-                    "node_coord": (self._node_coords[indices[i]], self.feature_description["node_coord"]),
-                    "node_features": (self._node_features[indices[i]], self.feature_description["node_features"]),
-                    "edges_indices": (edge[i], self.feature_description["edges_indices"]),
-                    "shape_coeffs": (self._shape_coeffs[indices[i]], self.feature_description["shape_coeffs"]),
-                    "theta_vals": (self._theta_vals[indices[i]], self.feature_description["theta_vals"]),
-                    "labels": (self._displacement[indices[i]], self.feature_description["labels"]),
-                }
+        for data_type in [TRAIN_NAME, VALIDATION_NAME]:
+            for file_i, indices in enumerate(sample_indices_dict[data_type]):
 
-                writer.write(context_data, feature_data)  # noqa
+                # write file
+                file_path_group = f"{self.tfrecord_path}/{data_type}/file_name_{file_i}.tfrecord"
 
-            writer.close()
-            logger.info(f"File {file_i} written and closed")
+                writer = tfrecord.TFRecordWriter(file_path_group)
+
+                for idx in indices:
+                    # read file
+                    read_file_name = f"/ct_case_{idx:04d}.csv"  # e.g. ct_case_0005
+                    record_inputs = np.loadtxt(self.inputs_data_path+read_file_name, delimiter=',')
+                    record_outputs = np.loadtxt(self.outputs_data_path+read_file_name, delimiter=',')
+
+                    edge: np.ndarray = self._preprocess_edge(self._node_coords, indices)
+
+                    for i in range(len(indices)):
+                        context_data = {
+                            "index": (indices[i], self.context_description["index"]),
+                        }
+                        feature_data: Dict[str, Tuple[np.ndarray, str]] = {
+                            "node_coord": (self._node_coords[indices[i]], self.feature_description["node_coord"]),
+                            "node_features": (self._node_features[indices[i]], self.feature_description["node_features"]),
+                            "edges_indices": (edge[i], self.feature_description["edges_indices"]),
+                            "shape_coeffs": (self._shape_coeffs[indices[i]], self.feature_description["shape_coeffs"]),
+                            "theta_vals": (self._theta_vals[indices[i]], self.feature_description["theta_vals"]),
+                            "labels": (self._displacement[indices[i]], self.feature_description["labels"]),
+                        }
+
+                        writer.write(context_data, feature_data)  # noqa
+
+                    writer.close()
+                    logger.info(f"File {file_i} written and closed")
 
     def _preprocess_edge(self, node_coords: np.ndarray, indices: np.array) -> np.ndarray:
         relative_positions = node_coords[indices, :, np.newaxis, :] - node_coords[indices, np.newaxis, :, :]
@@ -238,7 +234,7 @@ class GraphSagePreprocessDataset(GraphSageDataset):
         np.save(self.data_size_path, node_coords.shape[0])
 
 
-class GraphSageTrainDataset(GraphSageDataset):
+class PassiveBiVTrainDataset(PassiveBiVDataset):
     """Data loader for graph-formatted input-output data with common, fixed topology."""
 
     def __init__(self, data_config: Dict, data_type: str) -> None:
@@ -246,7 +242,7 @@ class GraphSageTrainDataset(GraphSageDataset):
 
         # TODO: logic not reasonable here, need to be modified in the future
         if not os.listdir(self.tfrecord_path):
-            preprocess_data = GraphSagePreprocessDataset(data_config, data_type)
+            preprocess_data = PassiveBiVPreprocessDataset(data_config, data_type)
             preprocess_data.preprocess()
 
         # node features/coord (used real node features)

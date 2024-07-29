@@ -1,6 +1,6 @@
 import multiprocessing
 
-from task.graph_sage_v2.train.model import GraphSAGETrainer
+from task.passive_biv_v1.train.model import GraphSAGETrainer
 
 if __name__ == "__main__":
     multiprocessing.set_start_method("spawn")

@@ -11,16 +11,18 @@ from torch.utils.data import DataLoader
 from common.constant import TRAIN_NAME, VALIDATION_NAME
 from pkg.train.callbacks.base_callback import CallbackList
 from pkg.train.callbacks.log_callback import LogCallback
-from pkg.train.callbacks.model_checkpoint_callback import ModelCheckpointCallback
+from pkg.train.callbacks.model_checkpoint_callback import \
+    ModelCheckpointCallback
 from pkg.train.callbacks.tensorboard_callback import TensorBoardCallback
 from pkg.train.config.base_config import BaseConfig
 from pkg.train.datasets.base_datasets import BaseAbstractDataset, BaseDataset
+from pkg.train.datasets.shuffle_iterable_datasets import \
+    ShuffledIterableDataset
 from pkg.train.model.base_model import BaseModule
 from pkg.train.module.loss import EuclideanDistanceMSE
 from pkg.utils.io import load_yaml
 from pkg.utils.logging import init_logger
 from pkg.utils.model_summary import summary
-from pkg.train.datasets.shuffle_iterable_datasets import ShuffledIterableDataset
 
 logger = init_logger("BASE_TRAINER")
 
@@ -261,14 +263,14 @@ class BaseTrainer(abc.ABC):
                 dataset=train_dataset,
                 batch_size=dataset_param.get("batch_size", 1),
                 num_workers=dataset_param.get("num_workers", 0),
-                prefetch_factor=dataset_param.get("prefetch_factor", None)
+                prefetch_factor=dataset_param.get("prefetch_factor", None),
             )
 
             validation_data_loader = DataLoader(
                 dataset=validation_dataset,
                 batch_size=dataset_param.get("val_batch_size", 1),
                 num_workers=dataset_param.get("num_workers", 0),
-                prefetch_factor=dataset_param.get("val_prefetch_factor", None)
+                prefetch_factor=dataset_param.get("val_prefetch_factor", None),
             )
 
         # ====== Create model ======

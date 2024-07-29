@@ -1,9 +1,9 @@
 import abc
-from typing import Tuple, Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
+
+import numpy as np
 import torch
 from torch import Tensor
-import numpy as np
-
 
 max_val_name = "max_val"
 mim_val_name = "min_val"
@@ -37,17 +37,13 @@ class TFRecordToTensor(DataTransform):
             if name not in self.context_list:
                 raise ValueError(f"please check your feature list and add {name}")
 
-            context_tensor[name] = torch.tensor(
-                np.array(fea), dtype=self.convert_type[self.context_list[name]]
-            )
+            context_tensor[name] = torch.tensor(np.array(fea), dtype=self.convert_type[self.context_list[name]])
 
         for name, fea in feature.items():
             if name not in self.feature_list:
                 raise ValueError(f"please check your feature list and add {name}")
 
-            feature_tensor[name] = torch.tensor(
-                np.array(fea), dtype=self.convert_type[self.feature_list[name]]
-            )
+            feature_tensor[name] = torch.tensor(np.array(fea), dtype=self.convert_type[self.feature_list[name]])
 
         return context_tensor, feature_tensor
 
@@ -57,7 +53,9 @@ class TensorToGPU(DataTransform):
         self.gpu = config["gpu"]
         self.cuda_core = config["cuda_core"]
 
-    def __call__(self, sample: Tuple[Dict[str, Tensor], Dict[str, Tensor]]) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
+    def __call__(
+        self, sample: Tuple[Dict[str, Tensor], Dict[str, Tensor]]
+    ) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
         if not self.gpu:
             return sample
 
@@ -73,13 +71,14 @@ class TensorToGPU(DataTransform):
 
 
 class MaxMinNormalize(DataTransform):
-    """Normalize a tensor with max and min.
-    """
+    """Normalize a tensor with max and min."""
 
     def __init__(self, config: Dict) -> None:
         self.feature_config = config
 
-    def __call__(self, sample: Tuple[Dict[str, Tensor], Dict[str, Tensor]]) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
+    def __call__(
+        self, sample: Tuple[Dict[str, Tensor], Dict[str, Tensor]]
+    ) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
         context, feature = sample
 
         for name, fea in context.items():
@@ -97,9 +96,7 @@ class MaxMinNormalize(DataTransform):
         return context, feature
 
     @staticmethod
-    def _normal_max_min_transform(
-            array: Tensor, max_norm_val: Tensor, min_norm_val: Tensor
-    ) -> Tensor:
+    def _normal_max_min_transform(array: Tensor, max_norm_val: Tensor, min_norm_val: Tensor) -> Tensor:
         return (array - min_norm_val) / (max_norm_val - min_norm_val)
 
 
