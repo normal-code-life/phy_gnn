@@ -1,6 +1,6 @@
 task_base:
   task_name: graph_sage
-  exp_name: 9_1_final
+  exp_name: 9_6
   overwrite_exp_folder: False
   gpu: True
   cuda_core: "cuda:1"

@@ -109,7 +109,7 @@ class GraphSageDataset(BaseDataset):
             edges = np.repeat(edges[np.newaxis, :, :], node_coords.shape[0], axis=0)
 
         elif edge_indices_generate_method == 2:
-            edge_file_path = f"{processed_data_path}/node_neighbours_distance_{data_type}_9_1_final.npy"
+            edge_file_path = f"{processed_data_path}/node_neighbours_distance_{data_type}_9_6.npy"
             if os.path.exists(edge_file_path):
                 edges = np.load(edge_file_path).astype(np.float32)
             else:
@@ -214,7 +214,7 @@ class GraphSageDataset(BaseDataset):
 
     def _calculate_node_neighbour_distance(self, node_coord: np.ndarray, batch_size: int = 20) -> np.ndarray:
         num_nodes = node_coord.shape[0]
-        sorted_indices_by_dist = np.empty((num_nodes, node_coord.shape[1], 100), dtype=np.int16)
+        sorted_indices_by_dist = np.empty((num_nodes, node_coord.shape[1], 25), dtype=np.int16)
         for i in range(0, num_nodes, batch_size):
             end = min(i + batch_size, num_nodes)
             relative_positions = node_coord[i:end, :, np.newaxis, :] - node_coord[i:end, np.newaxis, :, :]
@@ -229,7 +229,7 @@ class GraphSageDataset(BaseDataset):
     def _random_select_nodes(self, indices: np.ndarray) -> np.ndarray:
         batch_size, rows, cols = indices.shape
         sections = [0, 20, 100, 200, 500, 1000]
-        max_select_node = [20, 30, 30, 10, 10]
+        max_select_node = [5, 8, 7, 3, 2]
         num_select_total = sum(max_select_node)
 
         selected_indices = np.zeros((batch_size, rows, num_select_total), dtype=np.int32)
