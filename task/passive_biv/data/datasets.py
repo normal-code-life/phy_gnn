@@ -1,11 +1,13 @@
+import math
 import os
 from typing import Dict, Tuple
-import math
+
 import numpy as np
 import tfrecord
 import torch
 import torch.utils.data
 from torchvision import transforms
+
 from common.constant import TRAIN_NAME, VALIDATION_NAME
 from pkg.train.datasets.base_datasets import BaseIterableDataset
 from pkg.train.module.data_transform import (CovertToModelInputs,
@@ -13,7 +15,7 @@ from pkg.train.module.data_transform import (CovertToModelInputs,
                                              TFRecordToTensor, max_val_name,
                                              mim_val_name)
 from pkg.utils.logging import init_logger
-from task.passive_biv_v1.data.data_transform import ConvertDataDim
+from task.passive_biv.data.data_transform import ConvertDataDim
 
 logger = init_logger("PassiveBiV_Dataset")
 
@@ -30,8 +32,6 @@ class PassiveBiVDataset(BaseIterableDataset):
 
         self.exp_name = data_config.get("exp_name", None)
         self.default_padding_value = data_config.get("default_padding_value", -1)
-        self.chunk_file_size = data_config.get("chunk_file_size", 10)
-        self.train_test_split_ratio = data_config.get("train_test_split_ratio", 0.8)
 
         self.inputs_data_path = f"{base_data_path}/record_inputs"
         self.outputs_data_path = f"{base_data_path}/record_results"
@@ -85,96 +85,92 @@ class PassiveBiVDataset(BaseIterableDataset):
 class PassiveBiVPreprocessDataset(PassiveBiVDataset):
     def __init__(self, data_config: Dict, data_type: str) -> None:
         super(PassiveBiVPreprocessDataset, self).__init__(data_config, data_type)
+        # path
+        self.train_path = f"{self.tfrecord_path}/{TRAIN_NAME}"
+        self.validation_path = f"{self.tfrecord_path}/{VALIDATION_NAME}"
+
+        # sample indices
+        self.sample_indices = data_config["sample_indices"]
+
+        # other parameter
+        # === sample size for each files
+        self.chunk_file_size = data_config.get("chunk_file_size", 10)
+
+        # === data points in each is different, need to padding and setup the maximum points size
+        self.max_points_per_image = data_config.get("max_points_per_image", 20000)
 
     def preprocess(self):
         self._path_check()
+
         self._preprocess_data()
+
         self._data_stats()
 
     def _path_check(self):
-        data_path = self.tfrecord_path
-        train_path = f"{data_path}/{TRAIN_NAME}"
-        validation_path = f"{data_path}/{VALIDATION_NAME}"
-
-        if os.path.exists(train_path):
-            if len(os.listdir(train_path)) > 0:
-                logger.info(f"{train_path} contains data, please double confirm if need to overwrite")
+        if os.path.exists(self.train_path):
+            if len(os.listdir(self.train_path)) > 0:
+                logger.info(f"{self.train_path} contains data, please double confirm if need to overwrite")
                 return
         else:
-            os.makedirs(train_path)
+            os.makedirs(self.train_path)
 
-        if os.path.exists(validation_path):
-            if len(os.listdir(validation_path)) > 0:
-                logger.info(f"{validation_path} contains data, please double confirm if need to overwrite")
+        if os.path.exists(self.validation_path):
+            if len(os.listdir(self.validation_path)) > 0:
+                logger.info(f"{self.validation_path} contains data, please double confirm if need to overwrite")
                 return
         else:
-            os.makedirs(validation_path)
+            os.makedirs(self.validation_path)
 
     def _preprocess_data(self):
-        data_path = self.tfrecord_path
-        train_path = f"{data_path}/{TRAIN_NAME}"
-        validation_path = f"{data_path}/{VALIDATION_NAME}"
-
-
         # read global features
-        data_global_feature = np.loadtxt(self.global_feature_data_path, delimiter=',')
-        data_shape_coeff = np.loadtxt(self.shape_data_path, delimiter=',')
+        data_global_feature = np.loadtxt(self.global_feature_data_path, delimiter=",")
+        data_shape_coeff = np.loadtxt(self.shape_data_path, delimiter=",")
 
-        data_material = data_global_feature[:, 1: 7]  # first column corresponding to number of sample, dropped
-        data_pressure = data_global_feature[:, 8: 10]
+        data_material = data_global_feature[:, 1:7]  # first column corresponding to number of sample, dropped
+        data_pressure = data_global_feature[:, 8:10]
 
-        # sample_size = data_global_feature.shape[0]
-        sample_size = 10
-        train_sample_size = int(sample_size * self.train_test_split_ratio)
-        validation_sample_size = sample_size - train_sample_size
+        for file_i, indices in enumerate(self.sample_indices):
+            # write file path
+            file_path_group = f"{self.tfrecord_path}/{self.data_type}/file_name_{file_i}.tfrecord"
 
-        sample_indices = np.arange(sample_size)
-        np.random.shuffle(sample_indices)
+            writer = tfrecord.TFRecordWriter(file_path_group)
 
-        train_indices = np.array_split(sample_indices[: train_sample_size], train_sample_size // self.chunk_file_size)
-        validation_indices = np.array_split(sample_indices[train_sample_size:], max(validation_sample_size // self.chunk_file_size, 1))
+            for idx in indices:
+                # read sample inputs
+                read_file_name = f"/ct_case_{idx+1:04d}.csv"  # e.g. ct_case_0005
+                record_inputs = np.loadtxt(self.inputs_data_path + read_file_name, delimiter=",")
 
-        sample_indices_dict = {
-            TRAIN_NAME: train_indices,
-            VALIDATION_NAME: validation_indices
-        }
+                image_points = record_inputs.shape[0]
+                node_coords = record_inputs[:, 0: 3]
+                laplace_coords = record_inputs[:, 3: 11]
+                forces = record_inputs[:, 12: 17]
 
-        for data_type in [TRAIN_NAME, VALIDATION_NAME]:
-            for file_i, indices in enumerate(sample_indices_dict[data_type]):
+                record_outputs = np.loadtxt(self.outputs_data_path + read_file_name, delimiter=",")
 
-                # write file
-                file_path_group = f"{self.tfrecord_path}/{data_type}/file_name_{file_i}.tfrecord"
 
-                writer = tfrecord.TFRecordWriter(file_path_group)
 
-                for idx in indices:
-                    # read file
-                    read_file_name = f"/ct_case_{idx:04d}.csv"  # e.g. ct_case_0005
-                    record_inputs = np.loadtxt(self.inputs_data_path+read_file_name, delimiter=',')
-                    record_outputs = np.loadtxt(self.outputs_data_path+read_file_name, delimiter=',')
+                edge: np.ndarray = self._preprocess_edge(node_coords, indices)
 
-                    edge: np.ndarray = self._preprocess_edge(self._node_coords, indices)
+                for i in range(len(indices)):
+                    context_data = {
+                        "index": (indices[i], self.context_description["index"]),
+                    }
+                    feature_data: Dict[str, Tuple[np.ndarray, str]] = {
+                        "node_coord": (self._node_coords[indices[i]], self.feature_description["node_coord"]),
+                        "node_features": (self._node_features[indices[i]], self.feature_description["node_features"]),
+                        "edges_indices": (edge[i], self.feature_description["edges_indices"]),
+                        "shape_coeffs": (self._shape_coeffs[indices[i]], self.feature_description["shape_coeffs"]),
+                        "theta_vals": (self._theta_vals[indices[i]], self.feature_description["theta_vals"]),
+                        "labels": (self._displacement[indices[i]], self.feature_description["labels"]),
+                    }
 
-                    for i in range(len(indices)):
-                        context_data = {
-                            "index": (indices[i], self.context_description["index"]),
-                        }
-                        feature_data: Dict[str, Tuple[np.ndarray, str]] = {
-                            "node_coord": (self._node_coords[indices[i]], self.feature_description["node_coord"]),
-                            "node_features": (self._node_features[indices[i]], self.feature_description["node_features"]),
-                            "edges_indices": (edge[i], self.feature_description["edges_indices"]),
-                            "shape_coeffs": (self._shape_coeffs[indices[i]], self.feature_description["shape_coeffs"]),
-                            "theta_vals": (self._theta_vals[indices[i]], self.feature_description["theta_vals"]),
-                            "labels": (self._displacement[indices[i]], self.feature_description["labels"]),
-                        }
+                    writer.write(context_data, feature_data)  # noqa
 
-                        writer.write(context_data, feature_data)  # noqa
+                writer.close()
+                logger.info(f"File {file_i} written and closed")
 
-                    writer.close()
-                    logger.info(f"File {file_i} written and closed")
-
-    def _preprocess_edge(self, node_coords: np.ndarray, indices: np.array) -> np.ndarray:
-        relative_positions = node_coords[indices, :, np.newaxis, :] - node_coords[indices, np.newaxis, :, :]
+    def _preprocess_edge(self, node_coords: np.ndarray) -> np.ndarray:
+        relative_positions = node_coords[:, np.newaxis, :] - node_coords[np.newaxis, :, :]
         relative_distance = np.sqrt(np.sum(np.square(relative_positions), axis=-1, keepdims=True))
         sorted_indices = np.argsort(relative_distance.squeeze(axis=-1), axis=-1)
 

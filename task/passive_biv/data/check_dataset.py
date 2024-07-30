@@ -1,10 +1,10 @@
 import os
 import sys
 
+from task.passive_biv_v1.data.datasets import PassiveBiVTrainDataset
 from torch.utils.data import DataLoader
 
 from pkg.utils import io
-from task.passive_biv_v1.data.datasets import PassiveBiVTrainDataset
 
 if __name__ == "__main__":
     cur_path = os.path.abspath(sys.argv[0])

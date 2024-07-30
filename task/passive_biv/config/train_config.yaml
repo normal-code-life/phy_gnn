@@ -5,10 +5,9 @@ task_base:
   gpu: True
   cuda_core: "cuda:1"
 task_data:
-  task_data_name: lvData
-  edge_indices_generate_method: 2
-  n_shape_coeff: 32  # Number of shape coefficients to input to the emulator
-  chunk_file_size: 10
+  task_data_name: passive_biv
+  chunk_file_size: 2
+  train_split_ratio: 0.8
 task_trainer:
   model_name: GraphSAGEModel
   epochs: 15000
