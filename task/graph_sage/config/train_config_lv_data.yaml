@@ -1,6 +1,6 @@
 task_base:
   task_name: graph_sage
-  exp_name: 9_7
+  exp_name: 9_8
   overwrite_exp_folder: False
   gpu: True
   cuda_core: "cuda:0"
@@ -10,7 +10,7 @@ task_data:
   n_shape_coeff: 32  # Number of shape coefficients to input to the emulator
 task_trainer:
   model_name: GraphSAGEModel
-  epochs: 15000
+  epochs: 5000
   optimizer_param:
     name: adam
     learning_rate: 0.00005  # Learning rate for training the network

@@ -109,7 +109,7 @@ class GraphSageDataset(BaseDataset):
             edges = np.repeat(edges[np.newaxis, :, :], node_coords.shape[0], axis=0)
 
         elif edge_indices_generate_method == 2:
-            edge_file_path = f"{processed_data_path}/node_neighbours_distance_{data_type}_9_6.npy"
+            edge_file_path = f"{processed_data_path}/node_neighbours_distance_{data_type}_9_8.npy"
             if os.path.exists(edge_file_path):
                 edges = np.load(edge_file_path).astype(np.float32)
             else:
@@ -212,12 +212,13 @@ class GraphSageDataset(BaseDataset):
         # Use groupby and apply a lambda function that converts data into a set.
         return np.array(list(map(list, zip_longest(*edge, fillvalue=self.default_padding_value)))).T
 
-    def _calculate_node_neighbour_distance(self, node_coord: np.ndarray, batch_size: int = 20) -> np.ndarray:
+    def _calculate_node_neighbour_distance(self, node_coord: np.ndarray, batch_size: int = 10) -> np.ndarray:
         num_nodes = node_coord.shape[0]
-        sorted_indices_by_dist = np.empty((num_nodes, node_coord.shape[1], 25), dtype=np.int16)
+        sorted_indices_by_dist = np.empty((num_nodes, node_coord.shape[1] // 2, 25), dtype=np.int16)
         for i in range(0, num_nodes, batch_size):
             end = min(i + batch_size, num_nodes)
-            relative_positions = node_coord[i:end, :, np.newaxis, :] - node_coord[i:end, np.newaxis, :, :]
+            random_choice_node = np.random.permutation(np.arange(0, node_coord.shape[1]))[0:node_coord.shape[1] // 2]
+            relative_positions = node_coord[i:end, random_choice_node, np.newaxis, :] - node_coord[i:end, np.newaxis, random_choice_node, :]
             relative_distance = np.sqrt(np.sum(np.square(relative_positions), axis=-1, keepdims=True))
             sorted_indices = np.argsort(relative_distance.squeeze(axis=-1), axis=-1)
             sorted_indices_by_dist[i:end] = self._random_select_nodes(sorted_indices[..., 1:1001])
@@ -229,7 +230,7 @@ class GraphSageDataset(BaseDataset):
     def _random_select_nodes(self, indices: np.ndarray) -> np.ndarray:
         batch_size, rows, cols = indices.shape
         sections = [0, 20, 100, 200, 500, 1000]
-        max_select_node = [5, 8, 7, 3, 2]
+        max_select_node = [20, 55, 15, 5, 5]
         num_select_total = sum(max_select_node)
 
         selected_indices = np.zeros((batch_size, rows, num_select_total), dtype=np.int32)
