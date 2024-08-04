@@ -48,16 +48,14 @@ class TensorBoardCallback(CallBack):
     def on_epoch_end(self, epoch, **kwargs):
         if "train_metrics" in kwargs:
             train_metrics = kwargs["train_metrics"]
-        else:
-            raise ValueError("please feed train_metrics")
+
+            for key, value in train_metrics.items():
+                self.writer.add_scalar(f"{TRAIN_NAME}/{key}", value, epoch)
+
 
         if "val_metrics" in kwargs:
             val_metrics = kwargs["val_metrics"]
-        else:
-            raise ValueError("please feed val_metrics")
 
-        for key, value in train_metrics.items():
-            self.writer.add_scalar(f"{TRAIN_NAME}/{key}", value, epoch)
+            for key, value in val_metrics.items():
+                self.writer.add_scalar(f"{VALIDATION_NAME}/{key}", value, epoch)
 
-        for key, value in val_metrics.items():
-            self.writer.add_scalar(f"{VALIDATION_NAME}/{key}", value, epoch)

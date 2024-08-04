@@ -1,10 +1,11 @@
 #!/bin/bash
 
-export TASK_NAME="passive_biv_v1"
+export TASK_NAME="passive_biv"
 
 export PROJECT_PATH="$(cd `dirname $0`/../../; pwd)"
 echo "project root path: ${PROJECT_PATH}"
 
 export CONFIG_NAME="train_config"
+export TASK_TYPE="data_preparation"
 
-sh "${PROJECT_PATH}/common/sbin/model_train_pipeline.sh"
+sh "${PROJECT_PATH}/common/sbin/main_process.sh"

@@ -303,7 +303,7 @@ class BaseTrainer(abc.ABC):
 
             train_metrics = self.train_step(model, train_data_loader)
 
-            val_metrics = self.validation_step(model, validation_data_loader)
+            val_metrics = self.validation_step(model, validation_data_loader, epoch)
 
             self.callback.on_epoch_end(t, train_metrics=train_metrics, val_metrics=val_metrics)
 
@@ -314,8 +314,18 @@ class BaseTrainer(abc.ABC):
             raise ValueError("by default, we consider it as a single objective, please overwrite this func")
         return self.loss(predictions, labels)
 
-    def compute_metrics(self, metrics_func: callable, predictions: torch.Tensor, labels: torch.Tensor):
+    def compute_metrics(
+            self,
+            metrics_func: callable,
+            predictions: torch.Tensor,
+            labels: Union[torch.Tensor, Dict[str, torch.Tensor]]
+    ):
         return metrics_func(predictions, labels)
+
+    def to_device(self, data: Union[Dict[str, torch.Tensor], torch.Tensor]) -> Dict[str, torch.Tensor]:
+        if self.gpu:
+            return {key: value.cuda() for key, value in data.items()}
+        return data
 
     def train_step(self, model: nn.Module, data_loader: DataLoader) -> Dict:
         batch_cnt = 0
@@ -329,13 +339,13 @@ class BaseTrainer(abc.ABC):
             train_inputs, train_labels = data
 
             # Compute and print loss.
-            outputs = model(train_inputs)
-            loss = self.compute_loss(outputs, train_labels)
+            outputs = model(self.to_device(train_inputs))  # noqa
+            loss = self.compute_loss(outputs, self.to_device(train_labels))
 
             batch_cnt += 1
             metrics["train_loss"] = metrics["train_loss"] + loss.item() if "train_loss" in metrics else loss.item()
 
-            # print(f"===> {batch}, {loss}, {metrics['train_loss']}, {batch_cnt}, {metrics['train_loss'] / batch_cnt}")
+            print(f"===> {loss}, {metrics['train_loss']}, {batch_cnt}, {metrics['train_loss'] / batch_cnt}")
 
             # Before the backward pass, use the optimizer object to zero all the
             # gradients for the variables it will update (which are the learnable
@@ -354,10 +364,16 @@ class BaseTrainer(abc.ABC):
 
         return metrics
 
-    def compute_validation_loss(self, predictions, labels):
+    def compute_validation_loss(self, predictions: torch.Tensor, labels: Union[torch.Tensor, Dict]):
         return self.compute_loss(predictions, labels)
 
-    def validation_step(self, model: nn.Module, dataloder: DataLoader) -> Dict:
+    def validation_step_check(self, epoch: int) -> bool:
+        return True
+
+    def validation_step(self, model: nn.Module, data_loader: DataLoader, epoch: int) -> Dict:
+        if not self.validation_step_check(epoch):
+            return dict()
+
         # Set the model to evaluation mode, disabling dropout and using population
         # statistics for batch normalization.
         batch_cnt = 0
@@ -366,14 +382,14 @@ class BaseTrainer(abc.ABC):
         model.eval()
 
         with torch.no_grad():
-            for batch, val_data in enumerate(dataloder):
+            for batch, val_data in enumerate(data_loader):
                 batch_cnt += 1
 
                 val_inputs, val_labels = val_data
 
-                outputs = model(val_inputs)
+                outputs = model(self.to_device(val_inputs))  # noqa
 
-                loss = self.compute_validation_loss(outputs, val_labels)
+                loss = self.compute_validation_loss(outputs, self.to_device(val_labels))
 
                 metrics["val_loss"] = metrics["val_loss"] + loss.item() if "val_loss" in metrics else loss.item()
 
@@ -381,6 +397,8 @@ class BaseTrainer(abc.ABC):
                 for p in self.metrics:
                     results = self.compute_metrics(self.metrics[p], outputs, val_labels)
                     metrics[f"val_{p}"] = metrics[f"val_{p}"] + results.item() if p in metrics else results.item()
+
+                print(batch_cnt, loss, metrics)
 
         for p in metrics:
             metrics[p] = metrics[p] / batch_cnt

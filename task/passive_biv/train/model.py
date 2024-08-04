@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Union
 
 import torch
 import torch.nn as nn
@@ -8,8 +8,8 @@ from pkg.train.layer.pooling_layer import *  # noqa
 from pkg.train.model.base_model import BaseModule
 from pkg.train.trainer.base_trainer import BaseTrainer, TrainerConfig
 from pkg.utils.logging import init_logger
-from task.graph_sage_v2.data.datasets import GraphSageTrainDataset
-from task.graph_sage_v2.train.mlp_layer_ln import MLPLayerLN
+from task.passive_biv.data.datasets_train import PassiveBiVTrainDataset
+from task.passive_biv.train.mlp_layer_ln import MLPLayerLN
 
 logger = init_logger("GraphSage")
 
@@ -17,8 +17,8 @@ torch.manual_seed(753)
 torch.set_printoptions(precision=8)
 
 
-class GraphSAGETrainer(BaseTrainer):
-    dataset_class = GraphSageTrainDataset
+class PassiveBiVTrainer(BaseTrainer):
+    dataset_class = PassiveBiVTrainDataset
 
     def __init__(self) -> None:
         config = TrainerConfig()
@@ -30,20 +30,31 @@ class GraphSAGETrainer(BaseTrainer):
         # config relative to dataset
         dataset_config = self.dataset_class(self.task_data, TRAIN_NAME)
 
-        self.displacement_mean = dataset_config.get_displacement_mean()
-        self.displacement_std = dataset_config.get_displacement_std()
-
     def create_model(self) -> BaseModule:
-        return GraphSAGEModel(self.task_train)
+        return PassiveBivModel(self.task_train)
 
-    def compute_validation_loss(self, predictions: torch.Tensor, labels: torch.Tensor):
-        return self.compute_loss(predictions * self.displacement_std + self.displacement_mean, labels)
+    def compute_loss(self, predictions: torch.Tensor, labels: Union[torch.Tensor, Dict]):
+        return self.loss(predictions, labels["displacement"])
 
-    def compute_metrics(self, metrics_func: callable, predictions: torch.Tensor, labels: torch.Tensor):
-        return metrics_func(predictions * self.displacement_std + self.displacement_mean, labels)
+    def compute_validation_loss(self, predictions: torch.Tensor, labels: Dict[str, torch.Tensor]):
+        return self.compute_loss(predictions, labels)
+
+    def compute_metrics(
+            self,
+            metrics_func: callable,
+            predictions: torch.Tensor,
+            labels: Union[torch.Tensor, Dict[str, torch.Tensor]]
+    ):
+        return metrics_func(predictions, labels["displacement"])
+
+    def validation_step_check(self, epoch) -> bool:
+        if epoch == 1 or epoch % 5 == 0:
+            return True
+        else:
+            return False
 
 
-class GraphSAGEModel(BaseModule):
+class PassiveBivModel(BaseModule):
     """https://github.com/raunakkmr/GraphSAGE."""
 
     def __init__(self, config: Dict, *args, **kwargs) -> None:
@@ -112,87 +123,11 @@ class GraphSAGEModel(BaseModule):
         )
 
     def _node_preprocess(self, x: Dict[str, torch.Tensor]) -> torch.Tensor:
-        input_node_fea: torch.Tensor = x["node_features"]  # shape: (batch_size, node_num, node_feature_dim)
         input_node_coord: torch.Tensor = x["node_coord"]  # shape: (batch_size, node_num, coord_dim)
+        input_laplace_coord: torch.Tensor = x["laplace_coord"]  # shape: (batch_size, node_num, coord_dim)
+        input_node_fea: torch.Tensor = x["fiber_and_sheet"]  # shape: (batch_size, node_num, node_feature_dim)
 
-        return torch.concat([input_node_fea, input_node_coord], dim=-1)
-
-    def _edge_coord_preprocess(self, x: Dict[str, torch.Tensor]) -> torch.Tensor:
-        # parse input data
-        # === read node feature/coord and corresponding neighbours
-        input_node_coord: torch.Tensor = x["node_coord"]  # shape: (batch_size, node_num, node_coord_dim)
-        input_edge_indices: torch.Tensor = x["edges_indices"]  # shape: (batch_size, node_num, seq)
-
-        coord_dim: int = input_node_coord.shape[-1]  # coord for each of the node
-        seq: int = input_edge_indices.shape[-1]  # neighbours seq for each of the center node
-
-        # === expand node feature to match indices shape
-        # shape: (batch_size, node_num, node_coord_dim) =>
-        # (batch_size, node_num, 1, node_coord_dim) =>
-        # (batch_size, node_num, seq, node_coord_dim)
-        node_coord_expanded: torch.Tensor = input_node_coord.unsqueeze(2).expand(-1, -1, seq, -1)
-
-        # parse seq data
-        # === expand indices to match feature shape
-        # shape: (batch_size, node_num, seq) =>
-        # (batch_size, node_num, seq, 1) =>
-        # (batch_size, node_num, seq, node_coord_dim)
-        indices_coord_expanded: torch.Tensor = input_edge_indices.unsqueeze(-1).expand(-1, -1, -1, coord_dim)
-
-        # === mask part of indices if the seq length is variance
-        indices_coord_expanded_mask: torch.Tensor = torch.eq(indices_coord_expanded, self.default_padding_value)
-
-        indices_coord_expanded_w_mask: torch.Tensor = torch.where(
-            indices_coord_expanded_mask, torch.zeros_like(indices_coord_expanded), indices_coord_expanded
-        )
-
-        # === gather coord
-        node_seq_coord: torch.Tensor = torch.gather(node_coord_expanded, 1, indices_coord_expanded_w_mask)
-
-        # combine node data + seq data => edge data
-        # shape: (batch_size, node_num, seq, node_coord_dim) =>
-        # (batch_size, node_num, seq, 2 * node_coord_dim)
-        edge_vertex_coord: torch.Tensor = torch.concat([node_coord_expanded, node_seq_coord], dim=-1)
-        edge_coord: torch.Tensor = node_coord_expanded - node_seq_coord
-
-        return torch.concat([edge_coord, edge_vertex_coord], dim=-1)
-
-    def _edge_fea_preprocess(self, x: Dict[str, torch.Tensor]) -> torch.Tensor:
-        # parse input data
-        input_node_fea: torch.Tensor = x["node_features"]  # shape: (batch_size, node_num, node_feature_dim)
-        input_edge_indices: torch.Tensor = x["edges_indices"]  # shape: (batch_size, node_num, seq)
-
-        fea_dim: int = input_node_fea.shape[-1]  # feature for each of the node
-        seq: int = input_edge_indices.shape[-1]  # neighbours seq for each of the center node
-
-        # === expand node feature to match indices shape
-        # shape: (batch_size, node_num, node_feature_dim/node_coord_dim) =>
-        # (batch_size, node_num, 1, node_feature_dim) =>
-        # (batch_size, node_num, seq, node_feature_dim)
-        node_fea_expanded: torch.Tensor = input_node_fea.unsqueeze(2).expand(-1, -1, seq, -1)
-
-        # parse seq data
-        # === expand indices to match feature shape
-        # shape: (batch_size, node_num, seq) =>
-        # (batch_size, node_num, seq, 1) =>
-        # (batch_size, node_num, seq, node_feature_dim)
-        indices_fea_expanded: torch.Tensor = input_edge_indices.unsqueeze(-1).expand(-1, -1, -1, fea_dim)
-
-        # === mask part of indices if the seq length is variance
-        indices_fea_expanded_mask: torch.Tensor = torch.eq(indices_fea_expanded, self.default_padding_value)
-
-        indices_fea_expanded_w_mask: torch.Tensor = torch.where(
-            indices_fea_expanded_mask, torch.zeros_like(indices_fea_expanded), indices_fea_expanded
-        )
-        # === gather feature/coord
-        node_seq_fea: torch.Tensor = torch.gather(node_fea_expanded, 1, indices_fea_expanded_w_mask)
-
-        # combine node data + seq data => edge data
-        # shape: (batch_size, node_num, seq, node_feature_dim) =>
-        # (batch_size, node_num, seq, 2 * node_feature_dim)
-        edge_fea: torch.Tensor = torch.concat([node_fea_expanded, node_seq_fea], dim=-1)
-
-        return edge_fea
+        return torch.concat([input_node_coord, input_laplace_coord, input_node_fea], dim=-1)
 
     def _edge_emb(self, node_emb: torch.Tensor, selected_seq_node: torch.Tensor) -> torch.Tensor:
         emb_dim: int = node_emb.shape[-1]  # feature for each of the node
@@ -236,11 +171,10 @@ class GraphSAGEModel(BaseModule):
 
         # combine node data + seq data => edge data
         # shape: (batch_size, node_num, seq, node_coord_dim) =>
-        # (batch_size, node_num, seq, 2 * node_coord_dim)
-        edge_vertex_coord: torch.Tensor = torch.concat([node_coord_expanded, node_seq_coord], dim=-1)
+        # (batch_size, node_num, seq, node_coord_dim)
         edge_coord: torch.Tensor = node_coord_expanded - node_seq_coord
 
-        return torch.concat([edge_coord, edge_vertex_coord], dim=-1)
+        return torch.concat([edge_coord, node_coord_expanded, node_seq_coord], dim=-1)
 
     def random_select_nodes(self, indices: torch.Tensor, layer: int) -> torch.Tensor:
         threshold_lower_bound = self.layer_threshold[layer - 1] if layer > 0 else 0
@@ -290,8 +224,9 @@ class GraphSAGEModel(BaseModule):
         # ====== Input data (squeeze to align to previous project)
         input_edge_indices: torch.Tensor = x["edges_indices"]  # shape: (batch_size, node_num, seq)
         input_node_coord: torch.Tensor = x["node_coord"]  # shape: (batch_size, node_num, coord_dim)
-        input_theta: torch.Tensor = x["theta_vals"]  # shape: (batch_size, graph_feature)
-        input_z_global: torch.Tensor = x["shape_coeffs"]  # shape: (batch_size, graph_feature)
+        mat_param: torch.Tensor = x["mat_param"]  # shape: (batch_size, mat_param)
+        pressure: torch.Tensor = x["pressure"]  # shape: (batch_size, pressure)
+        input_shape_coeffs: torch.Tensor = x["shape_coeffs"]  # shape: (batch_size, graph_feature)
 
         input_node = self._node_preprocess(x)  # shape: (batch_size, node_num, node_feature_dim+coord_dim)
         node_emb = self.node_encode_mlp_layer(input_node)  # shape: (batch_size, node_num, node_emb)
@@ -299,11 +234,10 @@ class GraphSAGEModel(BaseModule):
         # ====== message passing layer: Encoder & Aggregate
         z_local = self.message_passing_layer(input_edge_indices, input_node_coord, node_emb)
 
-        # encode global parameters theta
-        z_theta = self.theta_encode_mlp_layer(input_theta)  # shape: (batch_size, theta_feature)
+        # encode global parameters
+        global_fea = self.theta_encode_mlp_layer(torch.concat([mat_param, pressure, input_shape_coeffs], dim=-1))
 
-        # tile global values (z_theta and optionally z_global) to each individual real node
-        global_fea = torch.concat((z_theta, input_z_global), dim=-1)  # shape: (batch_size, emb)
+        # tile global values
         global_fea = global_fea.unsqueeze(dim=-2)  # shape: (batch_size, 1, emb)
         global_fea_expanded = torch.tile(global_fea, (1, z_local.shape[1], 1))  # shape: (batch_size, node_num, emb)
 

@@ -1,4 +1,5 @@
 import os
+import shutil
 from typing import Dict
 
 import yaml
@@ -26,3 +27,19 @@ def load_yaml(path: str) -> Dict:
         config = yaml.safe_load(f)
 
     return config
+
+
+def check_and_clean_path(path: str, overwrite: bool) -> bool:
+    if os.path.exists(path):
+        if len(os.listdir(path)) > 0:
+            if overwrite:
+                shutil.rmtree(path)
+                os.makedirs(path)
+                return True
+            else:
+                return False
+        else:
+            return True
+    else:
+        os.makedirs(path)
+        return True

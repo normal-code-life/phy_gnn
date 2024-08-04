@@ -11,10 +11,9 @@ from tfrecord.torch.dataset import MultiTFRecordDataset
 from torchvision import transforms
 
 from pkg.train.datasets.base_datasets import BaseIterableDataset
-from pkg.train.module.data_transform import (CovertToModelInputs,
-                                             MaxMinNormalize, TensorToGPU,
-                                             TFRecordToTensor, max_val_name,
-                                             mim_val_name)
+from pkg.train.module.data_transform import (MAX_VAL, MIN_VAL,
+                                             CovertToModelInputs, MaxMinNorm,
+                                             TensorToGPU, TFRecordToTensor)
 from pkg.utils.logging import init_logger
 from task.graph_sage_v2.data.data_transform import ConvertDataDim
 
@@ -278,8 +277,8 @@ class GraphSageTrainDataset(GraphSageDataset):
 
         coord_max_min_config = {
             "node_coord": {
-                max_val_name: torch.from_numpy(np.expand_dims(self.coord_max_norm_val, axis=0)),
-                mim_val_name: torch.from_numpy(np.expand_dims(self.coord_min_norm_val, axis=0)),
+                MAX_VAL: torch.from_numpy(np.expand_dims(self.coord_max_norm_val, axis=0)),
+                MIN_VAL: torch.from_numpy(np.expand_dims(self.coord_min_norm_val, axis=0)),
             },
         }
 
@@ -292,7 +291,7 @@ class GraphSageTrainDataset(GraphSageDataset):
         self.transform = transforms.Compose(
             [
                 TFRecordToTensor(tfrecord_to_tensor_config),
-                MaxMinNormalize(coord_max_min_config),
+                MaxMinNorm(coord_max_min_config),
                 ConvertDataDim(convert_data_dim_config),
                 TensorToGPU(tensor_to_gpu_config),
                 CovertToModelInputs(convert_model_input_config),

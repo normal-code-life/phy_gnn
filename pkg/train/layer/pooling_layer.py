@@ -223,9 +223,8 @@ class PoolingLayer(BaseModule):
 
 class MeanAggregator(PoolingLayer):
     def __init__(self, config: Dict, *args, **kwargs) -> None:
-        config["prefix_name"] = "mean_pooling_agg"
-
         super(MeanAggregator, self).__init__(config, *args, **kwargs)
+        config["prefix_name"] = "mean_pooling_agg"
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -238,7 +237,7 @@ class MeanAggregator(PoolingLayer):
         -------
         Aggregated feature.
         """
-        return torch.mean(x, dim=0)
+        return torch.mean(x, dim=self.agg_dim, keepdim=self.keep_dim)
 
 
 class SUMAggregator(PoolingLayer):

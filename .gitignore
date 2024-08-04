@@ -297,4 +297,6 @@ pyrightconfig.json
 .DS_Store
 test_case
 tmp
-pkg/data/*
+pkg/data/lvData
+pkg/data/passive_lv_gnn_emul
+pkg/data/passive_biv

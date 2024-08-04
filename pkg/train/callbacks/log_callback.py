@@ -37,12 +37,12 @@ class LogCallback(CallBack):
         if "train_metrics" in kwargs:
             train_metrics = kwargs["train_metrics"]
         else:
-            raise ValueError("please feed train_metrics")
+            train_metrics = dict()
 
         if "val_metrics" in kwargs:
             val_metrics = kwargs["val_metrics"]
         else:
-            raise ValueError("please feed val_metrics")
+            val_metrics = dict()
 
         if self.update_freq == "epoch" or epoch % self.update_freq == 0:
             train_logs = {
