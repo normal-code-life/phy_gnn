@@ -61,11 +61,7 @@ class PassiveBiVTrainDataset(PassiveBiVDataset):
             transform_list.append(NormalNorm(normal_norm_config))
 
         # convert data dim
-        convert_data_dim_config = {
-            "mat_param": -1,
-            "pressure": -1,
-            "shape_coeffs": -1
-        }
+        convert_data_dim_config = {"mat_param": -1, "pressure": -1, "shape_coeffs": -1}
         transform_list.append(SqueezeDataDim(convert_data_dim_config))
 
         # convert to model inputs

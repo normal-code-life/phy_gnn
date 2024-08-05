@@ -7,12 +7,12 @@ from common.constant import *
 
 
 def stats_analysis(
-        feature_name: str,
-        value_set: np.ndarray,
-        axis: Union[Set[int], int],
-        save_path: str,
-        logger: logging,
-        write_to_path: bool = False,
+    feature_name: str,
+    value_set: np.ndarray,
+    axis: Union[Set[int], int],
+    save_path: str,
+    logger: logging,
+    write_to_path: bool = False,
 ) -> None:
     """
     Analyze statistical properties of a given numpy array and save the results.
@@ -57,4 +57,3 @@ def stats_analysis(
     # Save the statistics to a .npz file
     if write_to_path:
         np.savez(save_path, **stats_val)
-

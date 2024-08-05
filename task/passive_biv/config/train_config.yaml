@@ -6,7 +6,8 @@ task_base:
   cuda_core: "cuda:1"
 task_data:
   task_data_name: passive_biv
-  overwrite_data: False
+  overwrite_data: True
+  num_processes: 5
   chunk_file_size: 50
   train_split_ratio: 0.8
   sections: [0, 30, 100, 500, 1000, 2000]

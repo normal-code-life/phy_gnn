@@ -1,4 +1,5 @@
-import os
+import multiprocessing as mp
+import sys
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
@@ -16,6 +17,7 @@ class PassiveBiVPreparationDataset(PassiveBiVDataset):
         super(PassiveBiVPreparationDataset, self).__init__(data_config, data_type)
         # param job related
         self.overwrite_data = data_config.get("overwrite_data", False)
+        self.num_processes = data_config.get("num_processes", mp.cpu_count())
 
         # sample indices
         self.sample_indices = data_config["sample_indices"]
@@ -51,44 +53,61 @@ class PassiveBiVPreparationDataset(PassiveBiVDataset):
             self.sample_indices, len(self.sample_indices) // self.chunk_file_size
         )
 
-        for file_i, indices in enumerate(sample_indices):
-            # write file path
-            file_path_group = self.tfrecord_data_path.format(file_i)
+        with mp.Pool(processes=self.num_processes) as pool:
+            results = [
+                pool.apply_async(self._single_file_write_process, (i, indices, data_global_feature, data_shape_coeff))
+                for i, indices in enumerate(sample_indices)
+            ]
 
-            writer = tfrecord.TFRecordWriter(file_path_group)
+            pool.close()
+            pool.join()
 
-            for idx in indices:
-                # read sample inputs
-                read_file_name = f"/ct_case_{idx+1:04d}.csv"  # e.g. ct_case_0005
-                record_inputs = np.loadtxt(self.inputs_data_path + read_file_name, delimiter=",")
+            for result in results:
+                logger.info(result.get())
 
-                record_outputs = np.loadtxt(self.outputs_data_path + read_file_name, delimiter=",")
+    def _single_file_write_process(
+        self, file_i: int, indices: np.ndarray, data_global_feature: np.ndarray, data_shape_coeff: np.ndarray
+    ) -> str:
+        file_path_group = self.tfrecord_data_path.format(file_i)
 
-                edge: np.ndarray = generate_distance_based_edges(
-                    record_inputs[:, 0:3][np.newaxis, :, :], [0], self.sections, self.nodes_per_section
-                )
+        writer = tfrecord.TFRecordWriter(file_path_group)
 
-                context_data = {
-                    "index": (idx, self.context_description["index"]),
-                    "points": (record_inputs.shape[0], self.context_description["points"]),
-                }
+        for idx in indices:
+            # read sample inputs
+            read_file_name = f"/ct_case_{idx + 1:04d}.csv"  # e.g. ct_case_0005
+            record_inputs = np.loadtxt(self.inputs_data_path + read_file_name, delimiter=",")
 
-                feature_data: Dict[str, Tuple[np.ndarray, str]] = {
-                    "node_coord": (record_inputs[:, 0:3], self.feature_description["node_coord"]),
-                    "laplace_coord": (record_inputs[:, 3:11], self.feature_description["laplace_coord"]),
-                    "fiber_and_sheet": (record_inputs[:, 11:17], self.feature_description["fiber_and_sheet"]),
-                    "edges_indices": (edge[0], self.feature_description["edges_indices"]),
-                    "mat_param": (data_global_feature[:, 1:7][idx], self.feature_description["mat_param"]),
-                    "pressure": (data_global_feature[:, 7:9][idx], self.feature_description["pressure"]),
-                    "shape_coeffs": (data_shape_coeff[:, 1:60][idx], self.feature_description["shape_coeffs"]),
-                    "displacement": (record_outputs[:, 0:3], self.feature_description["displacement"]),
-                    "stress": (record_outputs[:, 3:4], self.feature_description["stress"]),
-                }
+            record_outputs = np.loadtxt(self.outputs_data_path + read_file_name, delimiter=",")
 
-                writer.write(context_data, feature_data)  # noqa
+            edge: np.ndarray = generate_distance_based_edges(
+                record_inputs[:, 0:3][np.newaxis, :, :], [0], self.sections, self.nodes_per_section
+            )
 
-            writer.close()
-            logger.info(f"File {file_i}/{indices} written and closed")
+            context_data = {
+                "index": (idx, self.context_description["index"]),
+                "points": (record_inputs.shape[0], self.context_description["points"]),
+            }
+
+            feature_data: Dict[str, Tuple[np.ndarray, str]] = {
+                "node_coord": (record_inputs[:, 0:3], self.feature_description["node_coord"]),
+                "laplace_coord": (record_inputs[:, 3:11], self.feature_description["laplace_coord"]),
+                "fiber_and_sheet": (record_inputs[:, 11:17], self.feature_description["fiber_and_sheet"]),
+                "edges_indices": (edge[0], self.feature_description["edges_indices"]),
+                "mat_param": (data_global_feature[:, 1:7][idx], self.feature_description["mat_param"]),
+                "pressure": (data_global_feature[:, 7:9][idx], self.feature_description["pressure"]),
+                "shape_coeffs": (data_shape_coeff[:, 1:60][idx], self.feature_description["shape_coeffs"]),
+                "displacement": (record_outputs[:, 0:3], self.feature_description["displacement"]),
+                "stress": (record_outputs[:, 3:4], self.feature_description["stress"]),
+            }
+
+            writer.write(context_data, feature_data)  # noqa
+
+            logger.info(f"index {idx} done")
+            sys.stdout.flush()
+
+        writer.close()
+
+        return f"File {file_i}/{indices} written and closed"
 
     def _data_stats(self) -> None:
         # we only allow train data stats write to path

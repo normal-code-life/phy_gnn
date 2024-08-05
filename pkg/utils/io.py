@@ -4,6 +4,10 @@ from typing import Dict
 
 import yaml
 
+from pkg.utils.logging import init_logger
+
+logger = init_logger("io")
+
 
 def get_cur_abs_dir(path) -> str:
     abs_dir = os.path.dirname(path)
@@ -31,7 +35,9 @@ def load_yaml(path: str) -> Dict:
 
 def check_and_clean_path(path: str, overwrite: bool) -> bool:
     if os.path.exists(path):
-        if len(os.listdir(path)) > 0:
+        size = len(os.listdir(path))
+        logger.info(f"directory size: {size}")
+        if size > 0:
             if overwrite:
                 shutil.rmtree(path)
                 os.makedirs(path)

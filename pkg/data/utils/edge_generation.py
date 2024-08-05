@@ -4,7 +4,7 @@ import numpy as np
 
 
 def generate_distance_based_edges(
-        node_coords: np.ndarray, indices: Union[np.ndarray, List[int]], sections: List[int], nodes_per_section: List[int]
+    node_coords: np.ndarray, indices: Union[np.ndarray, List[int]], sections: List[int], nodes_per_section: List[int]
 ) -> np.ndarray:
     """Generates edge nodes based on distance from given node coordinates and indices.
 
@@ -39,7 +39,9 @@ def generate_distance_based_edges(
     return sorted_indices
 
 
-def _random_select_nodes_by_sections(indices: np.ndarray, sections: List[int], nodes_per_section: List[int]) -> np.ndarray:
+def _random_select_nodes_by_sections(
+    indices: np.ndarray, sections: List[int], nodes_per_section: List[int]
+) -> np.ndarray:
     """
     Randomly selects nodes from the given indices array based on predefined sections and selection counts.
 
@@ -76,7 +78,7 @@ def _random_select_nodes_by_sections(indices: np.ndarray, sections: List[int], n
         for b in range(num_samples):
             for r in range(num_rows):
                 shuffle_indices = np.random.permutation(np.arange(sections[i], sections[i + 1]))[: nodes_per_section[i]]
-                selected_indices[b, r, start_idx: start_idx + nodes_per_section[i]] = shuffle_indices
+                selected_indices[b, r, start_idx : start_idx + nodes_per_section[i]] = shuffle_indices
 
     # Gather the selected indices from the original indices
     samples_indices = np.arange(num_samples)[:, None, None]
@@ -84,5 +86,3 @@ def _random_select_nodes_by_sections(indices: np.ndarray, sections: List[int], n
     row_indices = np.arange(num_rows)[None, :, None]
 
     return indices[samples_indices, row_indices, selected_indices]
-
-

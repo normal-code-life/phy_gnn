@@ -52,10 +52,8 @@ class TensorBoardCallback(CallBack):
             for key, value in train_metrics.items():
                 self.writer.add_scalar(f"{TRAIN_NAME}/{key}", value, epoch)
 
-
         if "val_metrics" in kwargs:
             val_metrics = kwargs["val_metrics"]
 
             for key, value in val_metrics.items():
                 self.writer.add_scalar(f"{VALIDATION_NAME}/{key}", value, epoch)
-

@@ -34,11 +34,8 @@ def split_dataset_indices(sample_path: str, train_split_ratio: float) -> Dict[st
     sample_indices: np.ndarray = np.arange(total_sample_size)
     np.random.shuffle(sample_indices)
 
-    train_indices: np.ndarray = sample_indices[: train_sample_size]
+    train_indices: np.ndarray = sample_indices[:train_sample_size]
 
     validation_indices: np.ndarray = sample_indices[train_sample_size:]
 
-    return {
-        TRAIN_NAME: train_indices,
-        VALIDATION_NAME: validation_indices
-    }
+    return {TRAIN_NAME: train_indices, VALIDATION_NAME: validation_indices}

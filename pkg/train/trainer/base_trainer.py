@@ -315,10 +315,7 @@ class BaseTrainer(abc.ABC):
         return self.loss(predictions, labels)
 
     def compute_metrics(
-            self,
-            metrics_func: callable,
-            predictions: torch.Tensor,
-            labels: Union[torch.Tensor, Dict[str, torch.Tensor]]
+        self, metrics_func: callable, predictions: torch.Tensor, labels: Union[torch.Tensor, Dict[str, torch.Tensor]]
     ):
         return metrics_func(predictions, labels)
 
