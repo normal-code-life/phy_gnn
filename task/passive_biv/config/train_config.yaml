@@ -1,12 +1,12 @@
 task_base:
   task_name: passive_biv
   exp_name: 1
-  overwrite_exp_folder: False
+  overwrite_exp_folder: True
   gpu: True
   cuda_core: "cuda:1"
 task_data:
   task_data_name: passive_biv
-  overwrite_data: True
+  overwrite_data: False
   num_processes: 5
   chunk_file_size: 50
   train_split_ratio: 0.8
@@ -36,7 +36,7 @@ task_trainer:
     val_batch_size: 1
     num_workers: 16
     prefetch_factor: 2
-    val_prefetch_factor: 2
+    val_prefetch_factor: 1
   static_graph: False
 task_train:
   neighbour_layers: 1

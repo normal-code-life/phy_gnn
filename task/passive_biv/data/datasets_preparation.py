@@ -1,5 +1,6 @@
 import multiprocessing as mp
 import sys
+import time
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
@@ -42,6 +43,8 @@ class PassiveBiVPreparationDataset(PassiveBiVDataset):
         logger.info(f"====== finish {self.__class__.__name__} {self.data_type} preparation done ======\n")
 
     def _data_generation(self):
+        start_time = time.time()
+
         if not check_and_clean_path(self.tfrecord_path, self.overwrite_data):
             return
 
@@ -64,6 +67,8 @@ class PassiveBiVPreparationDataset(PassiveBiVDataset):
 
             for result in results:
                 logger.info(result.get())
+
+        logger.info(f"total time cost for the tfrecord preparation {time.time() - start_time}s")
 
     def _single_file_write_process(
         self, file_i: int, indices: np.ndarray, data_global_feature: np.ndarray, data_shape_coeff: np.ndarray

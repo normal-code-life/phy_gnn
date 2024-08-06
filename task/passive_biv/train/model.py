@@ -27,9 +27,6 @@ class PassiveBiVTrainer(BaseTrainer):
 
         super().__init__(config)
 
-        # config relative to dataset
-        dataset_config = self.dataset_class(self.task_data, TRAIN_NAME)
-
     def create_model(self) -> BaseModule:
         return PassiveBivModel(self.task_train)
 

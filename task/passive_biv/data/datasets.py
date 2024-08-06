@@ -2,7 +2,7 @@ import os
 import sys
 from typing import Dict, Set
 
-from pkg.train.datasets.base_datasets import BaseIterableDataset
+from pkg.train.datasets.base_datasets import MultiTFRecordDataset
 from pkg.utils import io
 from pkg.utils.io import load_yaml
 from pkg.utils.logging import init_logger
@@ -10,7 +10,7 @@ from pkg.utils.logging import init_logger
 logger = init_logger("PassiveBiV_Dataset")
 
 
-class PassiveBiVDataset(BaseIterableDataset):
+class PassiveBiVDataset(MultiTFRecordDataset):
     """Passive BiV Dataset main class which including our basic attributes.
 
     This class is responsible for loading and processing data for a specific task,
@@ -34,32 +34,9 @@ class PassiveBiVDataset(BaseIterableDataset):
     def __init__(self, data_config: Dict, data_type: str) -> None:
         super().__init__(data_config, data_type)
 
-        # fetch data from local path
-        base_data_path = f"{data_config['task_data_path']}"
-        base_task_path = f"{data_config['task_path']}"
-
-        self.exp_name = data_config.get("exp_name", None)
-        self.default_padding_value = data_config.get("default_padding_value", -1)
-
-        self.stats_data_path = f"{base_data_path}/stats"
-        self.tfrecord_path = f"{base_data_path}/tfrecord/{self.data_type}"
-        self.tfrecord_data_path = f"{self.tfrecord_path}" + "/data_{}.tfrecord"
-
-        logger.info(f"base_data_path is {base_data_path}")
-        logger.info(f"base_task_path is {base_task_path}")
-        logger.info(f"stats_data_path is {self.stats_data_path}")
-        logger.info(f"tfrecord_path is {self.tfrecord_path}")
-        logger.info(f"tfrecord_data_path is {self.tfrecord_data_path}")
-
-        if not os.path.exists(self.stats_data_path):
-            os.makedirs(self.stats_data_path)
-
-        if not os.path.exists(self.tfrecord_path):
-            os.makedirs(self.tfrecord_path)
-
         # node related features
         # === read data path
-        self.inputs_data_path = f"{base_data_path}/record_inputs"
+        self.inputs_data_path = f"{self.base_data_path}/record_inputs"
 
         # === save data path
         self.node_coord_stats_path = f"{self.stats_data_path}/node_coord_stats.npz"
@@ -70,8 +47,8 @@ class PassiveBiVDataset(BaseIterableDataset):
 
         # global features
         # === read data path
-        self.global_feature_data_path = f"{base_data_path}/record_global_feature.csv"
-        self.shape_data_path = f"{base_data_path}/record_shape.csv"
+        self.global_feature_data_path = f"{self.base_data_path}/record_global_feature.csv"
+        self.shape_data_path = f"{self.base_data_path}/record_shape.csv"
 
         # === save data path
         self.mat_param_stats_path = f"{self.stats_data_path}/mat_param_stats.npz"
@@ -83,7 +60,7 @@ class PassiveBiVDataset(BaseIterableDataset):
 
         # label
         # === read data path
-        self.outputs_data_path = f"{base_data_path}/record_results"
+        self.outputs_data_path = f"{self.base_data_path}/record_results"
 
         # === save data path
         self.displacement_stats_path = f"{self.stats_data_path}/displacement_stats.npz"
@@ -93,15 +70,14 @@ class PassiveBiVDataset(BaseIterableDataset):
 
         # others
         self.data_size_path = f"{self.stats_data_path}/" + "{}_data_size_value.npy".format(self.data_type)
-        self.compression_type = None
 
         # features
-        self.context_description: Dict[str, str] = {
+        self.context_description = {
             "index": "int",
             "points": "int",
         }
 
-        self.feature_description: Dict[str, str] = {
+        self.feature_description = {
             "node_coord": "float",
             "laplace_coord": "float",
             "fiber_and_sheet": "float",
@@ -113,7 +89,7 @@ class PassiveBiVDataset(BaseIterableDataset):
             "stress": "float",
         }
 
-        self.labels: Set[str] = {"displacement", "stress"}
+        self.labels = {"displacement", "stress"}
 
 
 def import_data_config() -> Dict:

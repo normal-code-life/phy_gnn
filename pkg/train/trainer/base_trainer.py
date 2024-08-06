@@ -335,14 +335,16 @@ class BaseTrainer(abc.ABC):
             # note: by default, we assume batch size = 1
             train_inputs, train_labels = data
 
+            train_inputs, train_labels = self.to_device(train_inputs), self.to_device(train_labels)  # noqa
+
             # Compute and print loss.
-            outputs = model(self.to_device(train_inputs))  # noqa
-            loss = self.compute_loss(outputs, self.to_device(train_labels))
+            outputs = model(train_inputs)  # noqa
+            loss = self.compute_loss(outputs, train_labels)
 
             batch_cnt += 1
             metrics["train_loss"] = metrics["train_loss"] + loss.item() if "train_loss" in metrics else loss.item()
 
-            print(f"===> {loss}, {metrics['train_loss']}, {batch_cnt}, {metrics['train_loss'] / batch_cnt}")
+            # print(f"===> {loss}, {metrics['train_loss']}, {batch_cnt}, {metrics['train_loss'] / batch_cnt}")
 
             # Before the backward pass, use the optimizer object to zero all the
             # gradients for the variables it will update (which are the learnable
@@ -384,7 +386,9 @@ class BaseTrainer(abc.ABC):
 
                 val_inputs, val_labels = val_data
 
-                outputs = model(self.to_device(val_inputs))  # noqa
+                val_inputs, val_labels = self.to_device(val_inputs), self.to_device(val_labels)  # noqa
+
+                outputs = model(val_inputs)
 
                 loss = self.compute_validation_loss(outputs, self.to_device(val_labels))
 
@@ -395,7 +399,7 @@ class BaseTrainer(abc.ABC):
                     results = self.compute_metrics(self.metrics[p], outputs, val_labels)
                     metrics[f"val_{p}"] = metrics[f"val_{p}"] + results.item() if p in metrics else results.item()
 
-                print(batch_cnt, loss, metrics)
+                # print(batch_cnt, loss, metrics)
 
         for p in metrics:
             metrics[p] = metrics[p] / batch_cnt
