@@ -1,8 +1,8 @@
 import numpy as np
 from numba import njit
 
-
 # To fully leverage the capabilities of multi-core CPUs, we use Numba to process certain large-scale datasets.
+
 
 @njit
 def quick_sort(arr: np.ndarray, indices: np.ndarray, low: int, high: int) -> None:
@@ -64,7 +64,7 @@ def partition(arr: np.ndarray, indices: np.ndarray, low: int, high: int) -> int:
 
 
 @njit
-def numba_argsort(array: np.ndarray) -> np.ndarray:
+def argsort(array: np.ndarray) -> np.ndarray:
     """Return the indices that would sort an array using quicksort.
 
     Parameters:

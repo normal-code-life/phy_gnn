@@ -22,6 +22,11 @@ class BaseAbstractDataset(abc.ABC):
         self.base_data_path = f"{data_config['task_data_path']}"
         self.base_task_path = f"{data_config['task_path']}"
 
+        if not os.path.isdir(self.base_data_path):
+            raise NotADirectoryError(f"No directory at: {self.base_data_path}")
+        else:
+            logger.info(f"base_data_path is {self.base_data_path}")
+
         # other config
         # === cpu/gpu
         self.gpu = data_config["gpu"]

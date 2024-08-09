@@ -7,7 +7,7 @@ import numpy as np
 import tfrecord
 
 from common.constant import TRAIN_NAME
-from pkg.data.utils.edge_generation import generate_distance_based_edges
+from pkg.data.utils.edge_generation import generate_distance_based_edges_ny
 from pkg.data.utils.stats import stats_analysis
 from pkg.utils.io import check_and_clean_path
 from task.passive_biv.data.datasets import PassiveBiVDataset, logger
@@ -84,7 +84,7 @@ class PassiveBiVPreparationDataset(PassiveBiVDataset):
 
             record_outputs = np.loadtxt(self.outputs_data_path + read_file_name, delimiter=",")
 
-            edge: np.ndarray = generate_distance_based_edges(
+            edge: np.ndarray = generate_distance_based_edges_ny(
                 record_inputs[:, 0:3][np.newaxis, :, :], [0], self.sections, self.nodes_per_section
             )
 

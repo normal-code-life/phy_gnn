@@ -1,6 +1,8 @@
-import numpy as np
 import time
-from pkg.math.numba.sort import numba_argsort as nb_argsort
+
+import numpy as np
+
+from pkg.math.numba.sort import argsort as nb_argsort
 
 
 def accuracy_test():
@@ -36,16 +38,16 @@ def efficiency_test():
 
 
 if __name__ == "__main__":
-    accuracy_test()
-    '''accuracy_test results.
+    # accuracy_test()
+    """accuracy_test results.
     original_data: [30 10 50 20 40]
     rank index by numba: [1 3 0 4 2]
     rank index by numpy: [1 3 0 4 2]
     data based on rank index: [10, 20, 30, 40, 50]
-    '''
+    """
 
     efficiency_test()
-    '''efficiency_test result
+    """efficiency_test result
     100 samples nb_argsort takes 0.2300s
     100 samples np_argsort takes 0.0000s
     1000 samples nb_argsort takes 0.0001s
@@ -58,4 +60,4 @@ if __name__ == "__main__":
     10000000 samples np_argsort takes 1.1604s
     1000000000 samples nb_argsort takes 136.6169s
     1000000000 samples np_argsort takes 201.8790s
-    '''
+    """
