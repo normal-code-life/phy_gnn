@@ -14,7 +14,7 @@ from pkg.train.datasets.base_datasets import BaseIterableDataset
 from pkg.train.module.data_transform import (MAX_VAL, MIN_VAL,
                                              CovertToModelInputs, MaxMinNorm,
                                              TensorToGPU, TFRecordToTensor)
-from pkg.utils.logging import init_logger
+from pkg.utils.logs import init_logger
 from task.graph_sage_v2.data.data_transform import ConvertDataDim
 
 logger = init_logger("GraphSage_Dataset")

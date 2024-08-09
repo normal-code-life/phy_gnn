@@ -70,6 +70,7 @@ def _random_select_nodes_by_sections(
 
     # Pre-allocate selected_indices array
     total_selected_nodes = sum(nodes_per_section)
+
     selected_indices = np.zeros((num_samples, num_rows, total_selected_nodes), dtype=np.int32)
 
     for i in range(len(sections) - 1):
@@ -78,7 +79,7 @@ def _random_select_nodes_by_sections(
         for b in range(num_samples):
             for r in range(num_rows):
                 shuffle_indices = np.random.permutation(np.arange(sections[i], sections[i + 1]))[: nodes_per_section[i]]
-                selected_indices[b, r, start_idx : start_idx + nodes_per_section[i]] = shuffle_indices
+                selected_indices[b, r, start_idx : start_idx + nodes_per_section[i]] = shuffle_indices  # noqa
 
     # Gather the selected indices from the original indices
     samples_indices = np.arange(num_samples)[:, None, None]

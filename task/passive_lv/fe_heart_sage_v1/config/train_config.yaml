@@ -1,15 +1,18 @@
 task_base:
-  task_name: graph_sage
+  task_name: passive_lv
+  model_name: fe_heart_sage_v1
   exp_name: 9_1_final
   overwrite_exp_folder: False
   gpu: True
   cuda_core: "cuda:1"
 task_data:
   task_data_name: lvData
-  edge_indices_generate_method: 2
+  edge_indices_generate_method: 4
   n_shape_coeff: 32  # Number of shape coefficients to input to the emulator
+  sections: [0, 20, 100, 200, 500, 1000]
+  nodes_per_sections: [20, 30, 30, 10, 10]
 task_trainer:
-  model_name: GraphSAGEModel
+  model_name: FEHeartSAGETrainer
   epochs: 15000
   optimizer_param:
     name: adam

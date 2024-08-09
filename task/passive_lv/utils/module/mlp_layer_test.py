@@ -1,6 +1,6 @@
 from torchsummary import summary
 
-from pkg.utils.logging import init_logger
+from pkg.utils.logs import init_logger
 from task.passive_lv_gnn_emul.train.mlp_layer_ln import MLPLayerLN
 
 logger = init_logger("test_mlp_module")

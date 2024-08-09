@@ -7,7 +7,7 @@ from common.constant import TRAIN_NAME
 from pkg.train.layer.pooling_layer import *  # noqa
 from pkg.train.model.base_model import BaseModule
 from pkg.train.trainer.base_trainer import BaseTrainer, TrainerConfig
-from pkg.utils.logging import init_logger
+from pkg.utils.logs import init_logger
 from task.graph_sage_v2.data.datasets import GraphSageTrainDataset
 from task.graph_sage_v2.train.mlp_layer_ln import MLPLayerLN
 

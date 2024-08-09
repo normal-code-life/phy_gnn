@@ -7,7 +7,7 @@ from common.constant import TRAIN_NAME
 from pkg.train.layer.pooling_layer import *  # noqa
 from pkg.train.model.base_model import BaseModule
 from pkg.train.trainer.base_trainer import BaseTrainer, TrainerConfig
-from pkg.utils.logging import init_logger
+from pkg.utils.logs import init_logger
 from task.passive_biv.data.datasets_train import PassiveBiVTrainDataset
 from task.passive_biv.train.mlp_layer_ln import MLPLayerLN
 

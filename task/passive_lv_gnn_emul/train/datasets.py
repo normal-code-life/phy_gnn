@@ -5,7 +5,7 @@ import numpy as np
 import torch
 
 from pkg.train.datasets.base_datasets import BaseDataset
-from pkg.utils.logging import init_logger
+from pkg.utils.logs import init_logger
 
 logger = init_logger("LV_Dataset")
 

@@ -21,7 +21,7 @@ from pkg.train.datasets.shuffle_iterable_datasets import \
 from pkg.train.model.base_model import BaseModule
 from pkg.train.module.loss import EuclideanDistanceMSE
 from pkg.utils.io import load_yaml
-from pkg.utils.logging import init_logger
+from pkg.utils.logs import init_logger
 from pkg.utils.model_summary import summary
 
 logger = init_logger("BASE_TRAINER")
@@ -38,10 +38,12 @@ class TrainerConfig(BaseConfig):
         args = self.parse_args()
         repo_path: str = args.repo_path
         task_name: str = args.task_name
+        model_name: str = args.model_name
         config_name: str = args.config_name
 
         # task base info
         task_path = f"{repo_path}/task/{task_name}"
+        task_path = task_path if model_name is None else f"{task_path}/{model_name}"
         config_path = f"{task_path}/config/{config_name}.yaml"
         self.config: Dict = load_yaml(config_path)
 
@@ -87,6 +89,7 @@ class TrainerConfig(BaseConfig):
 
         parser.add_argument("--repo_path", type=str, help="current repo path")
         parser.add_argument("--task_name", type=str, help="task job name")
+        parser.add_argument("--model_name", type=str, default="", help="model job name")
         parser.add_argument("--config_name", default="train_config", type=str, help="config file name")
 
         args = parser.parse_args()

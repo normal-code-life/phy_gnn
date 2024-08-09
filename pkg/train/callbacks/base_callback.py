@@ -4,7 +4,7 @@ from typing import Dict, List, Optional
 
 from torch import nn
 
-from pkg.utils.logging import init_logger
+from pkg.utils.logs import init_logger
 
 logger = init_logger("CALLBACK")
 

@@ -7,7 +7,7 @@ from common.constant import TRAIN_NAME
 from pkg.dnn_utils.method import segment_sum
 from pkg.train.model.base_model import BaseModule
 from pkg.train.trainer.base_trainer import BaseTrainer, TrainerConfig
-from pkg.utils.logging import init_logger
+from pkg.utils.logs import init_logger
 from task.passive_lv_gnn_emul.train.datasets import LvDataset
 from task.passive_lv_gnn_emul.train.message_passing_layer import \
     MessagePassingModule

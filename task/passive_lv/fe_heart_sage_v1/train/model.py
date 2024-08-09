@@ -1,24 +1,21 @@
-from typing import Dict
-
-import torch
 import torch.nn as nn
 
 from common.constant import TRAIN_NAME
 from pkg.train.layer.pooling_layer import *  # noqa
 from pkg.train.model.base_model import BaseModule
 from pkg.train.trainer.base_trainer import BaseTrainer, TrainerConfig
-from pkg.utils.logging import init_logger
-from task.graph_sage.data.datasets import GraphSageDataset
-from task.graph_sage.train.mlp_layer_ln import MLPLayerLN
+from pkg.utils.logs import init_logger
+from task.passive_lv.fe_heart_sage_v1.data.datasets import FEHeartSageV1Dataset
+from task.passive_lv.utils.module.mlp_layer_ln import MLPLayerLN
 
-logger = init_logger("PassiveLvGNNEmul")
+logger = init_logger("FEHeartSage")
 
 torch.manual_seed(753)
 torch.set_printoptions(precision=8)
 
 
-class GraphSAGETrainer(BaseTrainer):
-    dataset_class = GraphSageDataset
+class FEHeartSAGETrainer(BaseTrainer):
+    dataset_class = FEHeartSageV1Dataset
 
     def __init__(self) -> None:
         config = TrainerConfig()

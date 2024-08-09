@@ -14,5 +14,6 @@ torchvision==0.17.2
 # tensorboard==2.8.0
 tensorboardX==2.0.0
 # tensorboard-plugin-profile==2.15.1
-pyyaml==6.0.1
 tfrecord==1.14.4
+psutil==6.0.0
+pyyaml==6.0.1

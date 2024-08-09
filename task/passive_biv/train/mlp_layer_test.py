@@ -1,6 +1,6 @@
 from torchsummary import summary
 
-from pkg.utils.logging import init_logger
+from pkg.utils.logs import init_logger
 from task.graph_sage_v2.train.mlp_layer_ln import MLPLayerLN
 
 logger = init_logger("test_mlp_module")

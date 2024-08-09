@@ -1,11 +1,11 @@
 import os
 import sys
-from typing import Dict, Set
+from typing import Dict
 
 from pkg.train.datasets.base_datasets import MultiTFRecordDataset
 from pkg.utils import io
 from pkg.utils.io import load_yaml
-from pkg.utils.logging import init_logger
+from pkg.utils.logs import init_logger
 
 logger = init_logger("PassiveBiV_Dataset")
 

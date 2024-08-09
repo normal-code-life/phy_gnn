@@ -1,6 +1,7 @@
 from typing import Dict
-import torch
+
 import numpy as np
+import torch
 from torchvision import transforms
 
 from pkg.train.module.data_transform import (CovertToModelInputs, MaxMinNorm,
@@ -64,4 +65,3 @@ class PassiveBiVTrainDataset(PassiveBiVDataset):
 
     def __len__(self):
         return self.data_size
-

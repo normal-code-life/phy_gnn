@@ -5,15 +5,14 @@ import numpy as np
 import pandas as pd
 import torch
 
+from pkg.data.utils.edge_generation import generate_distance_based_edges
 from pkg.train.datasets.base_datasets import BaseDataset
-from pkg.utils.logging import init_logger
+from pkg.utils.logs import init_logger
 
-logger = init_logger("GraphSage_Dataset")
+logger = init_logger("FEHeartSage_Dataset")
 
 
-class GraphSageDataset(BaseDataset):
-    """Data loader for graph-formatted input-output data with common, fixed topology."""
-
+class FEHeartSageV1Dataset(BaseDataset):
     def __init__(
         self,
         data_config: Dict,
@@ -34,6 +33,8 @@ class GraphSageDataset(BaseDataset):
 
         self.default_padding_value = data_config.get("default_padding_value", -1)
         self.n_shape_coeff = data_config.get("n_shape_coeff", 2)
+        self.sections = data_config["sections"]
+        self.nodes_per_sections = data_config["nodes_per_sections"]
 
         # fetch data from local path
         base_data_path = f"{data_config['task_data_path']}"
@@ -87,29 +88,36 @@ class GraphSageDataset(BaseDataset):
 
         # edge features
         edge_indices_generate_method = data_config["edge_indices_generate_method"]
-        if edge_indices_generate_method == 0:
+        if edge_indices_generate_method == 0:  # old method from passive_lv_gnn_emul based on FEA node + Kmeans node
             edges = self._calculate_edge_from_topology(topology_data_path)
             edges = np.repeat(edges[np.newaxis, :, :], node_coords.shape[0], axis=0)
-        elif edge_indices_generate_method == 1:
+
+        elif edge_indices_generate_method == 1:  # FEA node + 2 fixed node
             edges = self._calculate_edge_from_topology(topology_data_path)
 
-            # column1 = np.zeros((edges.shape[0], 1), np.int64)
-            # column2 = np.full((edges.shape[0], 1), 1500, np.int64)
-            # edges = np.concatenate((edges, column1, column2), axis=-1)
-            # edges = np.repeat(edges[np.newaxis, :, :], node_coords.shape[0], axis=0)
+            column1 = np.zeros((edges.shape[0], 1), np.int64)
+            column2 = np.full((edges.shape[0], 1), 1500, np.int64)
+            edges = np.concatenate((edges, column1, column2), axis=-1)
+            edges = np.repeat(edges[np.newaxis, :, :], node_coords.shape[0], axis=0)
 
-            # for i in range(1, 6700, 700):
-            #     edge_column = np.full((edges.shape[0], 1), i, np.int64)
-            #     edges = np.concatenate((edges, edge_column), axis=-1)
-            # edges = np.repeat(edges[np.newaxis, :, :], node_coords.shape[0], axis=0)
+        elif edge_indices_generate_method == 2:  # FEA Node + fixed node selected based on points interval
+            edges = self._calculate_edge_from_topology(topology_data_path)
+
+            for i in range(1, 6700, 700):
+                edge_column = np.full((edges.shape[0], 1), i, np.int64)
+                edges = np.concatenate((edges, edge_column), axis=-1)
+            edges = np.repeat(edges[np.newaxis, :, :], node_coords.shape[0], axis=0)
+
+        elif edge_indices_generate_method == 3:  # fea Node + random node
+            edges = self._calculate_edge_from_topology(topology_data_path)
 
             for i in range(5):
                 edge_column = np.random.randint(low=1, high=6700, size=(edges.shape[0], 1))
                 edges = np.concatenate((edges, edge_column), axis=-1)
             edges = np.repeat(edges[np.newaxis, :, :], node_coords.shape[0], axis=0)
 
-        elif edge_indices_generate_method == 2:
-            edge_file_path = f"{processed_data_path}/node_neighbours_distance_{data_type}_9_1_final.npy"
+        elif edge_indices_generate_method == 4:  # node based on the relative distance
+            edge_file_path = f"{processed_data_path}/node_neighbours_distance_{data_type}_{self.exp_name}.npy"
             if os.path.exists(edge_file_path):
                 edges = np.load(edge_file_path).astype(np.float32)
             else:
@@ -212,48 +220,26 @@ class GraphSageDataset(BaseDataset):
         # Use groupby and apply a lambda function that converts data into a set.
         return np.array(list(map(list, zip_longest(*edge, fillvalue=self.default_padding_value)))).T
 
-    def _calculate_node_neighbour_distance(self, node_coord: np.ndarray, batch_size: int = 20) -> np.ndarray:
+    def _calculate_node_neighbour_distance(self, node_coord: np.ndarray, batch_size: int = 1) -> np.ndarray:
         num_nodes = node_coord.shape[0]
-        sorted_indices_by_dist = np.empty((num_nodes, node_coord.shape[1], 100), dtype=np.int16)
+
+        sections = self.sections
+        nodes_per_section = self.nodes_per_sections
+
+        sorted_indices_by_dist = np.empty((num_nodes, node_coord.shape[1], sum(nodes_per_section)), dtype=np.int16)
+
         for i in range(0, num_nodes, batch_size):
             end = min(i + batch_size, num_nodes)
-            relative_positions = node_coord[i:end, :, np.newaxis, :] - node_coord[i:end, np.newaxis, :, :]
-            relative_distance = np.sqrt(np.sum(np.square(relative_positions), axis=-1, keepdims=True))
-            sorted_indices = np.argsort(relative_distance.squeeze(axis=-1), axis=-1)
-            sorted_indices_by_dist[i:end] = self._random_select_nodes(sorted_indices[..., 1:1001])
+
+            indices = [idx for idx in range(i, end)]
+
+            sorted_indices_by_dist[i:end] = generate_distance_based_edges(
+                node_coord, indices, sections, nodes_per_section
+            )
 
             logger.info(f"calculate sorted_indices_by_dist for {i} done")
 
-        return sorted_indices_by_dist  # remove the node itself
-
-    def _random_select_nodes(self, indices: np.ndarray) -> np.ndarray:
-        batch_size, rows, cols = indices.shape
-        sections = [0, 20, 100, 200, 500, 1000]
-        max_select_node = [20, 30, 30, 10, 10]
-        num_select_total = sum(max_select_node)
-
-        selected_indices = np.zeros((batch_size, rows, num_select_total), dtype=np.int32)
-
-        for i in range(len(sections) - 1):
-            start_idx = 0 if i == 0 else sum(max_select_node[:i])
-            num_random_indices = max_select_node[i]
-            range_start = sections[i]
-            range_end = sections[i + 1]
-
-            for b in range(batch_size):
-                for r in range(rows):
-                    random_indices = np.random.permutation(range_end - range_start)[:num_random_indices]
-                    selected_indices[b, r, start_idx : start_idx + num_random_indices] = random_indices + range_start
-
-        # Gather the selected indices from the original indices
-        batch_indices = np.arange(batch_size)[:, None, None]
-        row_indices = np.arange(rows)[None, :, None]
-        selected_values = indices[batch_indices, row_indices, selected_indices]
-
-        return selected_values
-
-    def _calculate_edge_by_top_k(self, sorted_indices_by_dist: np.ndarray, k: int) -> np.ndarray:
-        return sorted_indices_by_dist[..., :k]
+        return sorted_indices_by_dist
 
     def get_displacement_mean(self) -> torch.tensor:
         _displacement_mean = torch.from_numpy(self._displacement_mean)
@@ -263,59 +249,8 @@ class GraphSageDataset(BaseDataset):
         _displacement_std = torch.from_numpy(self._displacement_std)
         return _displacement_std if not self.gpu else _displacement_std.cuda()
 
-    def generate_topology_data(self, topology_indices: np.ndarray, node_coord: np.ndarray) -> np.ndarray:
-        shape = np.shape(node_coord)
-
-        senders = node_coord[np.arange(shape[0])[:, None], topology_indices[:, 0], :]
-        receivers = node_coord[np.arange(shape[0])[:, None], topology_indices[:, 1], :]
-
-        return senders - receivers
-
     def coord_normalization_max_min(self, array: np.ndarray) -> np.ndarray:
         max_val = np.expand_dims(self.coord_max_norm_val, axis=(0, 1))
         min_val = np.expand_dims(self.coord_min_norm_val, axis=(0, 1))
 
         return (array - min_val) / (max_val - min_val)
-
-    def distance_normalization_max_min(self, array: np.ndarray) -> np.ndarray:
-        max_val = np.expand_dims(self.distance_max_norm_val, axis=(0, 1))
-        min_val = np.expand_dims(self.distance_min_norm_val, axis=(0, 1))
-
-        return (array - min_val) / (max_val - min_val)
-
-    def get_distance_max_norm_val(self) -> np.array:
-        return self.distance_max_norm_val
-
-    def get_distance_min_norm_val(self) -> np.array:
-        return self.distance_min_norm_val
-
-    def get_coord_max_norm_val(self) -> np.array:
-        return self.coord_max_norm_val
-
-    def get_coord_min_norm_val(self) -> np.array:
-        return self.coord_min_norm_val
-
-
-# # edge features
-# # === real node indices
-# node_layer_labels = np.load(f"{topology_data_path}/node-layer-labels.npy")
-# real_node_indices = np.where(node_layer_labels == 0)
-#
-# # load mesh topology (assumed fixed for each graph)
-# sparse_topology = np.load(f"{topology_data_path}/sparse-topology.npy").astype(np.int32)
-#
-# checked_topology_indices = np.all(np.isin(sparse_topology, real_node_indices), axis=1)
-# real_topology_indices = sparse_topology[checked_topology_indices]
-# self._senders = real_topology_indices[:, 0]
-# self._receivers = real_topology_indices[:, 1]
-#
-# # ==== calculate edge features
-# edge = self.generate_topology_data(real_topology_indices, node_coords)
-#
-# # === calculate edge distance
-# edge_distance = np.expand_dims(np.sqrt((edge ** 2).sum(axis=2)), axis=2)
-#
-# self._edges = torch.from_numpy(np.concatenate((edge, edge_distance), axis=2))
-
-# array holding the displacement between end and start diastole
-# (normalised for training data, un-normalised for validation and test data)

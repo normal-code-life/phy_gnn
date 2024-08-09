@@ -4,7 +4,7 @@ from typing import Dict
 import torch
 
 from pkg.train.callbacks.base_callback import CallBack
-from pkg.utils.logging import init_logger
+from pkg.utils.logs import init_logger
 
 
 class ModelCheckpointCallback(CallBack):
