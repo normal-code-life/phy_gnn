@@ -1,18 +1,18 @@
 task_base:
   task_name: passive_lv
   model_name: fe_heart_sage_v1
-  exp_name: 50
+  exp_name: 51
   overwrite_exp_folder: False
   gpu: True
-  cuda_core: "cuda:1"
+  cuda_core: "cuda:2"
 task_data:
   task_data_name: lvData
   overwrite_data: True
   edge_indices_generate_method: 4
   n_shape_coeff: 32  # Number of shape coefficients to input to the emulator
-  sections: [0, 20, 100, 200, 500, 1000]
+  sections: [0, 20, 50, 100, 250, 500]
   nodes_per_sections: [20, 30, 30, 10, 10]
-  down_sampling: 1.0  # only happens on train dataset
+  down_sampling: 0.5  # only happens on train dataset
 task_trainer:
   model_name: FEHeartSAGETrainer
   epochs: 5000
@@ -49,7 +49,7 @@ task_train:
     layer_norm: True
     activation: tanh
   message_passing_layer:
-    agg_method: SUMAggregator
+    agg_method: MeanAggregator
     message_layer_num: 5
     agg_layer:
       agg_dim: 2
