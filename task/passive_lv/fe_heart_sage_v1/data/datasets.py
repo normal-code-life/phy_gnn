@@ -2,6 +2,7 @@ from typing import Dict
 
 from pkg.train.datasets.base_datasets import BaseDataset
 from pkg.utils.logs import init_logger
+from pkg.utils.io import check_and_clean_path
 
 logger = init_logger("FEHeartSage_Dataset")
 
@@ -14,11 +15,16 @@ class FEHeartSageV1Dataset(BaseDataset):
         self.n_shape_coeff = data_config.get("n_shape_coeff", 2)
         self.sections = data_config["sections"]
         self.nodes_per_sections = data_config["nodes_per_sections"]
+        self.overwrite_data = data_config.get("overwrite_data", True)
 
         self.raw_data_path = f"{self.base_data_path}/rawData/{self.data_type}"
         self.processed_data_path = f"{self.base_data_path}/processedData/{self.data_type}"
         self.topology_data_path = f"{self.base_data_path}/topologyData"
         self.stats_data_path = f"{self.base_data_path}/normalisationStatistics"
+        self.fe_heart_sage_v1_data_path = f"{self.base_data_path}/fe_heart_sage_v1/{self.data_type}"
+
+        if not check_and_clean_path(self.fe_heart_sage_v1_data_path, self.overwrite_data):
+            return
 
         logger.info(f"base_data_path is {self.base_data_path}")
         logger.info(f"base_task_path is {self.base_task_path}")
@@ -33,3 +39,5 @@ class FEHeartSageV1Dataset(BaseDataset):
         self.theta_path = f"{self.processed_data_path}/global-features.npy"
         self.displacement_path = f"{self.processed_data_path}/real-node-displacement.npy"
         self.n_shape_coeff_path = f"{self.processed_data_path}/shape-coeffs.npy"
+
+

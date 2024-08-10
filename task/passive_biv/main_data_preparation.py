@@ -1,11 +1,5 @@
-import os
-import sys
-from typing import Dict
-
 from common.constant import TRAIN_NAME, VALIDATION_NAME
 from pkg.data.utils.dataset_generation import split_dataset_indices
-from pkg.utils import io
-from pkg.utils.io import load_yaml
 from task.passive_biv.data.datasets import import_data_config
 from task.passive_biv.data.datasets_preparation import \
     PassiveBiVPreparationDataset

@@ -11,6 +11,7 @@ task_data:
   n_shape_coeff: 32  # Number of shape coefficients to input to the emulator
   sections: [0, 20, 100, 200, 500, 1000]
   nodes_per_sections: [20, 30, 30, 10, 10]
+  down_sampling: 0.5
 task_trainer:
   model_name: FEHeartSAGETrainer
   epochs: 15000

@@ -1,15 +1,16 @@
 import os
+import platform
 from typing import Dict
-
+import sys
+from pkg.utils.io import load_yaml, get_repo_path
 import numpy as np
 import pandas as pd
 from numba.typed import List as Numba_List
 
 from pkg.data.utils.edge_generation import (generate_distance_based_edges_nb,
                                             generate_distance_based_edges_ny)
-from pkg.utils.logs import init_logger
-from task.passive_lv.fe_heart_sage_v1.data.datasets import FEHeartSageV1Dataset, logger
-import platform
+from task.passive_lv.fe_heart_sage_v1.data.datasets import (
+    FEHeartSageV1Dataset, logger)
 
 
 class FEHeartSageV1PreparationDataset(FEHeartSageV1Dataset):
@@ -117,10 +118,25 @@ class FEHeartSageV1PreparationDataset(FEHeartSageV1Dataset):
         sorted_indices_by_dist = np.empty((num_samples, num_nodes, sum(nodes_per_section)), dtype=np.int16)
 
         for i in range(num_samples):
-            sorted_indices_by_dist[i] = generate_distance_based_edges_ny(
-                node_coord, [i], sections, nodes_per_section
-            )
+            sorted_indices_by_dist[i] = generate_distance_based_edges_ny(node_coord, [i], sections, nodes_per_section)
 
             logger.info(f"calculate sorted_indices_by_dist for {i} done")
 
         return sorted_indices_by_dist
+
+
+def import_data_config(model_name: str) -> Dict:
+    # generate root path
+    cur_path = os.path.abspath(sys.argv[0])
+
+    repo_root_path = get_repo_path(cur_path)
+
+    # fetch data config
+    base_config = load_yaml(f"{repo_root_path}/task/passive_lv/{model_name}/config/train_config.yaml")
+    data_config = base_config["task_data"]
+    data_config["task_data_path"] = f"{repo_root_path}/pkg/data/lvData"
+    data_config["task_path"] = f"{repo_root_path}/task/passive_lv/{model_name}"
+    data_config["gpu"] = base_config["task_base"]["gpu"]
+    data_config["default_padding_value"] = -1
+
+    return data_config
