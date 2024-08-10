@@ -17,7 +17,7 @@ if __name__ == "__main__":
             "--model_name",
             "fe_heart_sage_v1",
             "--config_name",
-            "train_config_lv_data",
+            "train_config",
         ]
     )
 

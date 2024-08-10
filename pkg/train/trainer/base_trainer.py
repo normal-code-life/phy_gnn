@@ -1,7 +1,7 @@
 import abc
 import argparse
 import os
-from typing import Dict, List, Optional, Union
+from typing import Dict, Optional, Union
 
 import torch
 import torchmetrics
@@ -11,13 +11,10 @@ from torch.utils.data import DataLoader
 from common.constant import TRAIN_NAME, VALIDATION_NAME
 from pkg.train.callbacks.base_callback import CallbackList
 from pkg.train.callbacks.log_callback import LogCallback
-from pkg.train.callbacks.model_checkpoint_callback import \
-    ModelCheckpointCallback
+from pkg.train.callbacks.model_checkpoint_callback import ModelCheckpointCallback
 from pkg.train.callbacks.tensorboard_callback import TensorBoardCallback
 from pkg.train.config.base_config import BaseConfig
-from pkg.train.datasets.base_datasets import BaseAbstractDataset, BaseDataset
-from pkg.train.datasets.shuffle_iterable_datasets import \
-    ShuffledIterableDataset
+from pkg.train.datasets.base_datasets_train import AbstractTrainDataset, BaseDataset
 from pkg.train.model.base_model import BaseModule
 from pkg.train.module.loss import EuclideanDistanceMSE
 from pkg.utils.io import load_yaml
@@ -73,6 +70,7 @@ class TrainerConfig(BaseConfig):
         )
         self.task_data["gpu"] = self.task_base["gpu"]
         self.task_data["cuda_core"] = self.task_base["cuda_core"]
+        self.task_data["exp_name"] = self.task_base["exp_name"]
 
         # task trainer
         self.task_trainer = self.config["task_trainer"]
@@ -125,7 +123,7 @@ class TrainerConfig(BaseConfig):
 
 
 class BaseTrainer(abc.ABC):
-    dataset_class: BaseAbstractDataset = BaseAbstractDataset
+    dataset_class: AbstractTrainDataset = AbstractTrainDataset
 
     def __init__(self, config: TrainerConfig):
         logger.info("====== Init Trainer ====== ")
@@ -149,7 +147,7 @@ class BaseTrainer(abc.ABC):
         self.static_graph: bool = self.task_trainer.get("static_graph", False)
 
     # === dataset ===
-    def create_dataset(self) -> (BaseAbstractDataset, BaseAbstractDataset):
+    def create_dataset(self) -> (AbstractTrainDataset, AbstractTrainDataset):
         task_data = self.task_data
 
         train_dataset = self.dataset_class(task_data, TRAIN_NAME)

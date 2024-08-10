@@ -1,3 +1,5 @@
+from typing import Union
+
 import torch.nn as nn
 
 from common.constant import TRAIN_NAME
@@ -5,7 +7,7 @@ from pkg.train.layer.pooling_layer import *  # noqa
 from pkg.train.model.base_model import BaseModule
 from pkg.train.trainer.base_trainer import BaseTrainer, TrainerConfig
 from pkg.utils.logs import init_logger
-from task.passive_lv.fe_heart_sage_v1.data.datasets import FEHeartSageV1Dataset
+from task.passive_lv.fe_heart_sage_v1.data.datasets_train import FEHeartSageV1TrainDataset
 from task.passive_lv.utils.module.mlp_layer_ln import MLPLayerLN
 
 logger = init_logger("FEHeartSage")
@@ -15,7 +17,7 @@ torch.set_printoptions(precision=8)
 
 
 class FEHeartSAGETrainer(BaseTrainer):
-    dataset_class = FEHeartSageV1Dataset
+    dataset_class = FEHeartSageV1TrainDataset
 
     def __init__(self) -> None:
         config = TrainerConfig()
@@ -30,20 +32,31 @@ class FEHeartSAGETrainer(BaseTrainer):
         self.displacement_mean = dataset_config.get_displacement_mean()
         self.displacement_std = dataset_config.get_displacement_std()
 
+        self.metrics["l2_norm"] = self.compute_validation_loss_v2
+
     def create_model(self) -> BaseModule:
-        return GraphSAGEModel(self.task_train)
+        return FEHeartSAGEModel(self.task_train)
 
-    def compute_loss(self, outputs, labels):
-        return self.loss(outputs, labels.squeeze(dim=0))
+    def compute_loss(self, outputs: torch.Tensor, labels: Union[torch.Tensor, Dict[str, torch.Tensor]]):
+        return self.loss(outputs, labels["displacement"])
 
-    def compute_validation_loss(self, predictions: torch.Tensor, labels: torch.Tensor):
+    def compute_validation_loss(self, predictions: torch.Tensor, labels: Union[torch.Tensor, Dict[str, torch.Tensor]]):
         return self.compute_loss(predictions * self.displacement_std + self.displacement_mean, labels)
 
-    def compute_metrics(self, metrics_func: callable, predictions: torch.Tensor, labels: torch.Tensor):
-        return metrics_func(predictions * self.displacement_std + self.displacement_mean, labels.squeeze(dim=0))
+    def compute_validation_loss_v2(self, predictions: torch.Tensor, labels: Union[torch.Tensor, Dict[str, torch.Tensor]]):
+        # self.compute_loss(predictions * self.displacement_std + self.displacement_mean, labels)
+        return self.loss(predictions, labels)
+
+    def compute_metrics(
+        self, metrics_func: callable, predictions: torch.Tensor, labels: Union[torch.Tensor, Dict[str, torch.Tensor]]
+    ):
+        return metrics_func(
+            # predictions * self.displacement_std + self.displacement_mean, labels["displacement"]
+            predictions, (labels["displacement"] - self.displacement_mean) / self.displacement_std
+        )
 
 
-class GraphSAGEModel(BaseModule):
+class FEHeartSAGEModel(BaseModule):
     """https://github.com/raunakkmr/GraphSAGE."""
 
     def __init__(self, config: Dict, *args, **kwargs) -> None:

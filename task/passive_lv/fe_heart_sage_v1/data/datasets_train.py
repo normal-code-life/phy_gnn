@@ -1,32 +1,16 @@
-from typing import Dict, Optional
+from typing import Dict
 
 import numpy as np
 import torch
 
-from pkg.utils.logs import init_logger
+from pkg.train.datasets.base_datasets_train import BaseDataset
+from task.passive_lv.fe_heart_sage_v1.data import logger
 from task.passive_lv.fe_heart_sage_v1.data.datasets import FEHeartSageV1Dataset
 
-logger = init_logger("FEHeartSage_Dataset")
 
-
-class FEHeartSageV1TrainDataset(FEHeartSageV1Dataset):
-    def __init__(
-        self,
-        data_config: Dict,
-        data_type: str,
-        coord_max_norm_val: Optional[np.array] = None,
-        coord_min_norm_val: Optional[np.array] = None,
-        distance_max_norm_val: Optional[np.array] = None,
-        distance_min_norm_val: Optional[np.array] = None,
-    ) -> None:
+class FEHeartSageV1TrainDataset(BaseDataset, FEHeartSageV1Dataset):
+    def __init__(self, data_config: Dict, data_type: str) -> None:
         super().__init__(data_config, data_type)
-
-        self.coord_max_norm_val, self.coord_min_norm_val, self.distance_max_norm_val, self.distance_min_norm_val = (
-            coord_max_norm_val,
-            coord_min_norm_val,
-            distance_max_norm_val,
-            distance_min_norm_val,
-        )
 
         # node features (used real node features)
         # === fetch node features
@@ -37,22 +21,8 @@ class FEHeartSageV1TrainDataset(FEHeartSageV1Dataset):
         # node_distance = np.expand_dims(np.sqrt((node_coords ** 2).sum(axis=2)), axis=2)
 
         # === max min calculation
-        if (
-            self.coord_max_norm_val is None
-            and self.coord_min_norm_val is None
-            and self.distance_max_norm_val is None
-            and self.distance_min_norm_val is None
-        ):
-            self.coord_max_norm_val = np.max(node_coords, axis=(0, 1))
-            self.coord_min_norm_val = np.min(node_coords, axis=(0, 1))
-            # self.distance_max_norm_val = np.max(node_distance, axis=(0, 1))
-            # self.distance_min_norm_val = np.min(node_distance, axis=(0, 1))
-        else:
-            logger.info(
-                f"{self.data_type} dataset preset max_norm and min_norm is "
-                f"{self.coord_max_norm_val} {self.coord_min_norm_val} "
-                f"{self.distance_max_norm_val} {self.distance_min_norm_val}"
-            )
+        self.coord_max_norm_val = np.load(self.node_coord_max_path)
+        self.coord_min_norm_val = np.load(self.node_coord_min_path)
 
         self._node_features = node_features
         self._node_coord = self.coord_normalization_max_min(node_coords)
@@ -65,22 +35,16 @@ class FEHeartSageV1TrainDataset(FEHeartSageV1Dataset):
         # global variables are the same for each node in the graph (e.g. global material stiffness parameters)
         self._theta_vals = np.load(self.theta_path).astype(np.float32)
 
-        # summary statistics for global variables, calculated on training data
-        self._theta_mean = np.load(f"{self.stats_data_path}/global-features-mean.npy").astype(np.float32)
-        self._theta_std = np.load(f"{self.stats_data_path}/global-features-std.npy").astype(np.float32)
-
         # labels
         self._displacement = np.load(self.displacement_path).astype(np.float32)
 
         # summary statistics for displacement values calculated on training data
-        self._displacement_mean = np.load(f"{self.stats_data_path}/real-node-displacement-mean.npy").astype(np.float32)
-        self._displacement_std = np.load(f"{self.stats_data_path}/real-node-displacement-std.npy").astype(np.float32)
-
-        self._data_size = self._displacement.shape[0]
+        self._displacement_mean = np.load(self.displacement_mean_path).astype(np.float32)
+        self._displacement_std = np.load(self.displacement_std_path).astype(np.float32)
 
         if self.n_shape_coeff > 0:
             # load shape coefficients
-            shape_coeffs = np.load(self.n_shape_coeff_path).astype(np.float32)
+            shape_coeffs = np.load(self.shape_coeff_path).astype(np.float32)
 
             assert shape_coeffs.shape[-1] >= self.n_shape_coeff, (
                 f"Number of shape coefficients to retain "
@@ -90,9 +54,6 @@ class FEHeartSageV1TrainDataset(FEHeartSageV1Dataset):
 
             # retain n_shape_coeff of these to input to the emulator
             self._shape_coeffs = shape_coeffs[:, : self.n_shape_coeff]
-
-        else:
-            self._shape_coeffs = [None] * self._data_size
 
         self._node_features = torch.from_numpy(self._node_features)
         self._node_coord = torch.from_numpy(self._node_coord)
@@ -109,9 +70,6 @@ class FEHeartSageV1TrainDataset(FEHeartSageV1Dataset):
             self._shape_coeffs = self._shape_coeffs.cuda()
             self._displacement = self._displacement.cuda()
 
-    def __len__(self):
-        return self._data_size
-
     def __getitem__(self, index) -> (Dict, torch.Tensor):
         node_features = self._node_features[index]
         node_coord = self._node_coord[index]
@@ -119,7 +77,7 @@ class FEHeartSageV1TrainDataset(FEHeartSageV1Dataset):
         shape_coeffs = self._shape_coeffs[index]
         theta_vals = self._theta_vals[index]
 
-        labels = self._displacement[index]
+        labels = {"displacement": self._displacement[index]}
 
         sample = {
             "node_features": node_features,

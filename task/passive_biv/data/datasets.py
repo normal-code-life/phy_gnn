@@ -2,7 +2,7 @@ import os
 import sys
 from typing import Dict
 
-from pkg.train.datasets.base_datasets import MultiTFRecordDataset
+from pkg.train.datasets.base_datasets import BaseAbstractDataset
 from pkg.utils import io
 from pkg.utils.io import load_yaml
 from pkg.utils.logs import init_logger
@@ -10,7 +10,7 @@ from pkg.utils.logs import init_logger
 logger = init_logger("PassiveBiV_Dataset")
 
 
-class PassiveBiVDataset(MultiTFRecordDataset):
+class PassiveBiVDataset(BaseAbstractDataset):
     """Passive BiV Dataset main class which including our basic attributes.
 
     This class is responsible for loading and processing data for a specific task,

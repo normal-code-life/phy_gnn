@@ -1,34 +1,99 @@
-import os
 import platform
-from typing import Dict
-import sys
-from pkg.utils.io import load_yaml, get_repo_path
+from typing import Dict, Optional
+
 import numpy as np
 import pandas as pd
 from numba.typed import List as Numba_List
 
-from pkg.data.utils.edge_generation import (generate_distance_based_edges_nb,
-                                            generate_distance_based_edges_ny)
-from task.passive_lv.fe_heart_sage_v1.data.datasets import (
-    FEHeartSageV1Dataset, logger)
+from common.constant import TRAIN_NAME, VALIDATION_NAME
+from pkg.data.utils.edge_generation import generate_distance_based_edges_nb, generate_distance_based_edges_ny
+from pkg.train.datasets.base_datasets_preparation import AbstractDataPreparationDataset
+from task.passive_lv.fe_heart_sage_v1.data import logger
+from task.passive_lv.fe_heart_sage_v1.data.datasets import FEHeartSageV1Dataset
 
 
-class FEHeartSageV1PreparationDataset(FEHeartSageV1Dataset):
+class FEHeartSageV1PreparationDataset(AbstractDataPreparationDataset, FEHeartSageV1Dataset):
     def __init__(self, data_config: Dict, data_type: str) -> None:
-        super().__init__(data_config, data_type)
+        super(FEHeartSageV1PreparationDataset, self).__init__(data_config, data_type)
 
-        if os.path.exists(self.edge_file_path):
-            logger.info("the data is already exist. no longer need data preparation")
+        self.edge_indices_generate_method = data_config["edge_indices_generate_method"]
+        self.down_sampling: Optional[float] = data_config.get(
+            "down_sampling", None
+        )  # if self.data_type == TRAIN_NAME else None
+        self.select_nodes: Optional[np.ndarray] = None
 
-        node_coords = np.load(f"{self.processed_data_path}/real-node-coords.npy").astype(np.float32)
+    def prepare_dataset_process(self):
+        self._data_down_sampling_node_selection()
+        self._data_generation()
+        self._data_stats()
+
+    def _data_generation(self):
+        # fmt: off
+        self._prepare_features("node_feature", self.node_feature_original_path, self.node_feature_path, np.float32, True)  # noqa
+        self._prepare_features("node_coord", self.node_coord_original_path, self.node_coord_path, np.float32, True)
+        self._prepare_features("global_feature", self.theta_original_path, self.theta_path, np.float32, False)
+        self._prepare_features("displacement", self.displacement_original_path, self.displacement_path, np.float32, True)  # noqa
+        self._prepare_features("shape_coeff", self.shape_coeff_original_path, self.shape_coeff_path, np.float32, False)
+        self._prepare_edge()
+        # fmt: on
+
+    def _data_stats(self):
+        self._prepare_data_size_stats()
+
+        if self.data_type == VALIDATION_NAME:
+            return
+
+        self._prepare_node_coord_stats()
+
+    def _data_down_sampling_node_selection(self):
+        if self.down_sampling is None or self.down_sampling == 1.0:
+            return
+
+        data = np.load(self.displacement_original_path)
+        node_size = data.shape[1]
+
+        self.select_nodes = np.random.choice(node_size, size=int(node_size * self.down_sampling), replace=False)
+
+        logger.info(f"given the down sampling ratio {self.down_sampling}, we choice {len(self.select_nodes)} nodes")
+
+    def _prepare_features(
+        self, fea_name: str, read_path: str, save_path: str, np_type: np.dtype, can_down_sampling: bool
+    ) -> None:
+        features = np.load(read_path).astype(np_type)
+
+        if self.down_sampling and can_down_sampling:
+            features = features[:, self.select_nodes, :]
+
+        # === save node features
+        np.save(save_path, features)
+
+        logger.info(f"====== prepare {fea_name} DONE ======")
+
+    def _prepare_node(self):
+        # node features (used real node features)
+        # === fetch node features
+        node_features = np.load(self.node_feature_original_path).astype(np.float32)
+        node_coords = np.load(self.node_coord_original_path).astype(np.float32)
+
+        if self.down_sampling:
+            node_features = node_features[:, self.select_nodes, :]
+            node_coords = node_coords[:, self.select_nodes, :]
+
+        # === save node features
+        np.save(self.node_feature_path, node_features)
+        np.save(self.node_coord_path, node_coords)
+
+        logger.info("====== prepare_node DONE ======")
+
+    def _prepare_edge(self):
+        node_coords = np.load(f"{self.node_coord_path}").astype(np.float32)
 
         # edge features
-        edge_indices_generate_method = data_config["edge_indices_generate_method"]
-        if edge_indices_generate_method == 0:  # old method from passive_lv_gnn_emul based on FEA node + Kmeans node
+        if self.edge_indices_generate_method == 0:  # old method from passive_lv_gnn_emul based on FEA + Kmeans node
             edges = self._calculate_edge_from_topology(self.topology_data_path)
             edges = np.repeat(edges[np.newaxis, :, :], node_coords.shape[0], axis=0)
 
-        elif edge_indices_generate_method == 1:  # FEA node + 2 fixed node
+        elif self.edge_indices_generate_method == 1:  # FEA node + 2 fixed node
             edges = self._calculate_edge_from_topology(self.topology_data_path)
 
             column1 = np.zeros((edges.shape[0], 1), np.int64)
@@ -36,7 +101,7 @@ class FEHeartSageV1PreparationDataset(FEHeartSageV1Dataset):
             edges = np.concatenate((edges, column1, column2), axis=-1)
             edges = np.repeat(edges[np.newaxis, :, :], node_coords.shape[0], axis=0)
 
-        elif edge_indices_generate_method == 2:  # FEA Node + fixed node selected based on points interval
+        elif self.edge_indices_generate_method == 2:  # FEA Node + fixed node selected based on points interval
             edges = self._calculate_edge_from_topology(self.topology_data_path)
 
             for i in range(1, 6700, 700):
@@ -44,7 +109,7 @@ class FEHeartSageV1PreparationDataset(FEHeartSageV1Dataset):
                 edges = np.concatenate((edges, edge_column), axis=-1)
             edges = np.repeat(edges[np.newaxis, :, :], node_coords.shape[0], axis=0)
 
-        elif edge_indices_generate_method == 3:  # fea Node + random node
+        elif self.edge_indices_generate_method == 3:  # fea Node + random node
             edges = self._calculate_edge_from_topology(self.topology_data_path)
 
             for i in range(5):
@@ -52,7 +117,7 @@ class FEHeartSageV1PreparationDataset(FEHeartSageV1Dataset):
                 edges = np.concatenate((edges, edge_column), axis=-1)
             edges = np.repeat(edges[np.newaxis, :, :], node_coords.shape[0], axis=0)
 
-        elif edge_indices_generate_method == 4:  # node based on the relative distance
+        elif self.edge_indices_generate_method == 4:  # node based on the relative distance
             if platform.system() == "Darwin":  # macOS
                 edges = self._calculate_node_neighbour_distance_ny(node_coords)
             else:
@@ -62,6 +127,8 @@ class FEHeartSageV1PreparationDataset(FEHeartSageV1Dataset):
             raise ValueError("please check and define the edge_generate_method properly")
 
         np.save(self.edge_file_path, edges.astype(np.int64))
+
+        logger.info("====== prepare_edge DONE ======")
 
     def _calculate_edge_from_topology(self, data_path: str):
         from itertools import zip_longest
@@ -124,19 +191,23 @@ class FEHeartSageV1PreparationDataset(FEHeartSageV1Dataset):
 
         return sorted_indices_by_dist
 
+    def _prepare_node_coord_stats(self):
+        node_coords = np.load(self.node_coord_path).astype(np.float32)
 
-def import_data_config(model_name: str) -> Dict:
-    # generate root path
-    cur_path = os.path.abspath(sys.argv[0])
+        coord_max_norm_val = np.max(node_coords, axis=(0, 1))
+        coord_min_norm_val = np.min(node_coords, axis=(0, 1))
 
-    repo_root_path = get_repo_path(cur_path)
+        np.save(self.node_coord_max_path, coord_max_norm_val)
+        np.save(self.node_coord_min_path, coord_min_norm_val)
 
-    # fetch data config
-    base_config = load_yaml(f"{repo_root_path}/task/passive_lv/{model_name}/config/train_config.yaml")
-    data_config = base_config["task_data"]
-    data_config["task_data_path"] = f"{repo_root_path}/pkg/data/lvData"
-    data_config["task_path"] = f"{repo_root_path}/task/passive_lv/{model_name}"
-    data_config["gpu"] = base_config["task_base"]["gpu"]
-    data_config["default_padding_value"] = -1
+        logger.info(
+            f"{self.data_type} prepare_node_stats preset max_norm and min_norm is "
+            f"{coord_max_norm_val} {coord_min_norm_val} "
+        )
 
-    return data_config
+    def _prepare_data_size_stats(self):
+        data_size = np.load(self.displacement_path).astype(np.float32).shape[0]
+
+        np.save(self.data_size_path, data_size)
+
+        logger.info(f"{self.data_type} dataset prepare_data_size_stats preset size is {data_size}")

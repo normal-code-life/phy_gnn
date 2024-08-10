@@ -1,8 +1,7 @@
 from common.constant import TRAIN_NAME, VALIDATION_NAME
 from pkg.data.utils.dataset_generation import split_dataset_indices
 from task.passive_biv.data.datasets import import_data_config
-from task.passive_biv.data.datasets_preparation import \
-    PassiveBiVPreparationDataset
+from task.passive_biv.data.datasets_preparation import PassiveBiVPreparationDataset
 
 if __name__ == "__main__":
     data_config = import_data_config()

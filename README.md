@@ -4,14 +4,14 @@
 
 create a new conda environment
 ```bash
-conda create --name gnn python=3.8.18
+conda create --name phy_gnn python=3.8.18
 ```
 
 basic conda environment command
 ```bash
 conda info --envs  # check conda environment
-conda activate xxx # activate xxx conda environment
-conda deactivate # deactivate xxx conda environment
+conda activate phy_gnn # activate phy_gnn conda environment
+conda deactivate # deactivate phy_gnn conda environment
 ```
 
 if it is your first time setup the python dependency, please run the following command to install the dependency

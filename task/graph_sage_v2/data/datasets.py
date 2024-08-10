@@ -10,17 +10,22 @@ import torch.utils.data
 from tfrecord.torch.dataset import MultiTFRecordDataset
 from torchvision import transforms
 
-from pkg.train.datasets.base_datasets import BaseIterableDataset
-from pkg.train.module.data_transform import (MAX_VAL, MIN_VAL,
-                                             CovertToModelInputs, MaxMinNorm,
-                                             TensorToGPU, TFRecordToTensor)
+from pkg.train.datasets.base_datasets_train import BaseAbstractDataset
+from pkg.train.module.data_transform import (
+    MAX_VAL,
+    MIN_VAL,
+    CovertToModelInputs,
+    MaxMinNorm,
+    TensorToGPU,
+    TFRecordToTensor
+)
 from pkg.utils.logs import init_logger
 from task.graph_sage_v2.data.data_transform import ConvertDataDim
 
 logger = init_logger("GraphSage_Dataset")
 
 
-class GraphSageDataset(BaseIterableDataset):
+class GraphSageDataset(BaseAbstractDataset):
     """Data loader for graph-formatted input-output data with common, fixed topology."""
 
     def __init__(self, data_config: Dict, data_type: str) -> None:

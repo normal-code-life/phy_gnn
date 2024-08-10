@@ -1,34 +1,52 @@
 import abc
 import os
-from typing import Dict, Optional, Set
+from typing import Dict
 
-import numpy as np
-import tfrecord
-import torch
-from torch.utils.data import Dataset, IterableDataset, get_worker_info
-from torchvision import transforms
-
-from pkg.utils.logs import init_logger
-
-logger = init_logger("BASE_DATASET")
+from pkg.train.datasets import logger
 
 
 class BaseAbstractDataset(abc.ABC):
+    """Abstract base class for dataset preparation and train.
+
+    This class serves as a blueprint for datasets, providing common setup
+    such as paths and hardware configuration. Subclasses are expected to
+    implement methods for data processing and management.
+
+    Attributes:
+    ----------
+    base_data_path : str
+        Path to the base data directory.
+    base_task_path : str
+        Path to the base task directory.
+    gpu : bool
+        Flag indicating if GPU should be used.
+    cuda_core : str
+        Identifier for the CUDA core to be used.
+    data_type : str
+        Type of the data being handled (e.g., 'train', 'test').
+    exp_name : str, optional
+        Name of the experiment, if specified.
+    """
+
     def __init__(self, data_config: Dict, data_type: str, *args, **kwargs) -> None:
+        """Initialize the dataset with configuration details.
+
+        Parameters:
+        ----------
+        data_config : Dict
+            Dictionary containing configuration details such as paths and hardware setup.
+        data_type : str
+            String specifying the type of data (e.g., 'train', 'test').
+        args : tuple
+            Additional positional arguments.
+        kwargs : dict
+            Additional keyword arguments.
+        """
+        logger.info(f"====== init {data_type} data config ======")
         logger.info(data_config)
 
-        # path
-        # === base path
-        self.base_data_path = f"{data_config['task_data_path']}"
-        self.base_task_path = f"{data_config['task_path']}"
-
-        if not os.path.isdir(self.base_data_path):
-            raise NotADirectoryError(f"No directory at: {self.base_data_path}")
-        else:
-            logger.info(f"base_data_path is {self.base_data_path}")
-
-        # other config
-        # === cpu/gpu
+        # config
+        # === Hardware configuration
         self.gpu = data_config["gpu"]
         self.cuda_core = data_config.get("cuda_core", "gpu:0")
 
@@ -38,114 +56,102 @@ class BaseAbstractDataset(abc.ABC):
         # === exp
         self.exp_name = data_config.get("exp_name", None)
 
-    def __len__(self):
-        raise NotImplementedError("please implement __len__ func")
-
-
-class BaseDataset(BaseAbstractDataset, Dataset):
-    def __init__(self, data_config: Dict, data_type: str, *args, **kwargs) -> None:
-        logger.info(f"====== init {data_type} data config ======")
-        super().__init__(data_config, data_type, args, kwargs)
-
-    def get_head_inputs(self, batch_size) -> Dict:
-        inputs, _ = self.__getitem__(np.arange(0, batch_size))
-
-        return {key: data for key, data in inputs.items()}
-
-
-class BaseIterableDataset(BaseAbstractDataset, IterableDataset):
-    def __init__(self, data_config: Dict, data_type: str, *args, **kwargs) -> None:
-        logger.info(f"====== init {data_type} data config ======")
-        super().__init__(data_config, data_type, args, kwargs)
-
-    def get_head_inputs(self, batch_size) -> Dict:
-        res = {}
-        for i in range(batch_size):
-            inputs, _ = next(self.__iter__())
-
-            inputs = {key: inputs[key].cuda().unsqueeze(0) if self.gpu else inputs[key].unsqueeze(0) for key in inputs}
-
-            for key in inputs:
-                res[key] = torch.concat([res[key], inputs[key]], dim=0) if key in res else inputs[key]
-
-        return res
-
-    def __iter__(self):
-        raise NotImplementedError("please implement __iter__ func")
-
-
-class MultiTFRecordDataset(BaseIterableDataset):
-    def __init__(self, data_config: Dict, data_type: str, *args, **kwargs) -> None:
-        super().__init__(data_config, data_type, args, kwargs)
-
         # path
+        # === base path
+        self.base_data_path = f"{data_config['task_data_path']}"
+        self.base_task_path = f"{data_config['task_path']}"
+
+        # === model training dataset path
         self.stats_data_path = f"{self.base_data_path}/stats"
-        self.tfrecord_path = f"{self.base_data_path}/tfrecord/{self.data_type}"
-        self.tfrecord_data_path = f"{self.tfrecord_path}" + "/data_{}.tfrecord"
+        self.dataset_path = f"{self.base_data_path}/datasets/{self.data_type}"
+
+        if not os.path.isdir(self.base_data_path):
+            raise NotADirectoryError(f"No directory at: {self.base_data_path}")
 
         logger.info(f"base_data_path is {self.base_data_path}")
         logger.info(f"base_task_path is {self.base_task_path}")
         logger.info(f"stats_data_path is {self.stats_data_path}")
-        logger.info(f"tfrecord_path is {self.tfrecord_path}")
-        logger.info(f"tfrecord_data_path is {self.tfrecord_data_path}")
+        logger.info(f"dataset_path is {self.dataset_path}")
 
-        if not os.path.exists(self.stats_data_path):
-            os.makedirs(self.stats_data_path)
+        self.data_size_path = f"{self.stats_data_path}/{self.data_type}_data_size.npy"
+        logger.info(f"data_size_path is {self.data_size_path}")
 
-        if not os.path.exists(self.tfrecord_path):
-            os.makedirs(self.tfrecord_path)
 
-        # config
-        # === path file size
-        self.num_of_files = len(os.listdir(self.tfrecord_path))
+class BaseAbstractDataPreparationDataset(abc.ABC):
+    """Abstract base class for data preparation tasks.
 
-        # === file compression
-        self.compression_type = None
+    This class defines the blueprint for preparing datasets, generating data,
+    and computing data statistics. Subclasses should implement the methods
+    defined here.
 
-        # === shuffle queue size
-        self.shuffle_queue_size = data_config.get("shuffle_queue_size", 5)
+    Methods:
+    --------
+    prepare_dataset_process():
+        Prepare the dataset. Must be implemented by subclasses.
+    _data_generation():
+        Generate data. Must be implemented by subclasses.
+    _data_stats():
+        Compute data statistics. Must be implemented by subclasses.
+    """
 
-        # features
-        self.context_description: Optional[Dict[str, str]] = None  # please overwrite this variable
+    @abc.abstractmethod
+    def prepare_dataset_process(self):
+        """Prepare the dataset.
 
-        self.feature_description: Optional[Dict[str, str]] = None  # please overwrite this variable
+        This method should be overridden in subclasses to define the
+        specific steps needed to prepare the dataset.
+        """
+        raise NotImplementedError("Subclasses must implement the prepare_dataset_process method.")
 
-        self.labels: Optional[Set[str]] = None
+    @abc.abstractmethod
+    def _data_generation(self):
+        """Generate data.
 
-        # transform
-        self.transform: Optional[transforms.Compose] = None
+        This method should be overridden in subclasses to define the
+        specific steps needed to generate data.
+        """
+        raise NotImplementedError("Subclasses must implement the _data_generation method.")
 
-    def _init_transform(self):
-        return
+    @abc.abstractmethod
+    def _data_stats(self):
+        """Compute data statistics.
 
-    def __iter__(self) -> (Dict, torch.Tensor):
-        shift, num_workers = 0, 0
+        This method should be overridden in subclasses to define how
+        data statistics should be computed.
+        """
+        raise NotImplementedError("Subclasses must implement the _data_stats method.")
 
-        worker_info = get_worker_info()
-        if worker_info is not None:
-            shift, num_workers = worker_info.id, worker_info.num_workers
 
-        if num_workers > self.num_of_files:
-            raise ValueError("the num of workers should be small or equal to num of files")
+class BaseAbstractTrainDataset(BaseAbstractDataset):
+    @abc.abstractmethod
+    def get_head_inputs(self, batch_size: int) -> Dict:
+        """Generate and return the inputs required for the model head.
 
-        if num_workers == 0:
-            splits = {str(num): 1.0 for num in range(self.num_of_files)}
-        else:
-            splits = {str(num): 1.0 for num in range(self.num_of_files) if num % num_workers == shift}
+        This method must be implemented by subclasses to generate the necessary
+        input data for the model's head, based on the provided batch size. It mainly used for
+        printing model architecture.
 
-        it = tfrecord.multi_tfrecord_loader(
-            data_pattern=self.tfrecord_data_path,
-            index_pattern=None,
-            splits=splits,
-            description=self.context_description,
-            sequence_description=self.feature_description,
-            compression_type=self.compression_type,
-            infinite=False,
-        )
+        Parameters:
+        ----------
+        batch_size : int
+            The number of samples to generate inputs for.
 
-        if self.shuffle_queue_size:
-            it = tfrecord.shuffle_iterator(it, self.shuffle_queue_size)  # noqa
+        Returns:
+        ----------
+        Dict : A dictionary containing the inputs for the model head.
+        """
+        raise NotImplementedError("Subclasses must implement get_head_inputs method")
 
-        it = map(self.transform, it)
+    @abc.abstractmethod
+    def __len__(self):
+        """
+        Return the size of the dataset.
 
-        return it
+        Subclasses must override this method to provide the logic for
+        determining the size of the dataset.
+
+        Returns:
+        ----------
+        int : The number of items in the dataset.
+        """
+        raise NotImplementedError("Subclasses must implement __len__ method")

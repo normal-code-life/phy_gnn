@@ -6,7 +6,7 @@ import yaml
 
 from pkg.utils.logs import init_logger
 
-logger = init_logger("io")
+logger = init_logger("IO")
 
 
 def get_cur_abs_dir(path) -> str:
@@ -41,6 +41,7 @@ def check_and_clean_path(path: str, overwrite: bool) -> bool:
             if overwrite:
                 shutil.rmtree(path)
                 os.makedirs(path)
+                logger.info(f"clean directory file to 0")
                 return True
             else:
                 return False

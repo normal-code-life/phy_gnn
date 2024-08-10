@@ -4,9 +4,13 @@ import numpy as np
 import torch
 from torchvision import transforms
 
-from pkg.train.module.data_transform import (CovertToModelInputs, MaxMinNorm,
-                                             NormalNorm, SqueezeDataDim,
-                                             TFRecordToTensor)
+from pkg.train.module.data_transform import (
+    CovertToModelInputs,
+    MaxMinNorm,
+    NormalNorm,
+    SqueezeDataDim,
+    TFRecordToTensor
+)
 from task.passive_biv.data.datasets import PassiveBiVDataset
 
 

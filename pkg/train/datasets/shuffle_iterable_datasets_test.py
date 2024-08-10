@@ -3,8 +3,7 @@ import random
 import torch
 from torch.utils.data import DataLoader
 
-from pkg.train.datasets.shuffle_iterable_datasets import \
-    ShuffledIterableDataset
+from pkg.train.datasets.shuffle_iterable_datasets import ShuffledIterableDataset
 
 if __name__ == "__main__":
     data = list(range(50))

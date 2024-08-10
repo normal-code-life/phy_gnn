@@ -4,8 +4,7 @@ import time
 import numpy as np
 from numba.typed import List
 
-from pkg.data.utils.edge_generation import (generate_distance_based_edges_nb,
-                                            generate_distance_based_edges_ny)
+from pkg.data.utils.edge_generation import generate_distance_based_edges_nb, generate_distance_based_edges_ny
 from pkg.utils.monitor import monitor_cpu_usage
 
 
