@@ -33,7 +33,7 @@ class FEHeartSageV1Dataset(BaseAbstractDataset):
         self.shape_coeff_original_path = f"{self.processed_data_path}/shape-coeffs.npy"
 
         # clean data destination path
-        self.dataset_path = f"{self.base_data_path}/datasets/fe_heart_sage_v1/{self.data_type}"
+        self.dataset_path = f"{self.base_data_path}/datasets/fe_heart_sage_v1/{self.exp_name}/{self.data_type}"
 
         self.node_feature_path = f"{self.dataset_path}/node_features.npy"
         self.node_coord_path = f"{self.dataset_path}/node_coords.npy"

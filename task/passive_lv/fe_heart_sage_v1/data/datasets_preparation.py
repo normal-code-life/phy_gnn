@@ -23,17 +23,19 @@ class FEHeartSageV1PreparationDataset(AbstractDataPreparationDataset, FEHeartSag
         self.select_nodes: Optional[np.ndarray] = None
 
     def prepare_dataset_process(self):
-        self._data_down_sampling_node_selection()
+        # self._data_down_sampling_node_selection()
         self._data_generation()
         self._data_stats()
 
     def _data_generation(self):
         # fmt: off
-        self._prepare_features("node_feature", self.node_feature_original_path, self.node_feature_path, np.float32, True)  # noqa
-        self._prepare_features("node_coord", self.node_coord_original_path, self.node_coord_path, np.float32, True)
-        self._prepare_features("global_feature", self.theta_original_path, self.theta_path, np.float32, False)
-        self._prepare_features("displacement", self.displacement_original_path, self.displacement_path, np.float32, True)  # noqa
-        self._prepare_features("shape_coeff", self.shape_coeff_original_path, self.shape_coeff_path, np.float32, False)
+        # self._prepare_features("node_feature", self.node_feature_original_path, self.node_feature_path, np.float32, True)  # noqa
+        # self._prepare_features("node_coord", self.node_coord_original_path, self.node_coord_path, np.float32, True)
+        # self._prepare_features("displacement", self.displacement_original_path, self.displacement_path, np.float32, True)  # noqa
+
+        self._prepare_features(True)
+        self._prepare_global_features("global_feature", self.theta_original_path, self.theta_path, np.float32, False)
+        self._prepare_global_features("shape_coeff", self.shape_coeff_original_path, self.shape_coeff_path, np.float32, False)
         self._prepare_edge()
         # fmt: on
 
@@ -56,7 +58,43 @@ class FEHeartSageV1PreparationDataset(AbstractDataPreparationDataset, FEHeartSag
 
         logger.info(f"given the down sampling ratio {self.down_sampling}, we choice {len(self.select_nodes)} nodes")
 
-    def _prepare_features(
+    def _prepare_features(self, can_down_sampling: bool) -> None:
+        node_features = np.load(self.node_feature_original_path).astype(np.float32)
+        node_coord = np.load(self.node_coord_original_path).astype(np.float32)
+        displacement = np.load(self.displacement_original_path).astype(np.float32)
+
+        if self.down_sampling and can_down_sampling:
+            logger.info(f"given the down sampling ratio {self.down_sampling}")
+
+            num_samples, num_nodes, fea_dim = node_features.shape
+            _, _, coord_dim = node_coord.shape
+            _, _, displacement_dim = displacement.shape
+
+            down_sample_node = int(num_nodes * self.down_sampling)
+
+            new_node_features = np.empty((num_samples, down_sample_node, fea_dim), dtype=np.float32)
+            new_node_coord = np.empty((num_samples, down_sample_node, coord_dim), dtype=np.float32)
+            new_displacement = np.empty((num_samples, down_sample_node, displacement_dim), dtype=np.float32)
+
+            for i in range(num_samples):
+                select_nodes = np.random.choice(num_nodes, size=down_sample_node, replace=False)
+
+                new_node_features[i] = node_features[i, select_nodes, :]
+                new_node_coord[i] = node_coord[i, select_nodes, :]
+                new_displacement[i] = displacement[i, select_nodes, :]
+
+            node_features = new_node_features
+            node_coord = new_node_coord
+            displacement = new_displacement
+
+        # === save node features
+        np.save(self.node_feature_path, node_features)
+        np.save(self.node_coord_path, node_coord)
+        np.save(self.displacement_path, displacement)
+
+        logger.info(f"====== prepare node and displacement DONE ======")
+
+    def _prepare_global_features(
         self, fea_name: str, read_path: str, save_path: str, np_type: np.dtype, can_down_sampling: bool
     ) -> None:
         features = np.load(read_path).astype(np_type)
@@ -68,22 +106,6 @@ class FEHeartSageV1PreparationDataset(AbstractDataPreparationDataset, FEHeartSag
         np.save(save_path, features)
 
         logger.info(f"====== prepare {fea_name} DONE ======")
-
-    def _prepare_node(self):
-        # node features (used real node features)
-        # === fetch node features
-        node_features = np.load(self.node_feature_original_path).astype(np.float32)
-        node_coords = np.load(self.node_coord_original_path).astype(np.float32)
-
-        if self.down_sampling:
-            node_features = node_features[:, self.select_nodes, :]
-            node_coords = node_coords[:, self.select_nodes, :]
-
-        # === save node features
-        np.save(self.node_feature_path, node_features)
-        np.save(self.node_coord_path, node_coords)
-
-        logger.info("====== prepare_node DONE ======")
 
     def _prepare_edge(self):
         node_coords = np.load(f"{self.node_coord_path}").astype(np.float32)
