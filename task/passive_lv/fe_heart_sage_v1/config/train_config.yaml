@@ -39,7 +39,7 @@ task_trainer:
     train_shuffle: True
   static_graph: False
 task_train:
-  neighbour_layers: 1
+  select_edge_num: 12
   node_input_mlp_layer:
     unit_sizes: [13, 128, 128, 40]
     layer_norm: True

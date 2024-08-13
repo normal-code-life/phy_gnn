@@ -19,7 +19,7 @@ class FEHeartSageV1PreparationDataset(AbstractDataPreparationDataset, FEHeartSag
         self.edge_indices_generate_method = data_config["edge_indices_generate_method"]
         self.down_sampling: Optional[float] = data_config.get(
             "down_sampling", None
-        )  # if self.data_type == TRAIN_NAME else None
+        ) if self.data_type == TRAIN_NAME else None
         self.select_nodes: Optional[np.ndarray] = None
 
     def prepare_dataset_process(self):
