@@ -1,10 +1,10 @@
 task_base:
   task_name: passive_lv
   model_name: fe_heart_sage_v1
-  exp_name: 51
+  exp_name: 52
   overwrite_exp_folder: False
   gpu: True
-  cuda_core: "cuda:2"
+  cuda_core: "cuda:1"
 task_data:
   task_data_name: lvData
   overwrite_data: True
