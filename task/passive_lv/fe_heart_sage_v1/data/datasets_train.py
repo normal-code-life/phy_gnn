@@ -98,7 +98,10 @@ class FEHeartSageV1TrainDataset(BaseDataset, FEHeartSageV1Dataset):
         return _displacement_std if not self.gpu else _displacement_std.cuda()
 
     def coord_normalization_max_min(self, array: np.ndarray) -> np.ndarray:
-        max_val = np.expand_dims(self.coord_max_norm_val, axis=(0, 1))
-        min_val = np.expand_dims(self.coord_min_norm_val, axis=(0, 1))
+        # max_val = np.expand_dims(self.coord_max_norm_val, axis=(0, 1))
+        # min_val = np.expand_dims(self.coord_min_norm_val, axis=(0, 1))
+
+        max_val = max(self.coord_max_norm_val)
+        min_val = min(self.coord_min_norm_val)
 
         return (array - min_val) / (max_val - min_val)

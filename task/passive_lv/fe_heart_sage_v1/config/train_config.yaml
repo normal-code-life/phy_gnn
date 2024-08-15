@@ -1,10 +1,10 @@
 task_base:
   task_name: passive_lv
   model_name: fe_heart_sage_v1
-  exp_name: 54
+  exp_name: 55
   overwrite_exp_folder: False
   gpu: True
-  cuda_core: "cuda:0"
+  cuda_core: "cuda:1"
 task_data:
   task_data_name: lvData
   overwrite_data: True
@@ -34,7 +34,7 @@ task_trainer:
       update_freq: 1
       save_task_code: True
   dataset_param:
-    batch_size: 5
+    batch_size: 1
     val_batch_size: 150
     train_shuffle: True
   static_graph: False
