@@ -1,10 +1,9 @@
-import multiprocessing
+# import multiprocessing
 
-from task.passive_biv.train.model import PassiveBiVTrainer
+from task.passive_biv.fe_heart_sage_v2.train.model import FEHeartSageV2Trainer
 
 if __name__ == "__main__":
-    multiprocessing.set_start_method("spawn")
+    # multiprocessing.set_start_method("spawn")
 
-    # fetch config path and serve to our model
-    model = PassiveBiVTrainer()
+    model = FEHeartSageV2Trainer()
     model.train()

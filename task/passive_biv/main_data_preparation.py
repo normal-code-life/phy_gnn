@@ -1,9 +1,17 @@
+import time
+
+import numpy as np
+
 from common.constant import TRAIN_NAME, VALIDATION_NAME
 from pkg.data.utils.dataset_generation import split_dataset_indices
-from task.passive_biv.data.datasets import import_data_config
-from task.passive_biv.data.datasets_preparation import PassiveBiVPreparationDataset
+from task.passive_biv.fe_heart_sage_v2.data.datasets import import_data_config
+from task.passive_biv.fe_heart_sage_v2.data.datasets_preparation import PassiveBiVPreparationDataset
 
 if __name__ == "__main__":
+    np.random.seed(753)
+
+    start_time = time.time()
+
     data_config = import_data_config()
 
     # generate sample indices
@@ -18,4 +26,6 @@ if __name__ == "__main__":
 
         data = PassiveBiVPreparationDataset(data_config, data_type)
 
-        data.prepare_dataset()
+        data.prepare_dataset_process()
+
+    print(f"data preparation done, total time: {time.time() - start_time}s")

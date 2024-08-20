@@ -19,7 +19,7 @@ class TensorBoardCallback(CallBack):
         self.profiler: Optional[torch.profiler.profile] = None
         if use_profiler:
             self.profiler = torch.profiler.profile(
-                schedule=torch.profiler.schedule(wait=1, warmup=1, active=3, repeat=1),
+                schedule=torch.profiler.schedule(wait=1, warmup=1, active=1, repeat=1),
                 on_trace_ready=torch.profiler.tensorboard_trace_handler(f"{self.log_dir}/profiler"),
                 record_shapes=True,
                 with_stack=True,

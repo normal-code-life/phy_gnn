@@ -1,20 +1,21 @@
 task_base:
   task_name: passive_biv
-  exp_name: 1
+  model_name: fe_heart_sage_v2
+  exp_name: 56
   overwrite_exp_folder: True
   gpu: True
   cuda_core: "cuda:1"
 task_data:
   task_data_name: passive_biv
   overwrite_data: False
-  num_processes: 5
   chunk_file_size: 50
   train_split_ratio: 0.8
-  sections: [0, 30, 100, 500, 1000, 2000]
-  nodes_per_section: [20, 30, 30, 10, 10]
+  sections: [0, 20, 100, 250, 500, 1000]
+  nodes_per_sections: [20, 30, 30, 10, 10]
+  train_down_sampling_node: 10000
+  val_down_sampling_node: 15000
 task_trainer:
-  model_name: GraphSAGEModel
-  epochs: 15000
+  epochs: 3000
   optimizer_param:
     name: adam
     learning_rate: 0.00005  # Learning rate for training the network
@@ -32,10 +33,10 @@ task_trainer:
       update_freq: 1
       save_task_code: True
   dataset_param:
-    batch_size: 1
-    val_batch_size: 1
+    batch_size: 10
+    val_batch_size: 10
     num_workers: 16
-    prefetch_factor: 2
+    prefetch_factor: 10
     val_prefetch_factor: 1
   static_graph: False
 task_train:

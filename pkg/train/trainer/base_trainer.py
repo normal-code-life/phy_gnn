@@ -304,7 +304,7 @@ class BaseTrainer(abc.ABC):
 
             train_metrics = self.train_step(model, train_data_loader)
 
-            val_metrics = self.validation_step(model, validation_data_loader, epoch)
+            val_metrics = self.validation_step(model, validation_data_loader, t, t == epoch)
 
             self.callback.on_epoch_end(t, train_metrics=train_metrics, val_metrics=val_metrics)
 
@@ -367,11 +367,11 @@ class BaseTrainer(abc.ABC):
     def compute_validation_loss(self, predictions: torch.Tensor, labels: Union[torch.Tensor, Dict]):
         return self.compute_loss(predictions, labels)
 
-    def validation_step_check(self, epoch: int) -> bool:
+    def validation_step_check(self, epoch: int, is_last_epoch: bool) -> bool:
         return True
 
-    def validation_step(self, model: nn.Module, data_loader: DataLoader, epoch: int) -> Dict:
-        if not self.validation_step_check(epoch):
+    def validation_step(self, model: nn.Module, data_loader: DataLoader, epoch: int, is_last_epoch: bool) -> Dict:
+        if not self.validation_step_check(epoch, is_last_epoch):
             return dict()
 
         # Set the model to evaluation mode, disabling dropout and using population
@@ -391,7 +391,7 @@ class BaseTrainer(abc.ABC):
 
                 outputs = model(val_inputs)
 
-                loss = self.compute_validation_loss(outputs, self.to_device(val_labels))
+                loss = self.compute_validation_loss(outputs, val_labels)
 
                 metrics["val_loss"] = metrics["val_loss"] + loss.item() if "val_loss" in metrics else loss.item()
 

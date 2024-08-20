@@ -8,7 +8,6 @@ import torch
 from torch.utils.data import Dataset, IterableDataset, get_worker_info
 from torchvision import transforms
 
-from pkg.train.datasets import logger
 from pkg.train.datasets.base_datasets import BaseAbstractDataset, BaseAbstractTrainDataset
 
 
@@ -45,39 +44,19 @@ class BaseIterableDataset(AbstractTrainDataset, IterableDataset):
         raise NotImplementedError("please implement __iter__ func")
 
 
+# TODO: consider to merge to BaseIterableDataset
 class MultiTFRecordDataset(BaseIterableDataset):
     def __init__(self, data_config: Dict, data_type: str, *args, **kwargs) -> None:
-        super().__init__(data_config, data_type, args, kwargs)
-
-        # path
-        self.tfrecord_path = f"{self.base_data_path}/tfrecord/{self.data_type}"  # TODO min need to remove
-        self.tfrecord_data_path = f"{self.tfrecord_path}" + "/data_{}.tfrecord"
-
-        logger.info(f"tfrecord_path is {self.tfrecord_path}")
-        logger.info(f"tfrecord_data_path is {self.tfrecord_data_path}")
-
-        if not os.path.exists(self.stats_data_path):
-            os.makedirs(self.stats_data_path)
-
-        if not os.path.exists(self.tfrecord_path):
-            os.makedirs(self.tfrecord_path)
-
+        super().__init__(data_config, data_type, *args, **kwargs)
         # config
         # === path file size
-        self.num_of_files = len(os.listdir(self.tfrecord_path))
+        self.num_of_files = len(os.listdir(self.dataset_path))
 
         # === file compression
         self.compression_type = None
 
         # === shuffle queue size
         self.shuffle_queue_size = data_config.get("shuffle_queue_size", 5)
-
-        # features
-        self.context_description: Optional[Dict[str, str]] = None  # please overwrite this variable
-
-        self.feature_description: Optional[Dict[str, str]] = None  # please overwrite this variable
-
-        self.labels: Optional[Set[str]] = None
 
         # transform
         self.transform: Optional[transforms.Compose] = None
@@ -90,6 +69,7 @@ class MultiTFRecordDataset(BaseIterableDataset):
 
         worker_info = get_worker_info()
         if worker_info is not None:
+            np.random.seed(worker_info.seed % np.iinfo(np.uint32).max)
             shift, num_workers = worker_info.id, worker_info.num_workers
 
         if num_workers > self.num_of_files:

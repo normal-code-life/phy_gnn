@@ -17,9 +17,9 @@ class FEHeartSageV1PreparationDataset(AbstractDataPreparationDataset, FEHeartSag
         super(FEHeartSageV1PreparationDataset, self).__init__(data_config, data_type)
 
         self.edge_indices_generate_method = data_config["edge_indices_generate_method"]
-        self.down_sampling: Optional[float] = data_config.get(
-            "down_sampling", None
-        ) if self.data_type == TRAIN_NAME else None
+        self.down_sampling: Optional[float] = (
+            data_config.get("down_sampling", None) if self.data_type == TRAIN_NAME else None
+        )
         self.select_nodes: Optional[np.ndarray] = None
 
     def prepare_dataset_process(self):
@@ -33,7 +33,7 @@ class FEHeartSageV1PreparationDataset(AbstractDataPreparationDataset, FEHeartSag
         # self._prepare_features("node_coord", self.node_coord_original_path, self.node_coord_path, np.float32, True)
         # self._prepare_features("displacement", self.displacement_original_path, self.displacement_path, np.float32, True)  # noqa
 
-        self._prepare_features(True)
+        self._prepare_features()
         self._prepare_global_features("global_feature", self.theta_original_path, self.theta_path, np.float32, False)
         self._prepare_global_features("shape_coeff", self.shape_coeff_original_path, self.shape_coeff_path, np.float32, False)
         self._prepare_edge()
@@ -58,12 +58,12 @@ class FEHeartSageV1PreparationDataset(AbstractDataPreparationDataset, FEHeartSag
 
         logger.info(f"given the down sampling ratio {self.down_sampling}, we choice {len(self.select_nodes)} nodes")
 
-    def _prepare_features(self, can_down_sampling: bool) -> None:
+    def _prepare_features(self) -> None:
         node_features = np.load(self.node_feature_original_path).astype(np.float32)
         node_coord = np.load(self.node_coord_original_path).astype(np.float32)
         displacement = np.load(self.displacement_original_path).astype(np.float32)
 
-        if self.down_sampling and can_down_sampling:
+        if self.down_sampling:
             logger.info(f"given the down sampling ratio {self.down_sampling}")
 
             num_samples, num_nodes, fea_dim = node_features.shape

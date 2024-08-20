@@ -1,6 +1,8 @@
 import threading
 import time
+
 import numpy as np
+
 from common.constant import TRAIN_NAME, VALIDATION_NAME
 from pkg.utils.monitor import monitor_cpu_usage
 from task.passive_lv.fe_heart_sage_v1.data.datasets import import_data_config
@@ -23,4 +25,4 @@ if __name__ == "__main__":
 
     monitor_thread.join()
 
-    print(f"total time: {time.time() - start_time}s")
+    print(f"data preparation done, total time: {time.time() - start_time}s")

@@ -70,10 +70,11 @@ class TensorToGPU(DataTransform):
 
 
 class Norm(DataTransform):
-    def __init__(self, config: Dict, global_scaling: bool = True) -> None:
+    def __init__(self, config: Dict, global_scaling: bool = True, coarse_dim: bool = False) -> None:
         self.normalization_config = config
         self.feature_config: Dict[str, Dict[str, Tensor]] = self.load_stats_file()
         self.global_scaling = global_scaling
+        self.coarse_dim = coarse_dim
 
     def load_stats_file(self) -> Dict[str, Dict[str, Tensor]]:
         feature_config: Dict[str, Dict[str, Tensor]] = {}
@@ -96,19 +97,21 @@ class MaxMinNorm(Norm):
         for name, fea in context.items():
             if name in self.feature_config:
                 if self.global_scaling:
-                    max_val = self.feature_config[name][MAX_VAL]
-                    min_val = self.feature_config[name][MIN_VAL]
+                    max_val, min_val = self.feature_config[name][MAX_VAL], self.feature_config[name][MIN_VAL]
                 else:
                     max_val, min_val = self._calculate_max_min(fea)
+                if self.coarse_dim:
+                    max_val, min_val = torch.max(max_val), torch.min(min_val)
                 context[name] = self._normal_max_min_transform(fea, max_val, min_val)
 
         for name, fea in feature.items():
             if name in self.feature_config:
                 if self.global_scaling:
-                    max_val = self.feature_config[name][MAX_VAL]
-                    min_val = self.feature_config[name][MIN_VAL]
+                    max_val, min_val = self.feature_config[name][MAX_VAL], self.feature_config[name][MIN_VAL]
                 else:
                     max_val, min_val = self._calculate_max_min(fea)
+                if self.coarse_dim:
+                    max_val, min_val = torch.max(max_val), torch.min(min_val)
                 feature[name] = self._normal_max_min_transform(fea, max_val, min_val)
 
         return context, feature

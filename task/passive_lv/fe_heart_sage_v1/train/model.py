@@ -43,15 +43,15 @@ class FEHeartSAGETrainer(BaseTrainer):
     def compute_validation_loss(self, predictions: torch.Tensor, labels: Union[torch.Tensor, Dict[str, torch.Tensor]]):
         return self.compute_loss(predictions * self.displacement_std + self.displacement_mean, labels)
 
-    def compute_validation_loss_v2(self, predictions: torch.Tensor, labels: Union[torch.Tensor, Dict[str, torch.Tensor]]):
+    def compute_validation_loss_v2(
+        self, predictions: torch.Tensor, labels: Union[torch.Tensor, Dict[str, torch.Tensor]]
+    ):
         return self.loss(predictions, labels)
 
     def compute_metrics(
         self, metrics_func: callable, predictions: torch.Tensor, labels: Union[torch.Tensor, Dict[str, torch.Tensor]]
     ):
-        return metrics_func(
-            predictions, (labels["displacement"] - self.displacement_mean) / self.displacement_std
-        )
+        return metrics_func(predictions, (labels["displacement"] - self.displacement_mean) / self.displacement_std)
 
 
 class FEHeartSAGEModel(BaseModule):
@@ -321,4 +321,3 @@ class FEHeartSAGEModel(BaseModule):
     #     edge_fea: torch.Tensor = torch.concat([node_fea_expanded, node_seq_fea], dim=-1)
     #
     #     return edge_fea
-

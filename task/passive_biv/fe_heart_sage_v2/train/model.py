@@ -1,24 +1,22 @@
 from typing import Optional, Union
 
-import torch
 import torch.nn as nn
 
-from common.constant import TRAIN_NAME
 from pkg.train.layer.pooling_layer import *  # noqa
 from pkg.train.model.base_model import BaseModule
 from pkg.train.trainer.base_trainer import BaseTrainer, TrainerConfig
 from pkg.utils.logs import init_logger
-from task.passive_biv.data.datasets_train import PassiveBiVTrainDataset
-from task.passive_biv.train.mlp_layer_ln import MLPLayerLN
+from task.passive_biv.fe_heart_sage_v2.data.datasets_train import FEHeartSageV2TrainDataset
+from task.passive_biv.utils.module.mlp_layer_ln import MLPLayerLN
 
-logger = init_logger("GraphSage")
+logger = init_logger("FE_Heart_Sage_v2")
 
 torch.manual_seed(753)
 torch.set_printoptions(precision=8)
 
 
-class PassiveBiVTrainer(BaseTrainer):
-    dataset_class = PassiveBiVTrainDataset
+class FEHeartSageV2Trainer(BaseTrainer):
+    dataset_class = FEHeartSageV2TrainDataset
 
     def __init__(self) -> None:
         config = TrainerConfig()
@@ -28,7 +26,7 @@ class PassiveBiVTrainer(BaseTrainer):
         super().__init__(config)
 
     def create_model(self) -> BaseModule:
-        return PassiveBivModel(self.task_train)
+        return FEHeartSageV2Model(self.task_train)
 
     def compute_loss(self, predictions: torch.Tensor, labels: Union[torch.Tensor, Dict]):
         return self.loss(predictions, labels["displacement"])
@@ -41,14 +39,14 @@ class PassiveBiVTrainer(BaseTrainer):
     ):
         return metrics_func(predictions, labels["displacement"])
 
-    def validation_step_check(self, epoch) -> bool:
-        if epoch == 1 or epoch % 5 == 0:
+    def validation_step_check(self, epoch: int, is_last_epoch: bool) -> bool:
+        if epoch <= 20 or epoch % 5 == 0 or is_last_epoch:
             return True
         else:
             return False
 
 
-class PassiveBivModel(BaseModule):
+class FEHeartSageV2Model(BaseModule):
     """https://github.com/raunakkmr/GraphSAGE."""
 
     def __init__(self, config: Dict, *args, **kwargs) -> None:

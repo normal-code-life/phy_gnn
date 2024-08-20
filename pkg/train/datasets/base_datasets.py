@@ -1,6 +1,7 @@
 import abc
 import os
-from typing import Dict
+import platform
+from typing import Dict, Optional, Set
 
 from pkg.train.datasets import logger
 
@@ -45,10 +46,11 @@ class BaseAbstractDataset(abc.ABC):
         logger.info(f"====== init {data_type} data config ======")
         logger.info(data_config)
 
-        # config
+        # common config
         # === Hardware configuration
         self.gpu = data_config["gpu"]
         self.cuda_core = data_config.get("cuda_core", "gpu:0")
+        self.platform = platform.system()
 
         # === data type
         self.data_type = data_type
@@ -56,17 +58,17 @@ class BaseAbstractDataset(abc.ABC):
         # === exp
         self.exp_name = data_config.get("exp_name", None)
 
-        # path
+        # common path
         # === base path
         self.base_data_path = f"{data_config['task_data_path']}"
         self.base_task_path = f"{data_config['task_path']}"
 
-        # === model training dataset path
-        self.stats_data_path = f"{self.base_data_path}/stats"
-        self.dataset_path = f"{self.base_data_path}/datasets/{self.data_type}"
-
         if not os.path.isdir(self.base_data_path):
             raise NotADirectoryError(f"No directory at: {self.base_data_path}")
+
+        # === traditional model training dataset path (non-tfrecord version)
+        self.stats_data_path = f"{self.base_data_path}/stats"
+        self.dataset_path = f"{self.base_data_path}/datasets/{self.data_type}"
 
         logger.info(f"base_data_path is {self.base_data_path}")
         logger.info(f"base_task_path is {self.base_task_path}")
@@ -75,6 +77,22 @@ class BaseAbstractDataset(abc.ABC):
 
         self.data_size_path = f"{self.stats_data_path}/{self.data_type}_data_size.npy"
         logger.info(f"data_size_path is {self.data_size_path}")
+
+        # tfrecord path
+        # === tfrecord model training dataset path (tfrecord version)
+        self.tfrecord_data_path = f"{self.dataset_path}" + "/data_{}.tfrecord"
+
+        logger.info(f"tfrecord_data_path is {self.tfrecord_data_path}")
+
+        # === tfrecord file compression type
+        self.compression_type = None
+
+        # tfrecord features
+        self.context_description: Optional[Dict[str, str]] = None  # please overwrite this variable
+
+        self.feature_description: Optional[Dict[str, str]] = None  # please overwrite this variable
+
+        self.labels: Optional[Set[str]] = None  # please overwrite this variable
 
 
 class BaseAbstractDataPreparationDataset(abc.ABC):

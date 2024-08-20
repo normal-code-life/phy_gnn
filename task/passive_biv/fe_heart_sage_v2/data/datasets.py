@@ -5,13 +5,11 @@ from typing import Dict
 from pkg.train.datasets.base_datasets import BaseAbstractDataset
 from pkg.utils import io
 from pkg.utils.io import load_yaml
-from pkg.utils.logs import init_logger
-
-logger = init_logger("PassiveBiV_Dataset")
+from task.passive_biv.fe_heart_sage_v2.data import logger
 
 
-class PassiveBiVDataset(BaseAbstractDataset):
-    """Passive BiV Dataset main class which including our basic attributes.
+class FEHeartSageV2Dataset(BaseAbstractDataset):
+    """FE Heart Sage V2 Dataset main class which including our basic attributes.
 
     This class is responsible for loading and processing data for a specific task,
     organized in a predefined directory structure. It supports reading from and saving
@@ -68,9 +66,6 @@ class PassiveBiVDataset(BaseAbstractDataset):
 
         logger.info(f"outputs_data_path is {self.outputs_data_path}")
 
-        # others
-        self.data_size_path = f"{self.stats_data_path}/" + "{}_data_size_value.npy".format(self.data_type)
-
         # features
         self.context_description = {
             "index": "int",
@@ -99,11 +94,12 @@ def import_data_config() -> Dict:
     repo_root_path = io.get_repo_path(cur_path)
 
     # fetch data config
-    config = load_yaml(f"{repo_root_path}/task/passive_biv/config/train_config.yaml")
-    data_config = config["task_data"]
+    base_config = load_yaml(f"{repo_root_path}/task/passive_biv/fe_heart_sage_v2/config/train_config.yaml")
+    data_config = base_config["task_data"]
     data_config["task_data_path"] = f"{repo_root_path}/pkg/data/passive_biv"
     data_config["task_path"] = f"{repo_root_path}/task/passive_biv"
     data_config["sample_path"] = f"{data_config['task_data_path']}/record_inputs"
-    data_config["gpu"] = config["task_base"]["gpu"]
+    data_config["gpu"] = base_config["task_base"]["gpu"]
+    data_config["exp_name"] = base_config["task_base"]["exp_name"]
 
     return data_config

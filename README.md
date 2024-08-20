@@ -28,5 +28,5 @@ conda list --export --no-pip | awk -F= '{print $1"=="$2}' > requirements.txt
 you need to install both 'tensorboard' and 'tensorboardX' package. And please use the following command to check
 your model
 ```bash
-tensorboard --logdir=tmp/passive_lv_gnn_emul/1/logs/ 
+tensorboard --logdir=tmp/passive_biv/1/logs/ 
 ```
