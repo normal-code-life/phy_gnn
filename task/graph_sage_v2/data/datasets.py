@@ -1,13 +1,10 @@
-import math
 import os
-import random
 from typing import Dict, Tuple
 
 import numpy as np
 import tfrecord
 import torch
 import torch.utils.data
-from tfrecord.torch.dataset import MultiTFRecordDataset
 from torchvision import transforms
 
 from pkg.train.datasets.base_datasets_train import BaseAbstractDataset
@@ -207,7 +204,9 @@ class GraphSagePreprocessDataset(GraphSageDataset):
             for b in range(batch_size):
                 for r in range(rows):
                     random_indices = np.random.permutation(range_end - range_start)[:num_random_indices]
-                    selected_indices[b, r, start_idx : start_idx + num_random_indices] = random_indices + range_start
+                    selected_indices[b, r, start_idx : start_idx + num_random_indices] = (  # noqa
+                        random_indices + range_start
+                    )
 
         # Gather the selected indices from the original indices
         batch_indices = np.arange(batch_size)[:, None, None]

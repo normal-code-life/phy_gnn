@@ -10,7 +10,7 @@ from common.constant import MAX_VAL, MEAN_VAL, MIN_VAL, STD_VAL
 
 class DataTransform(abc.ABC):
     def __call__(self, *args, **kwargs):
-        raise NotImplementedError(f"please implement this function __call__(self, *args, **kwargs)")
+        raise NotImplementedError("please implement this function __call__(self, *args, **kwargs)")
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}()"
@@ -47,6 +47,40 @@ class TFRecordToTensor(DataTransform):
         return context_tensor, feature_tensor
 
 
+class HDF5ToTensor(DataTransform):
+    convert_type = {
+        "float": torch.float32,
+        "int": torch.int64,
+    }
+
+    def __init__(self, config: Dict) -> None:
+        self.context_list = config["context_description"]
+        self.feature_list = config["feature_description"]
+
+    def __call__(
+        self, sample: Tuple[Dict[str, np.ndarray], Dict[str, np.ndarray]]
+    ) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
+        context, feature = sample
+
+        context_tensor: Dict[str, Tensor] = dict()
+        feature_tensor: Dict[str, Tensor] = dict()
+
+        for name, fea in context.items():
+            if name not in self.context_list:
+                raise ValueError(f"please check your feature list and add {name}")
+
+            context_tensor[name] = torch.tensor(fea, dtype=self.convert_type[self.context_list[name]])
+
+        for name, fea in feature.items():
+            if name not in self.feature_list:
+                raise ValueError(f"please check your feature list and add {name}")
+
+            feature_tensor[name] = torch.tensor(fea, dtype=self.convert_type[self.feature_list[name]])
+
+        return context_tensor, feature_tensor
+
+
+@DeprecationWarning
 class TensorToGPU(DataTransform):
     def __init__(self, config: Dict) -> None:
         self.gpu = config["gpu"]

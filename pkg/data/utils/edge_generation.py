@@ -1,4 +1,5 @@
-"""
+"""edge generation description.
+
 This module is primarily used to generate edge nodes for a given node.
 It is designed under the assumption that any node has the potential to be connected,
 And this approach is based on location information, randomly selecting nearby points.
@@ -18,7 +19,7 @@ from numba import njit, prange
 from numba.core.errors import NumbaTypeSafetyWarning
 from numba.typed import List as Numba_List
 
-from pkg.math import numba as nb
+from pkg.math.numba.sort import argsort
 
 warnings.filterwarnings("ignore", category=NumbaTypeSafetyWarning)
 
@@ -45,7 +46,6 @@ def generate_distance_based_edges_ny(
     np.ndarray: A 2D numpy array of shape (num_indices, num_selected_nodes) containing the sorted indices of
                 the selected nodes based on distance.
     """
-
     # Calculate the relative positions of all nodes w.r.t the selected indices
     relative_positions = node_coords[indices, :, np.newaxis, :] - node_coords[indices, np.newaxis, :, :]
 
@@ -138,7 +138,7 @@ def generate_distance_based_edges_nb(
 
     # Sort indices based on the calculated distances
     for i in prange(num_nodes):
-        sorted_indices[i] = nb.argsort(relative_distance[i])[..., 1:]  # excluding the node itself
+        sorted_indices[i] = argsort(relative_distance[i])[..., 1:]  # excluding the node itself
 
     # Select random nodes from the sorted indices
     return _random_select_nodes_by_sections_nb(sorted_indices, sections_nb, nodes_per_section_nb)

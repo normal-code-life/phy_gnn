@@ -1,6 +1,6 @@
 import abc
 import os
-from typing import Dict, Optional, Set
+from typing import Dict, Optional
 
 import numpy as np
 import tfrecord
@@ -9,6 +9,7 @@ from torch.utils.data import Dataset, IterableDataset, get_worker_info
 from torchvision import transforms
 
 from pkg.train.datasets.base_datasets import BaseAbstractDataset, BaseAbstractTrainDataset
+from pkg.train.datasets.reader_hdf5 import multi_hdf5_loader, shuffle_iterator
 
 
 class AbstractTrainDataset(BaseAbstractTrainDataset, BaseAbstractDataset):
@@ -44,7 +45,6 @@ class BaseIterableDataset(AbstractTrainDataset, IterableDataset):
         raise NotImplementedError("please implement __iter__ func")
 
 
-# TODO: consider to merge to BaseIterableDataset
 class MultiTFRecordDataset(BaseIterableDataset):
     def __init__(self, data_config: Dict, data_type: str, *args, **kwargs) -> None:
         super().__init__(data_config, data_type, *args, **kwargs)
@@ -92,6 +92,57 @@ class MultiTFRecordDataset(BaseIterableDataset):
 
         if self.shuffle_queue_size:
             it = tfrecord.shuffle_iterator(it, self.shuffle_queue_size)  # noqa
+
+        it = map(self.transform, it)
+
+        return it
+
+
+class MultiHDF5Dataset(BaseIterableDataset):
+    def __init__(self, data_config: Dict, data_type: str, *args, **kwargs) -> None:
+        super().__init__(data_config, data_type, *args, **kwargs)
+        # config
+        # === path file size
+        self.num_of_files = len(os.listdir(self.dataset_path))
+
+        # === file compression
+        self.compression_type = None
+
+        # === shuffle queue size
+        self.shuffle_queue_size = data_config.get("shuffle_queue_size", 5)
+
+        # transform
+        self.transform: Optional[transforms.Compose] = None
+
+    def _init_transform(self):
+        return
+
+    def __iter__(self) -> (Dict, torch.Tensor):
+        shift, num_workers = 0, 0
+
+        worker_info = get_worker_info()
+        if worker_info is not None:
+            np.random.seed(worker_info.seed % np.iinfo(np.uint32).max)
+            shift, num_workers = worker_info.id, worker_info.num_workers
+
+        if num_workers > self.num_of_files:
+            raise ValueError("the num of workers should be small or equal to num of files")
+
+        if num_workers == 0:
+            splits = {str(num) for num in range(self.num_of_files)}
+        else:
+            splits = {str(num) for num in range(self.num_of_files) if num % num_workers == shift}
+
+        it = multi_hdf5_loader(
+            data_pattern=self.dataset_h5_path,
+            splits=splits,
+            infinite=False,
+            description=self.context_description,
+            sequence_description=self.feature_description,
+        )
+
+        if self.shuffle_queue_size:
+            it = shuffle_iterator(it, self.shuffle_queue_size)  # noqa
 
         it = map(self.transform, it)
 

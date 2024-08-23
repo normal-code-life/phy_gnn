@@ -41,7 +41,7 @@ def check_and_clean_path(path: str, overwrite: bool) -> bool:
             if overwrite:
                 shutil.rmtree(path)
                 os.makedirs(path)
-                logger.info(f"clean directory file to 0")
+                logger.info("clean directory file to 0")
                 return True
             else:
                 return False

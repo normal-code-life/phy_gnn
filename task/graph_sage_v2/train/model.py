@@ -1,10 +1,10 @@
-from typing import Optional
+from typing import Dict, Optional
 
 import torch
 import torch.nn as nn
 
 from common.constant import TRAIN_NAME
-from pkg.train.layer.pooling_layer import *  # noqa
+from pkg.train.layer.pooling_layer import MeanAggregator, SUMAggregator  # noqa
 from pkg.train.model.base_model import BaseModule
 from pkg.train.trainer.base_trainer import BaseTrainer, TrainerConfig
 from pkg.utils.logs import init_logger
@@ -33,8 +33,8 @@ class GraphSAGETrainer(BaseTrainer):
         self.displacement_mean = dataset_config.get_displacement_mean()
         self.displacement_std = dataset_config.get_displacement_std()
 
-    def create_model(self) -> BaseModule:
-        return GraphSAGEModel(self.task_train)
+    def create_model(self) -> None:
+        self.model = GraphSAGEModel(self.task_train)
 
     def compute_validation_loss(self, predictions: torch.Tensor, labels: torch.Tensor):
         return self.compute_loss(predictions * self.displacement_std + self.displacement_mean, labels)

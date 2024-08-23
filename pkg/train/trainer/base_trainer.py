@@ -135,6 +135,7 @@ class BaseTrainer(abc.ABC):
         self.task_train: Dict = config.task_train
 
         # === init tuning param
+        self.model: Optional[nn.Module] = None
         self.loss: Optional[nn.Module] = None
         self.optimizer: Optional[torch.optim.Optimizer] = None
         self.metrics: Dict[str, callable] = {}
@@ -159,7 +160,7 @@ class BaseTrainer(abc.ABC):
         return train_dataset, validation_dataset
 
     # === model ===
-    def create_model(self) -> BaseModule:
+    def create_model(self) -> None:
         raise NotImplementedError("please implement create_model func")
 
     def print_model(self, model: nn.Module, inputs: Dict):
@@ -187,11 +188,11 @@ class BaseTrainer(abc.ABC):
             show_parent_layers=model_summary["show_parent_layers"],
         )
 
-    def create_optimize(self, model: nn.Module) -> None:
+    def create_optimize(self) -> None:
         optimizer_param = self.task_trainer["optimizer_param"]
 
         if optimizer_param["name"] == "adam":
-            self.optimizer = torch.optim.Adam(model.parameters(), lr=optimizer_param["learning_rate"])
+            self.optimizer = torch.optim.Adam(self.model.parameters(), lr=optimizer_param["learning_rate"])
         else:
             raise ValueError(f"optimizer name do not set properly, please check: {optimizer_param['optimizer']}")
 
@@ -215,7 +216,7 @@ class BaseTrainer(abc.ABC):
             else:
                 raise ValueError(f"metrics name do not set properly, please check: {p}")
 
-    def create_callback(self, model: nn.Module) -> None:
+    def create_callback(self) -> None:
         callback_param = self.task_trainer["callback_param"]
 
         tensorboard_param = callback_param.get("tensorboard", {})
@@ -229,8 +230,28 @@ class BaseTrainer(abc.ABC):
 
         self.callback = CallbackList(
             callbacks=[tensorboard, model_checkpoint, log_checkpoint],
-            model=model,
+            model=self.model,
+            optimizer=self.optimizer,
         )
+
+    def init_model_weights(self) -> int:
+        init_model_weights = self.task_trainer["init_model_weights"]
+
+        if not init_model_weights:
+            return 0
+
+        ckpt_path = f"{self.task_base['logs_base_path']}/checkpoint/ckpt.pth"
+
+        checkpoint = torch.load(ckpt_path)
+        self.model.load_state_dict(checkpoint['model_state_dict'])
+
+        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+
+        epoch = checkpoint['epoch']
+
+        logger.info(f"model init previous checkpoint at epoch={epoch} done")
+
+        return epoch
 
     # === train ===
     def train(self):
@@ -275,36 +296,38 @@ class BaseTrainer(abc.ABC):
             )
 
         # ====== Create model ======
-        model = self.create_model()
+        self.create_model()
 
         if self.gpu:
-            model = model.cuda()
+            model = self.model.cuda()
             logger.info(f"cuda version: {torch.version.cuda}")
             logger.info(f"model device check: {next(model.parameters()).device}")
 
-        self.print_model(model, train_dataset.get_head_inputs(dataset_param.get("batch_size", 1)))
+        self.print_model(self.model, train_dataset.get_head_inputs(dataset_param.get("batch_size", 1)))
 
         if self.static_graph:
-            model = torch.jit.trace(model, train_dataset.get_head_inputs(1))
+            self.model = torch.jit.trace(self.model, train_dataset.get_head_inputs(1))
 
         # ====== Init optimizer ======
-        self.create_optimize(model)
+        self.create_optimize()
 
         # ====== Init loss & metrics ======
         self.create_loss()
         self.create_metrics()
 
-        # ====== Init callback ======
-        self.create_callback(model)
+        # ====== Init Model Weight ======
+        init_epoch = self.init_model_weights()
 
+        # ====== Init callback ======
+        self.create_callback()
         self.callback.on_train_begin()
 
-        for t in range(epoch):
+        for t in range(init_epoch + 1, epoch + 1):
             self.callback.on_epoch_begin(t)
 
-            train_metrics = self.train_step(model, train_data_loader)
+            train_metrics = self.train_step(self.model, train_data_loader)
 
-            val_metrics = self.validation_step(model, validation_data_loader, t, t == epoch)
+            val_metrics = self.validation_step(self.model, validation_data_loader, t, t == epoch)
 
             self.callback.on_epoch_end(t, train_metrics=train_metrics, val_metrics=val_metrics)
 

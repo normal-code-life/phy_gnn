@@ -47,7 +47,8 @@ def measure_io_speed(directory_path):
 
             # Print the size and time taken to read the current file
             print(
-                f"Read {file} - Size: {file_size / (1024 * 1024):.2f} MB, Sample: {sample_size} Time: {elapsed_time:.4f} seconds"
+                f"Read {file} - Size: {file_size / (1024 * 1024):.2f} MB, "
+                f"Sample: {sample_size} Time: {elapsed_time:.4f} seconds"
             )
 
     # If files were read, calculate and print the overall statistics

@@ -1,12 +1,13 @@
-from typing import Optional, Union
+from typing import Dict, Optional, Union
 
+import torch
 import torch.nn as nn
 
-from pkg.train.layer.pooling_layer import *  # noqa
+from pkg.train.layer.pooling_layer import MeanAggregator, SUMAggregator  # noqa
 from pkg.train.model.base_model import BaseModule
 from pkg.train.trainer.base_trainer import BaseTrainer, TrainerConfig
 from pkg.utils.logs import init_logger
-from task.passive_biv.fe_heart_sage_v2.data.datasets_train import FEHeartSageV2TrainDataset
+from task.passive_biv.fe_heart_sage_v2.data.datasets_train_hdf5 import FEHeartSageV2TrainDataset
 from task.passive_biv.utils.module.mlp_layer_ln import MLPLayerLN
 
 logger = init_logger("FE_Heart_Sage_v2")
@@ -25,8 +26,8 @@ class FEHeartSageV2Trainer(BaseTrainer):
 
         super().__init__(config)
 
-    def create_model(self) -> BaseModule:
-        return FEHeartSageV2Model(self.task_train)
+    def create_model(self) -> None:
+        self.model = FEHeartSageV2Model(self.task_train)
 
     def compute_loss(self, predictions: torch.Tensor, labels: Union[torch.Tensor, Dict]):
         return self.loss(predictions, labels["displacement"])

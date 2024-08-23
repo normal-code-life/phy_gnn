@@ -3,7 +3,7 @@ import abc
 from typing import Dict, List, Optional
 
 from torch import nn
-
+from torch.optim import Optimizer
 from pkg.utils.logs import init_logger
 
 logger = init_logger("CALLBACK")
@@ -11,6 +11,7 @@ logger = init_logger("CALLBACK")
 
 class CallBack(abc.ABC):
     model: nn.Module
+    optimizer: Optimizer
 
     def __init__(self, task_base_param: Dict, logs_param: Dict):
         self.params: Dict = dict()
@@ -22,8 +23,11 @@ class CallBack(abc.ABC):
         else:
             self.log_dir = logs_param["log_dir"]
 
-    def set_model(self, model: nn.Module):
+    def set_model(self, model: nn.Module) -> None:
         self.model = model
+
+    def set_optimizer(self, optimizer: Optimizer) -> None:
+        self.optimizer = optimizer
 
     def on_batch_begin(self, batch, **kwargs):
         """A backwards compatibility alias for `on_train_batch_begin`."""
@@ -174,14 +178,19 @@ class CallBack(abc.ABC):
 class CallbackList(object):
     """Container abstracting a list of callbacks."""
 
-    def __init__(self, callbacks: Optional[List[CallBack]] = None, model: nn.Module = None):
+    def __init__(self, callbacks: Optional[List[CallBack]], model: nn.Module, optimizer: Optimizer):
         self.callbacks = callbacks
 
         self.set_model(model)
+        self.set_optimizer(optimizer)
 
-    def set_model(self, model):
+    def set_model(self, model: nn.Module):
         for callback in self.callbacks:
             callback.set_model(model)
+
+    def set_optimizer(self, optimizer: Optimizer):
+        for callback in self.callbacks:
+            callback.set_optimizer(optimizer)
 
     def append(self, callback):
         self.callbacks.append(callback)

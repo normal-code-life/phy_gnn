@@ -1,10 +1,12 @@
 import os
-from typing import Dict
+from typing import Dict, Optional
 
 import torch
-
+import shutil
 from pkg.train.callbacks.base_callback import CallBack
 from pkg.utils.logs import init_logger
+
+logger = init_logger("MODEL_CHECKPOINT")
 
 
 class ModelCheckpointCallback(CallBack):
@@ -15,7 +17,7 @@ class ModelCheckpointCallback(CallBack):
 
         self.save_freq = param.get("save_freq", "epoch")
 
-        self.logger = init_logger("MODEL_CHECKPOINT")
+        self.save_model_freq = param.get("save_model_freq", None)
 
     @staticmethod
     def _check_and_create_folder(log_dir: str, folder_name: str) -> str:
@@ -26,29 +28,57 @@ class ModelCheckpointCallback(CallBack):
 
         return path
 
-    def on_train_end(self, epoch, **kwargs):
-        self.logger.info("========= model saving =========")
+    def on_train_end(self, epoch: int, **kwargs):
+        logger.info("========= final model saving =========")
 
-        # self.save_model()
-        self.save_checkpoint(epoch)
+        self.save_checkpoint(epoch, **kwargs)
+        self.save_model()
 
-    def save_model(self):
-        torch.save(self.model, f"{self.model_dir}/model.pth")
+    def on_epoch_end(self, epoch: int, **kwargs):
+        if epoch == 0:
+            return
 
-    def save_checkpoint(self, epoch):
-        torch.save(self.model.state_dict(), f"{self.checkpoint_dir}/ckpt_{epoch}.pth")
-
-    def on_epoch_end(self, epoch, **kwargs):
         save_checkpoint = False
+        save_model = False
 
-        if (
-            isinstance(self.save_freq, str)
-            and self.save_freq == "epoch"
-            or isinstance(self.save_freq, int)
-            and epoch % self.save_freq == 0
-        ):
+        if isinstance(self.save_freq, str) and self.save_freq == "epoch":
+            save_checkpoint = True
+        elif isinstance(self.save_freq, int) and epoch % self.save_freq == 0:
             save_checkpoint = True
 
+        if self.save_model_freq and epoch % self.save_model_freq == 0:
+            save_model = True
+
         if save_checkpoint:
-            # self.logger.info(f"========= checkpoint saving epoch={epoch} =========")
-            self.save_checkpoint(epoch)
+            self.save_checkpoint(epoch, **kwargs)
+
+        if save_model:
+            self.save_model(epoch)
+
+    def save_checkpoint(self, epoch: int, **kwargs) -> None:
+        ckpt_dir = f"{self.checkpoint_dir}/ckpt_{epoch}.pth"
+
+        save_ckpt_dict = {
+            'model_state_dict': self.model.state_dict(),
+            'optimizer_state_dict': self.optimizer.state_dict(),
+            'epoch': epoch,
+        }
+
+        if "train_metrics" in kwargs:
+            save_ckpt_dict.update(kwargs["train_metrics"])
+
+        if "val_metrics" in kwargs:
+            save_ckpt_dict.update(kwargs["val_metrics"])
+
+        torch.save(save_ckpt_dict, ckpt_dir)
+        shutil.copy(ckpt_dir, f"{self.checkpoint_dir}/ckpt.pth")
+
+        logger.info(f"saving ckpt epoch={epoch} to {ckpt_dir} success")
+
+    def save_model(self, epoch: Optional[int] = None) -> None:
+        model_dir = f"{self.model_dir}/model.pth" if epoch is None else f"{self.model_dir}/model_{epoch}.pth"
+
+        torch.save(self.model, f"{model_dir}")
+
+        logger.info(f"saving model epoch={epoch} to {model_dir} success")
+

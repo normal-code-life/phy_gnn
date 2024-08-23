@@ -78,7 +78,10 @@ class BaseAbstractDataset(abc.ABC):
         self.data_size_path = f"{self.stats_data_path}/{self.data_type}_data_size.npy"
         logger.info(f"data_size_path is {self.data_size_path}")
 
-        # tfrecord path
+        # hdf5 config
+        self.dataset_h5_path = f"{self.dataset_path}" + "/data_{}.h5"
+
+        # tfrecord config
         # === tfrecord model training dataset path (tfrecord version)
         self.tfrecord_data_path = f"{self.dataset_path}" + "/data_{}.tfrecord"
 

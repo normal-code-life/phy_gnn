@@ -34,8 +34,8 @@ class FEHeartSageV1PreparationDataset(AbstractDataPreparationDataset, FEHeartSag
         # self._prepare_features("displacement", self.displacement_original_path, self.displacement_path, np.float32, True)  # noqa
 
         self._prepare_features()
-        self._prepare_global_features("global_feature", self.theta_original_path, self.theta_path, np.float32, False)
-        self._prepare_global_features("shape_coeff", self.shape_coeff_original_path, self.shape_coeff_path, np.float32, False)
+        self._prepare_global_features("global_feature", self.theta_original_path, self.theta_path, np.float32, False)  # noqa
+        self._prepare_global_features("shape_coeff", self.shape_coeff_original_path, self.shape_coeff_path, np.float32, False)  # noqa
         self._prepare_edge()
         # fmt: on
 
@@ -92,7 +92,7 @@ class FEHeartSageV1PreparationDataset(AbstractDataPreparationDataset, FEHeartSag
         np.save(self.node_coord_path, node_coord)
         np.save(self.displacement_path, displacement)
 
-        logger.info(f"====== prepare node and displacement DONE ======")
+        logger.info("====== prepare node and displacement DONE ======")
 
     def _prepare_global_features(
         self, fea_name: str, read_path: str, save_path: str, np_type: np.dtype, can_down_sampling: bool

@@ -1,5 +1,5 @@
 import os
-from typing import Dict, List
+from typing import Dict
 
 import numpy as np
 
@@ -25,7 +25,6 @@ def split_dataset_indices(sample_path: str, train_split_ratio: float) -> Dict[st
         - 'TRAIN_NAME': A list of NumPy arrays, each array containing indices of the training samples.
         - 'VALIDATION_NAME': A list of NumPy arrays, each array containing indices of the validation samples.
     """
-
     # check the record inputs size and split train and test dataset
     total_sample_size = len(os.listdir(sample_path))
 

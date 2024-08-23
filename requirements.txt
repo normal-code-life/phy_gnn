@@ -6,6 +6,8 @@ flake8==7.0.0
 flake8-docstrings==1.7.0
 google-auth==2.33.0
 google-auth-oauthlib==1.0.0
+h5py==3.11.0
+hdf5==1.12.1
 isort==5.13.2
 numba==0.58.1
 numpy==1.24.4

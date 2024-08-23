@@ -44,8 +44,8 @@ class PassiveLvGNNEmulTrainer(BaseTrainer):
         self.displacement_mean = dataset_config.get_displacement_mean()
         self.displacement_std = dataset_config.get_displacement_std()
 
-    def create_model(self) -> BaseModule:
-        return PassiveLvGNNEmulModel(
+    def create_model(self) -> None:
+        self.model = PassiveLvGNNEmulModel(
             self.task_train, self.senders, self.receivers, self.real_node_indices, self.n_total_nodes
         )
 

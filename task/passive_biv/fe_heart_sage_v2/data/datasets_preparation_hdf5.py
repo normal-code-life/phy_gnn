@@ -1,14 +1,15 @@
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
+import h5py
 import numpy as np
-import tfrecord
 from numba.typed import List as Numba_List
 
 from common.constant import DARWIN, TRAIN_NAME
 from pkg.data.utils.edge_generation import generate_distance_based_edges_nb, generate_distance_based_edges_ny
 from pkg.data.utils.stats import stats_analysis
 from pkg.train.datasets.base_datasets_preparation import AbstractDataPreparationDataset
-from task.passive_biv.fe_heart_sage_v2.data.datasets import FEHeartSageV2Dataset, logger
+from task.passive_biv.fe_heart_sage_v2.data import logger
+from task.passive_biv.fe_heart_sage_v2.data.datasets import FEHeartSageV2Dataset
 
 
 class PassiveBiVPreparationDataset(AbstractDataPreparationDataset, FEHeartSageV2Dataset):
@@ -31,13 +32,6 @@ class PassiveBiVPreparationDataset(AbstractDataPreparationDataset, FEHeartSageV2
 
         logger.info(f"====== finish {self.__class__.__name__} {data_type} data config ======")
 
-    def prepare_dataset_process(self):
-        self._data_generation()
-
-        self._data_stats()
-
-        logger.info(f"====== finish {self.__class__.__name__} {self.data_type} preparation done ======\n")
-
     def _data_generation(self):
         # read global features
         data_global_feature = np.loadtxt(self.global_feature_data_path, delimiter=",")
@@ -48,42 +42,46 @@ class PassiveBiVPreparationDataset(AbstractDataPreparationDataset, FEHeartSageV2
         )
 
         for i, indices in enumerate(sample_indices):
-            file_path_group = self.tfrecord_data_path.format(i)
-
-            writer = tfrecord.TFRecordWriter(file_path_group)
+            datasets = []
 
             for idx in indices:
                 # read sample inputs
                 read_file_name = f"/ct_case_{idx + 1:04d}.csv"  # e.g. ct_case_0005
-                record_inputs = np.loadtxt(self.inputs_data_path + read_file_name, delimiter=",")
 
-                record_outputs = np.loadtxt(self.outputs_data_path + read_file_name, delimiter=",")
+                record_inputs = np.loadtxt(self.inputs_data_path + read_file_name, delimiter=",", dtype=np.float32)
+
+                record_outputs = np.loadtxt(self.outputs_data_path + read_file_name, delimiter=",", dtype=np.float32)
+
+                points = record_inputs.shape[0]
 
                 if self.train_down_sampling_node or self.val_down_sampling_node:
                     record_inputs, record_outputs = self._down_sampling_node(record_inputs, record_outputs)
 
                 edge: np.ndarray = self._generate_distance_based_edges(record_inputs[:, 0:3])
 
-                context_data = {
-                    "index": (idx, self.context_description["index"]),
-                    "points": (record_inputs.shape[0], self.context_description["points"]),
-                }
+                datasets.append(
+                    {
+                        "index": np.array([np.int32(idx)]),
+                        "points": np.array([np.int32(points)]),
+                        "node_coord": record_inputs[:, 0:3],
+                        "laplace_coord": record_inputs[:, 3:11],
+                        "fiber_and_sheet": record_inputs[:, 11:17],
+                        "edges_indices": edge[0].astype(np.int32),
+                        "mat_param": data_global_feature[:, 1:7][idx],
+                        "pressure": data_global_feature[:, 7:9][idx],
+                        "shape_coeffs": data_shape_coeff[:, 1:60][idx],
+                        "displacement": record_outputs[:, 0:3],
+                        "stress": record_outputs[:, 3:4],
+                    }
+                )
 
-                feature_data: Dict[str, Tuple[np.ndarray, str]] = {
-                    "node_coord": (record_inputs[:, 0:3], self.feature_description["node_coord"]),
-                    "laplace_coord": (record_inputs[:, 3:11], self.feature_description["laplace_coord"]),
-                    "fiber_and_sheet": (record_inputs[:, 11:17], self.feature_description["fiber_and_sheet"]),
-                    "edges_indices": (edge[0], self.feature_description["edges_indices"]),
-                    "mat_param": (data_global_feature[:, 1:7][idx], self.feature_description["mat_param"]),
-                    "pressure": (data_global_feature[:, 7:9][idx], self.feature_description["pressure"]),
-                    "shape_coeffs": (data_shape_coeff[:, 1:60][idx], self.feature_description["shape_coeffs"]),
-                    "displacement": (record_outputs[:, 0:3], self.feature_description["displacement"]),
-                    "stress": (record_outputs[:, 3:4], self.feature_description["stress"]),
-                }
+            with h5py.File(self.dataset_h5_path.format(i), "w") as f:
+                for idx, sample_dict in enumerate(datasets):
+                    # 为每个字典创建一个组
+                    group = f.create_group(f"idx_{idx}")
+                    for key, value in sample_dict.items():
+                        group.create_dataset(key, data=value)
 
-                writer.write(context_data, feature_data)  # noqa
-
-            writer.close()
             logger.info(f"data_generation {i}: {indices} done")
 
     def _down_sampling_node(self, record_inputs: np.ndarray, record_outputs: np.ndarray) -> (np.ndarray, np.ndarray):
@@ -94,7 +92,6 @@ class PassiveBiVPreparationDataset(AbstractDataPreparationDataset, FEHeartSageV2
             self.train_down_sampling_node if self.data_type == TRAIN_NAME else self.val_down_sampling_node
         )
 
-        # logger.info(f"{self.data_type} down_sampling_node we cut down node from {num_nodes} to {num_down_sample_node}")
         if num_down_sample_node > num_nodes:
             raise ValueError("num_down_sample_node error, please carefully choice the node number")
 
@@ -118,7 +115,9 @@ class PassiveBiVPreparationDataset(AbstractDataPreparationDataset, FEHeartSageV2
         [nodes_per_section_nb.append(x) for x in nodes_per_sections]
 
         # need to expand the axis and align with the other method
-        return generate_distance_based_edges_nb(node_coords, sections_nb, nodes_per_section_nb)[np.newaxis, :]
+        return generate_distance_based_edges_nb(node_coords, sections_nb, nodes_per_section_nb)[np.newaxis, :].astype(
+            np.int32
+        )
 
     def _data_stats(self) -> None:
         # we only allow train data stats write to path

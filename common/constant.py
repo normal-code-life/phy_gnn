@@ -17,3 +17,7 @@ PERC_90_VAL = "90_percentile_val"
 
 # platform
 DARWIN = "Darwin"
+
+# data format
+HDF5 = "hdf5"
+TFrecord = "tfrecord"

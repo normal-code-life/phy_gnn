@@ -3,7 +3,17 @@ from typing import Set, Union
 
 import numpy as np
 
-from common.constant import *
+from common.constant import (
+    MAX_VAL,
+    MEAN_VAL,
+    MEDIAN_VAL,
+    MIN_VAL,
+    PERC_10_VAL,
+    PERC_25_VAL,
+    PERC_75_VAL,
+    PERC_90_VAL,
+    STD_VAL
+)
 
 
 def stats_analysis(

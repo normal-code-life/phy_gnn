@@ -1,9 +1,10 @@
-from typing import Union
+from typing import Dict, Union
 
+import torch
 import torch.nn as nn
 
 from common.constant import TRAIN_NAME
-from pkg.train.layer.pooling_layer import *  # noqa
+from pkg.train.layer.pooling_layer import MeanAggregator, SUMAggregator  # noqa
 from pkg.train.model.base_model import BaseModule
 from pkg.train.trainer.base_trainer import BaseTrainer, TrainerConfig
 from pkg.utils.logs import init_logger
@@ -34,8 +35,8 @@ class FEHeartSAGETrainer(BaseTrainer):
 
         self.metrics["l2_norm"] = self.compute_validation_loss_v2  # validation data loss has same scaling as train data
 
-    def create_model(self) -> BaseModule:
-        return FEHeartSAGEModel(self.task_train)
+    def create_model(self) -> None:
+        self.model = FEHeartSAGEModel(self.task_train)
 
     def compute_loss(self, outputs: torch.Tensor, labels: Union[torch.Tensor, Dict[str, torch.Tensor]]):
         return self.loss(outputs, labels["displacement"])
