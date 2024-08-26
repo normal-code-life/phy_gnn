@@ -49,18 +49,19 @@ class SchedulingCallback(CallBack):
         while self.is_within_pause_time():
             logger.info(f"{datetime.now()} Training paused. Releasing GPU resources if necessary...")
 
-            if self.use_gpu:
+            if self.use_gpu and not self.dive_in_sleeping_time:
                 self.model.cpu()  # Move model to CPU to free GPU memory
 
                 torch.cuda.empty_cache()  # Clear GPU memory
 
-            time.sleep(1)  # Check every minute if training can resume
+            time.sleep(600)  # Check every minute if training can resume
 
             self.dive_in_sleeping_time = True
 
         # When resuming, move the model back to the GPU
         if self.use_gpu and self.dive_in_sleeping_time:
             self.model.cuda()
+            self.dive_in_sleeping_time = False
 
     @staticmethod
     def is_within_pause_time() -> bool:

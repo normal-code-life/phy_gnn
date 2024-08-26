@@ -4,7 +4,7 @@ import numpy as np
 from torchvision import transforms
 
 from pkg.train.datasets.base_datasets_train import MultiHDF5Dataset
-from pkg.train.module.data_transform import CovertToModelInputs, ToTensor, MaxMinNorm, NormalNorm, SqueezeDataDim
+from pkg.train.module.data_transform import CovertToModelInputs, MaxMinNorm, NormalNorm, SqueezeDataDim, ToTensor
 from task.passive_biv.fe_heart_sage_v2.data.datasets import FEHeartSageV2Dataset
 
 

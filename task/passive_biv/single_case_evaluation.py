@@ -1,16 +1,25 @@
 from typing import Dict, List, Optional
-from common.constant import MEAN_VAL, STD_VAL
+
 import numpy as np
+import pandas as pd
 import torch
 from numba.typed import List as Numba_List
 from torch import nn
 from torchvision import transforms
-from common.constant import DARWIN
+
+from common.constant import DARWIN, MAX_VAL, MEAN_VAL, MIN_VAL, STD_VAL
 from pkg.data.utils.edge_generation import generate_distance_based_edges_nb, generate_distance_based_edges_ny
-from pkg.train.module.data_transform import CovertToModelInputs, ToTensor, MaxMinNorm, NormalNorm, SqueezeDataDim, UnSqueezeDataDim
+from pkg.train.module.data_transform import (
+    CovertToModelInputs,
+    MaxMinNorm,
+    NormalNorm,
+    SqueezeDataDim,
+    ToTensor,
+    UnSqueezeDataDim
+)
 from pkg.utils.logs import init_logger
 from task.passive_biv.fe_heart_sage_v2.data.datasets import FEHeartSageV2Dataset, import_data_config
-import pandas as pd
+from task.passive_biv.fe_heart_sage_v2.train.model import FEHeartSageV2Model
 
 logger = init_logger("single_case_eval")
 
@@ -49,8 +58,8 @@ class FEHeartSageV2Evaluation(FEHeartSageV2Dataset):
 
             stats = np.load(self.displacement_stats_path)
 
-            mean_val = torch.tensor(stats[MEAN_VAL])
-            std_val = torch.tensor(stats[STD_VAL])
+            mean_val = torch.tensor(stats[MAX_VAL])
+            std_val = torch.tensor(stats[MIN_VAL])
 
             output = (output.squeeze(0) + std_val) * mean_val
 
@@ -146,7 +155,7 @@ class FEHeartSageV2Evaluation(FEHeartSageV2Dataset):
             "stress": 0,
             "mat_param": 0,
             "pressure": 0,
-            "shape_coeffs": 0
+            "shape_coeffs": 0,
         }
         transform_list.append(UnSqueezeDataDim(unsqueeze_data_dim_config))
 
@@ -158,7 +167,10 @@ class FEHeartSageV2Evaluation(FEHeartSageV2Dataset):
         return transforms.Compose(transform_list)
 
     def _load_model(self) -> nn.Module:
-        model = torch.load(f"{self.base_repo_path}/log/{self.task_name}/{self.exp_name}/model/model.pth")
+        model = torch.load(
+            f"{self.base_repo_path}/log/{self.task_name}/{self.exp_name}/checkpoint/ckpt.pth",
+            map_location=torch.device("cpu"),
+        )
 
         model.eval()
 
@@ -166,10 +178,8 @@ class FEHeartSageV2Evaluation(FEHeartSageV2Dataset):
 
 
 if __name__ == "__main__":
-
     config = import_data_config()
 
     evaluation = FEHeartSageV2Evaluation(config, "eval", 2)
 
     evaluation.single_graph_evaluation()
-
