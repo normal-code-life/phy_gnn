@@ -4,7 +4,7 @@ import numpy as np
 from torchvision import transforms
 
 from pkg.train.datasets.base_datasets_train import MultiHDF5Dataset
-from pkg.train.module.data_transform import CovertToModelInputs, HDF5ToTensor, MaxMinNorm, NormalNorm, SqueezeDataDim
+from pkg.train.module.data_transform import CovertToModelInputs, ToTensor, MaxMinNorm, NormalNorm, SqueezeDataDim
 from task.passive_biv.fe_heart_sage_v2.data.datasets import FEHeartSageV2Dataset
 
 
@@ -22,12 +22,11 @@ class FEHeartSageV2TrainDataset(MultiHDF5Dataset, FEHeartSageV2Dataset):
     def _init_transform(self):
         transform_list = []
 
-        # feature normalization
         hdf5_to_tensor_config = {
             "context_description": self.context_description,
             "feature_description": self.feature_description,
         }
-        transform_list.append(HDF5ToTensor(hdf5_to_tensor_config))
+        transform_list.append(ToTensor(hdf5_to_tensor_config))
 
         max_min_norm_config = {
             "node_coord": self.node_coord_stats_path,

@@ -96,10 +96,15 @@ def import_data_config() -> Dict:
     # fetch data config
     base_config = load_yaml(f"{repo_root_path}/task/passive_biv/fe_heart_sage_v2/config/train_config.yaml")
     data_config = base_config["task_data"]
+
+    task_base = base_config["task_base"]
+    data_config["task_name"] = task_base["task_name"]
+    data_config["exp_name"] = task_base["exp_name"]
+
+    data_config["repo_path"] = repo_root_path
     data_config["task_data_path"] = f"{repo_root_path}/pkg/data/passive_biv"
     data_config["task_path"] = f"{repo_root_path}/task/passive_biv"
     data_config["sample_path"] = f"{data_config['task_data_path']}/record_inputs"
     data_config["gpu"] = base_config["task_base"]["gpu"]
-    data_config["exp_name"] = base_config["task_base"]["exp_name"]
 
     return data_config

@@ -12,7 +12,7 @@ from pkg.train.datasets.base_datasets import BaseAbstractDataset, BaseAbstractTr
 from pkg.train.datasets.reader_hdf5 import multi_hdf5_loader, shuffle_iterator
 
 
-class AbstractTrainDataset(BaseAbstractTrainDataset, BaseAbstractDataset):
+class AbstractTrainDataset(BaseAbstractTrainDataset, BaseAbstractDataset, Dataset):
     @abc.abstractmethod
     def get_head_inputs(self, batch_size: int) -> Dict:
         raise NotImplementedError("Subclasses must implement get_head_inputs method")
@@ -21,7 +21,7 @@ class AbstractTrainDataset(BaseAbstractTrainDataset, BaseAbstractDataset):
         return np.load(self.data_size_path).astype(np.int64)
 
 
-class BaseDataset(AbstractTrainDataset, Dataset):
+class BaseDataset(AbstractTrainDataset):
     def get_head_inputs(self, batch_size) -> Dict:
         inputs, _ = self.__getitem__(np.arange(0, batch_size))
 
@@ -34,7 +34,7 @@ class BaseIterableDataset(AbstractTrainDataset, IterableDataset):
         for i in range(batch_size):
             inputs, _ = next(self.__iter__())
 
-            inputs = {key: inputs[key].cuda().unsqueeze(0) if self.gpu else inputs[key].unsqueeze(0) for key in inputs}
+            inputs = {key: inputs[key].unsqueeze(0) for key in inputs}
 
             for key in inputs:
                 res[key] = torch.concat([res[key], inputs[key]], dim=0) if key in res else inputs[key]

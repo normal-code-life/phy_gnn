@@ -1,8 +1,9 @@
 import os
+import shutil
 from typing import Dict, Optional
 
 import torch
-import shutil
+
 from pkg.train.callbacks.base_callback import CallBack
 from pkg.utils.logs import init_logger
 
@@ -59,9 +60,9 @@ class ModelCheckpointCallback(CallBack):
         ckpt_dir = f"{self.checkpoint_dir}/ckpt_{epoch}.pth"
 
         save_ckpt_dict = {
-            'model_state_dict': self.model.state_dict(),
-            'optimizer_state_dict': self.optimizer.state_dict(),
-            'epoch': epoch,
+            "model_state_dict": self.model.state_dict(),
+            "optimizer_state_dict": self.optimizer.state_dict(),
+            "epoch": epoch,
         }
 
         if "train_metrics" in kwargs:
@@ -81,4 +82,3 @@ class ModelCheckpointCallback(CallBack):
         torch.save(self.model, f"{model_dir}")
 
         logger.info(f"saving model epoch={epoch} to {model_dir} success")
-

@@ -1,10 +1,11 @@
 task_base:
   task_name: passive_biv
   model_name: fe_heart_sage_v2
-  exp_name: 57
+  exp_name: 58
   overwrite_exp_folder: True
   gpu: True
-  cuda_core: "cuda:1"
+  cuda_core: "cuda:0"
+  gpu_num: 3
 task_data:
   task_data_name: passive_biv
   overwrite_data: False
@@ -32,13 +33,16 @@ task_trainer:
       save_model_freq: 200
     logs:
       update_freq: 1
+      save_config: True
       save_task_code: True
+    scheduling:
+      avoid_work_hour: True
   dataset_param:
-    batch_size: 10
-    val_batch_size: 10
-    num_workers: 16
-    prefetch_factor: 10
-    val_prefetch_factor: 1
+    batch_size: 90
+    val_batch_size: 90
+    num_workers: 18
+    prefetch_factor: 90
+    val_prefetch_factor: 90
   static_graph: False
   init_model_weights: False
 task_train:
@@ -53,8 +57,8 @@ task_train:
     activation: tanh
   message_passing_layer:
     agg_method: MeanAggregator
-    layer_threshold: [20, 40, 60, 80, 100]
-    layer_selected_node_num: [12, 12, 12, 12, 12]
+    layer_threshold: [20, 50, 80, 90, 100]
+    layer_selected_node_num: [10, 10, 10, 10, 10]
     agg_layer:
       agg_dim: 2
       keep_dim: False

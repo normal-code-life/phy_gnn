@@ -53,15 +53,17 @@ class BaseAbstractDataset(abc.ABC):
         self.platform = platform.system()
 
         # === data type
+        self.task_name = data_config["task_name"]
         self.data_type = data_type
 
         # === exp
-        self.exp_name = data_config.get("exp_name", None)
+        self.exp_name = data_config["exp_name"]
 
         # common path
         # === base path
-        self.base_data_path = f"{data_config['task_data_path']}"
-        self.base_task_path = f"{data_config['task_path']}"
+        self.base_repo_path = data_config["repo_path"]
+        self.base_data_path = data_config["task_data_path"]
+        self.base_task_path = data_config["task_path"]
 
         if not os.path.isdir(self.base_data_path):
             raise NotADirectoryError(f"No directory at: {self.base_data_path}")

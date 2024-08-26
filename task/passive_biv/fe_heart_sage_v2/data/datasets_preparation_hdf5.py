@@ -4,7 +4,7 @@ import h5py
 import numpy as np
 from numba.typed import List as Numba_List
 
-from common.constant import DARWIN, TRAIN_NAME
+from common.constant import DARWIN, TEST_NAME, TRAIN_NAME
 from pkg.data.utils.edge_generation import generate_distance_based_edges_nb, generate_distance_based_edges_ny
 from pkg.data.utils.stats import stats_analysis
 from pkg.train.datasets.base_datasets_preparation import AbstractDataPreparationDataset
@@ -54,7 +54,7 @@ class PassiveBiVPreparationDataset(AbstractDataPreparationDataset, FEHeartSageV2
 
                 points = record_inputs.shape[0]
 
-                if self.train_down_sampling_node or self.val_down_sampling_node:
+                if (self.train_down_sampling_node or self.val_down_sampling_node) and self.data_type != TEST_NAME:
                     record_inputs, record_outputs = self._down_sampling_node(record_inputs, record_outputs)
 
                 edge: np.ndarray = self._generate_distance_based_edges(record_inputs[:, 0:3])
@@ -78,7 +78,7 @@ class PassiveBiVPreparationDataset(AbstractDataPreparationDataset, FEHeartSageV2
             with h5py.File(self.dataset_h5_path.format(i), "w") as f:
                 for idx, sample_dict in enumerate(datasets):
                     # 为每个字典创建一个组
-                    group = f.create_group(f"idx_{idx}")
+                    group: h5py.Group = f.create_group(f"idx_{idx}")
                     for key, value in sample_dict.items():
                         group.create_dataset(key, data=value)
 
@@ -86,6 +86,7 @@ class PassiveBiVPreparationDataset(AbstractDataPreparationDataset, FEHeartSageV2
 
     def _down_sampling_node(self, record_inputs: np.ndarray, record_outputs: np.ndarray) -> (np.ndarray, np.ndarray):
         num_nodes, record_inputs_dim = record_inputs.shape
+
         _, record_outputs_dim = record_outputs.shape
 
         num_down_sample_node = (
@@ -128,8 +129,6 @@ class PassiveBiVPreparationDataset(AbstractDataPreparationDataset, FEHeartSageV2
         self._data_global_feature_stats(write_to_path)
 
         self._data_label_stats(write_to_path)
-
-        self._total_data_size()
 
     def _data_node_stats(self, write_to_path: bool) -> None:
         # fmt: off
@@ -197,5 +196,5 @@ class PassiveBiVPreparationDataset(AbstractDataPreparationDataset, FEHeartSageV2
 
         # fmt: on
 
-    def _total_data_size(self) -> None:
+    def _data_stats_total_size(self) -> None:
         np.save(self.data_size_path, self.sample_indices.shape[0])

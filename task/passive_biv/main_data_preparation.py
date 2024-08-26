@@ -2,7 +2,7 @@ import time
 
 import numpy as np
 
-from common.constant import HDF5, TRAIN_NAME, VALIDATION_NAME, TFrecord
+from common.constant import HDF5, TEST_NAME, TRAIN_NAME, VALIDATION_NAME, TFrecord
 from pkg.data.utils.dataset_generation import split_dataset_indices
 from task.passive_biv.fe_heart_sage_v2.data import datasets_preparation_hdf5, datasets_preparation_tfrecord
 from task.passive_biv.fe_heart_sage_v2.data.datasets import import_data_config
@@ -22,8 +22,10 @@ if __name__ == "__main__":
         data_config["train_split_ratio"],
     )
 
+    sample_indices_dict[TEST_NAME] = sample_indices_dict[VALIDATION_NAME]
+
     # generate dataset
-    for data_type in [TRAIN_NAME, VALIDATION_NAME]:
+    for data_type in [TRAIN_NAME, VALIDATION_NAME, TEST_NAME]:
         data_config["sample_indices"] = sample_indices_dict[data_type]
 
         if data_format == TFrecord:

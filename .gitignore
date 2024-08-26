@@ -300,3 +300,4 @@ tmp
 pkg/data/lvData
 pkg/data/passive_lv_gnn_emul
 pkg/data/passive_biv
+log/*

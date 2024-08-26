@@ -17,12 +17,14 @@ class AbstractDataPreparationDataset(BaseAbstractDataPreparationDataset, BaseAbs
         if check_and_clean_path(self.dataset_path, self.overwrite_data):
             self._data_generation()
         else:
-            raise ValueError(f"please check your data path and config, some conflict exist {self.dataset_path}")
+            logger.info(f"data already exists, no overwrite: {self.dataset_path}")
 
         if check_and_clean_path(self.stats_data_path, self.overwrite_stats):
             self._data_stats()
         else:
-            logger.info("skip stats step")
+            logger.info(f"skip {self.data_type} stats step")
+
+        self._data_stats_total_size()
 
     @abc.abstractmethod
     def _data_generation(self):
@@ -31,3 +33,7 @@ class AbstractDataPreparationDataset(BaseAbstractDataPreparationDataset, BaseAbs
     @abc.abstractmethod
     def _data_stats(self):
         raise NotImplementedError("Subclasses must implement the _data_stats method.")
+
+    @abc.abstractmethod
+    def _data_stats_total_size(self):
+        raise NotImplementedError("Subclasses must implement the _data_stats_total_size method.")

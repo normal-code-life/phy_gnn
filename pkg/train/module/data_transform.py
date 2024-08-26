@@ -47,7 +47,7 @@ class TFRecordToTensor(DataTransform):
         return context_tensor, feature_tensor
 
 
-class HDF5ToTensor(DataTransform):
+class ToTensor(DataTransform):
     convert_type = {
         "float": torch.float32,
         "int": torch.int64,
@@ -175,9 +175,9 @@ class NormalNorm(Norm):
 
         for name, fea in feature.items():
             if name in self.feature_config:
-                max_val = self.feature_config[name][MAX_VAL]
-                min_val = self.feature_config[name][MIN_VAL]
-                feature[name] = self._normal_transform(fea, max_val, min_val)
+                mean_val = self.feature_config[name][MEAN_VAL]
+                std_val = self.feature_config[name][STD_VAL]
+                feature[name] = self._normal_transform(fea, mean_val, std_val)
 
         return context, feature
 
@@ -236,5 +236,25 @@ class SqueezeDataDim(DataTransform):
         for name, fea in feature.items():
             if name in self.feature_config:
                 feature[name] = fea.squeeze(dim=self.feature_config[name])
+
+        return context, feature
+
+
+class UnSqueezeDataDim(DataTransform):
+    def __init__(self, config: Dict) -> None:
+        self.feature_config = config
+
+    def __call__(
+        self, sample: Tuple[Dict[str, Tensor], Dict[str, Tensor]]
+    ) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
+        context, feature = sample
+
+        for name, fea in context.items():
+            if name in self.feature_config:
+                context[name] = fea.unsqueeze(dim=self.feature_config[name])
+
+        for name, fea in feature.items():
+            if name in self.feature_config:
+                feature[name] = fea.unsqueeze(dim=self.feature_config[name])
 
         return context, feature

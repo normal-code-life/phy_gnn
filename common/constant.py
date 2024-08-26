@@ -1,3 +1,8 @@
+# task
+DATA_PREPARATION = "data_preparation"
+MODEL_TRAIN = "model_train"
+MODEL_EVALUATION = "model_evaluation"
+
 # datasets
 TRAIN_NAME = "train"
 VALIDATION_NAME = "validation"
