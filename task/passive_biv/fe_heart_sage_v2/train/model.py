@@ -29,16 +29,19 @@ class FEHeartSageV2Trainer(BaseTrainer):
     def create_model(self) -> None:
         self.model = FEHeartSageV2Model(self.task_train)
 
-    def compute_loss(self, predictions: torch.Tensor, labels: Union[torch.Tensor, Dict]):
-        return self.loss(predictions, labels["displacement"])
+    def compute_loss(self, predictions: Dict[str, torch.Tensor], labels: Union[torch.Tensor, Dict]):
+        return {
+            "displacement": self.loss(predictions["displacement"], labels["displacement"]),
+            "stress": self.loss(predictions["stress"], labels["stress"]),
+        }
 
-    def compute_validation_loss(self, predictions: torch.Tensor, labels: Dict[str, torch.Tensor]):
+    def compute_validation_loss(self, predictions: Dict[str, torch.Tensor], labels: Dict[str, torch.Tensor]):
         return self.compute_loss(predictions, labels)
 
     def compute_metrics(
-        self, metrics_func: callable, predictions: torch.Tensor, labels: Union[torch.Tensor, Dict[str, torch.Tensor]]
+        self, metrics_func: callable, predictions: Dict[str, torch.Tensor], labels: Union[torch.Tensor, Dict[str, torch.Tensor]]
     ):
-        return metrics_func(predictions, labels["displacement"])
+        return metrics_func(predictions["displacement"], labels["displacement"])
 
     def validation_step_check(self, epoch: int, is_last_epoch: bool) -> bool:
         if epoch <= 20 or epoch % 5 == 0 or is_last_epoch:
@@ -59,7 +62,6 @@ class FEHeartSageV2Model(BaseModule):
 
         # mlp layer config
         self.node_input_mlp_layer_config = config["node_input_mlp_layer"]
-        self.edge_input_mlp_layer_config = config["edge_input_mlp_layer"]
         self.theta_input_mlp_layer_config = config["theta_input_mlp_layer"]
         self.decoder_layer_config = config["decoder_layer"]
 
@@ -78,7 +80,6 @@ class FEHeartSageV2Model(BaseModule):
 
         mlp_config = {
             "node_input_mlp_layer": self.node_input_mlp_layer,
-            "edge_input_mlp_layer": self.edge_input_mlp_layer,
             "theta_input_mlp_layer": self.theta_input_mlp_layer_config,
             "message_config": self.message_layer_config,
             "decoder_layer_config": self.decoder_layer_config,
@@ -89,7 +90,6 @@ class FEHeartSageV2Model(BaseModule):
     def _init_graph(self):
         # 2 encoder mlp
         self.node_encode_mlp_layer = MLPLayerLN(self.node_input_mlp_layer_config, prefix_name="node_encode")
-        self.edge_encode_mlp_layer = MLPLayerLN(self.edge_input_mlp_layer_config, prefix_name="edge_encode")
 
         # aggregator pooling
         agg_method = self.message_passing_layer_config["agg_method"]
@@ -97,10 +97,10 @@ class FEHeartSageV2Model(BaseModule):
 
         for i in range(len(self.layer_threshold)):
             self.node_update_fn.append(
-                MLPLayerLN(self.message_passing_layer_config["node_mlp_layer"], prefix_name=f"message_edge_{i}")
+                MLPLayerLN(self.message_passing_layer_config["node_mlp_layer"], prefix_name=f"message_node_{i}")
             )
             self.edge_update_fn.append(
-                MLPLayerLN(self.message_passing_layer_config["edge_mlp_layer"], prefix_name=f"message_node_{i}")
+                MLPLayerLN(self.message_passing_layer_config["edge_mlp_layer"], prefix_name=f"message_edge_{i}")
             )
 
         # theta mlp
@@ -238,10 +238,13 @@ class FEHeartSageV2Model(BaseModule):
 
         # ====== Decoder:
         # make prediction for forward displacement using different decoder mlp for each dimension
-        individual_mlp_predictions = [
+        predictions = [
             decode_mlp(encoding_emb) for decode_mlp in self.decoder_layer
         ]  # shape: List[(batch_size, node_num, 1)]
 
         # concatenate the predictions of each individual decoder mlp
-        output = torch.concat(individual_mlp_predictions, dim=-1)  # shape: (batch_size, node_num, 1)
+        output: Dict[str, torch.Tensor] = dict()
+        output["displacement"] = torch.concat(predictions[0: 3], dim=-1)  # shape: (batch_size, node_num, 1)
+        output["stress"] = predictions[3]
+
         return output

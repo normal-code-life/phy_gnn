@@ -431,7 +431,7 @@ class BaseTrainer(abc.ABC):
 
         self.callback.on_evaluation_end(epoch=epoch, val_metrics=val_metrics)
 
-    def compute_loss(self, predictions: torch.Tensor, labels: Union[torch.Tensor, Dict]):
+    def compute_loss(self, predictions: Dict[str, torch.Tensor], labels: Union[torch.Tensor, Dict]):
         if isinstance(labels, Dict):
             raise ValueError("by default, we consider it as a single objective, please overwrite this func")
         return self.loss(predictions, labels)
@@ -464,7 +464,12 @@ class BaseTrainer(abc.ABC):
             loss = self.compute_loss(outputs, train_labels)
 
             batch_cnt += 1
-            metrics["train_loss"] = metrics["train_loss"] + loss.item() if "train_loss" in metrics else loss.item()
+
+            if isinstance(loss, torch.Tensor):
+                metrics["train_loss"] = metrics["train_loss"] + loss.item() if "train_loss" in metrics else loss.item()
+            elif isinstance(loss, Dict):
+                for name, loss in loss.items():
+                    metrics[f"{name}_train_loss"] = metrics[f"{name}_train_loss"] + loss.item() if f"{name}_train_loss" in metrics else loss.item()
 
             # print(f"===> {loss}, {metrics['train_loss']}, {batch_cnt}, {metrics['train_loss'] / batch_cnt}")
 
@@ -481,11 +486,12 @@ class BaseTrainer(abc.ABC):
             # Calling the step function on an Optimizer makes an update to its parameters
             self.optimizer.step()
 
-        metrics = {"train_loss": metrics["train_loss"] / batch_cnt}
+        for p in metrics:
+            metrics[p] = metrics[p] / batch_cnt
 
         return metrics
 
-    def compute_validation_loss(self, predictions: torch.Tensor, labels: Union[torch.Tensor, Dict]):
+    def compute_validation_loss(self, predictions: Union[torch.Tensor, Dict[str, torch.Tensor]], labels: Union[torch.Tensor, Dict]):
         return self.compute_loss(predictions, labels)
 
     def validation_step_check(self, epoch: int, is_last_epoch: bool) -> bool:
@@ -514,7 +520,11 @@ class BaseTrainer(abc.ABC):
 
                 loss = self.compute_validation_loss(outputs, val_labels)
 
-                metrics["val_loss"] = metrics["val_loss"] + loss.item() if "val_loss" in metrics else loss.item()
+                if isinstance(loss, torch.Tensor):
+                    metrics["val_loss"] = metrics["val_loss"] + loss.item() if "val_loss" in metrics else loss.item()
+                elif isinstance(loss, Dict):
+                    for name, loss in loss.items():
+                        metrics[f"{name}_val_loss"] = metrics[f"{name}_val_loss"] + loss.item() if f"{name}_val_loss" in metrics else loss.item()
 
                 # Compute metrics
                 for p in self.metrics:

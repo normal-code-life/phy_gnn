@@ -69,7 +69,7 @@ class PassiveBiVPreparationDataset(AbstractDataPreparationDataset, FEHeartSageV2
                         "edges_indices": edge[0].astype(np.int32),
                         "mat_param": data_global_feature[:, 1:7][idx],
                         "pressure": data_global_feature[:, 7:9][idx],
-                        "shape_coeffs": data_shape_coeff[:, 1:60][idx],
+                        "shape_coeffs": data_shape_coeff[:, 1:59][idx],
                         "displacement": record_outputs[:, 0:3],
                         "stress": record_outputs[:, 3:4],
                     }
@@ -77,7 +77,6 @@ class PassiveBiVPreparationDataset(AbstractDataPreparationDataset, FEHeartSageV2
 
             with h5py.File(self.dataset_h5_path.format(i), "w") as f:
                 for idx, sample_dict in enumerate(datasets):
-                    # 为每个字典创建一个组
                     group: h5py.Group = f.create_group(f"idx_{idx}")
                     for key, value in sample_dict.items():
                         group.create_dataset(key, data=value)
