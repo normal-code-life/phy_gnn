@@ -30,10 +30,11 @@ class FEHeartSageV2Trainer(BaseTrainer):
         self.model = FEHeartSageV2Model(self.task_train)
 
     def compute_loss(self, predictions: Dict[str, torch.Tensor], labels: Union[torch.Tensor, Dict]):
-        return {
-            "displacement": self.loss(predictions["displacement"], labels["displacement"]),
-            "stress": self.loss(predictions["stress"], labels["stress"]),
-        }
+        return self.loss(predictions["displacement"], labels["displacement"])
+        # return {
+        #     "displacement": self.loss(predictions["displacement"], labels["displacement"]),
+        #     "stress": self.loss(predictions["stress"], labels["stress"]),
+        # }
 
     def compute_validation_loss(self, predictions: Dict[str, torch.Tensor], labels: Dict[str, torch.Tensor]):
         return self.compute_loss(predictions, labels)

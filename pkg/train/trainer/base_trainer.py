@@ -251,9 +251,9 @@ class BaseTrainer(abc.ABC):
         if len(logs_param) > 0:
             callback_list.append(log_record)
 
-        scheduling_param = callback_param.get("scheduling", {})
+        scheduling_param = callback_param.get("scheduling", {"avoid_work_hour": False})
         scheduling = SchedulingCallback(self.task_base, scheduling_param)
-        if len(scheduling_param) > 0:
+        if scheduling_param["avoid_work_hour"]:
             callback_list.append(scheduling)
 
         self.callback = CallbackList(
