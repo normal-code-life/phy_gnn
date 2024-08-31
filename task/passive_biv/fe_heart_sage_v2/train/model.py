@@ -29,21 +29,6 @@ class FEHeartSageV2Trainer(BaseTrainer):
     def create_model(self) -> None:
         self.model = FEHeartSageV2Model(self.task_train)
 
-    def compute_loss(self, predictions: Dict[str, torch.Tensor], labels: Union[torch.Tensor, Dict]):
-        return self.loss(predictions["displacement"], labels["displacement"])
-        # return {
-        #     "displacement": self.loss(predictions["displacement"], labels["displacement"]),
-        #     "stress": self.loss(predictions["stress"], labels["stress"]),
-        # }
-
-    def compute_validation_loss(self, predictions: Dict[str, torch.Tensor], labels: Dict[str, torch.Tensor]):
-        return self.compute_loss(predictions, labels)
-
-    def compute_metrics(
-        self, metrics_func: callable, predictions: Dict[str, torch.Tensor], labels: Union[torch.Tensor, Dict[str, torch.Tensor]]
-    ):
-        return metrics_func(predictions["displacement"], labels["displacement"])
-
     def validation_step_check(self, epoch: int, is_last_epoch: bool) -> bool:
         if epoch <= 20 or epoch % 5 == 0 or is_last_epoch:
             return True
@@ -245,7 +230,7 @@ class FEHeartSageV2Model(BaseModule):
 
         # concatenate the predictions of each individual decoder mlp
         output: Dict[str, torch.Tensor] = dict()
-        output["displacement"] = torch.concat(predictions[0: 3], dim=-1)  # shape: (batch_size, node_num, 1)
+        output["displacement"] = torch.concat(predictions[0:3], dim=-1)  # shape: (batch_size, node_num, 1)
         output["stress"] = predictions[3]
 
         return output

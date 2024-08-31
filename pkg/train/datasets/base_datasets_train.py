@@ -8,6 +8,7 @@ import torch
 from torch.utils.data import Dataset, IterableDataset, get_worker_info
 from torchvision import transforms
 
+from common.constant import TRAIN_NAME
 from pkg.train.datasets.base_datasets import BaseAbstractDataset, BaseAbstractTrainDataset
 from pkg.train.datasets.reader_hdf5 import multi_hdf5_loader, shuffle_iterator
 
@@ -29,6 +30,13 @@ class BaseDataset(AbstractTrainDataset):
 
 
 class BaseIterableDataset(AbstractTrainDataset, IterableDataset):
+    def __init__(self, data_config: Dict, data_type: str, *args, **kwargs) -> None:
+        super().__init__(data_config, data_type, *args, **kwargs)
+
+        # overwrite the stats data path since during training,
+        # we could only leverage on the train data stats except the data size
+        self.stats_data_path = f"{self.base_data_path}/stats/{TRAIN_NAME}"
+
     def get_head_inputs(self, batch_size) -> Dict:
         res = {}
         for i in range(batch_size):

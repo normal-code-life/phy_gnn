@@ -1,11 +1,11 @@
 import abc
 import argparse
 import os
-from typing import Dict, Optional, Union
+from typing import Dict, List, Optional, Union
 
 import torch
 import torchmetrics
-from torch import nn
+from torch import Tensor, nn
 from torch.utils.data import DataLoader
 
 from common.constant import MODEL_TRAIN, TEST_NAME, TRAIN_NAME, VALIDATION_NAME
@@ -157,6 +157,9 @@ class BaseTrainer(abc.ABC):
 
         # === init callback
         self.callback: Optional[CallbackList] = None
+
+        # === init labels
+        self.labels: Optional[List[str]] = self.task_train.get("labels", None)
 
         # === init others
         self.gpu: bool = self.task_trainer.get("gpu", False)
@@ -431,20 +434,32 @@ class BaseTrainer(abc.ABC):
 
         self.callback.on_evaluation_end(epoch=epoch, val_metrics=val_metrics)
 
-    def compute_loss(self, predictions: Dict[str, torch.Tensor], labels: Union[torch.Tensor, Dict]):
-        if isinstance(labels, Dict):
-            raise ValueError("by default, we consider it as a single objective, please overwrite this func")
-        return self.loss(predictions, labels)
+    def compute_loss(self, predictions: Dict[str, Tensor], labels: Dict[str, Tensor]) -> Dict[str, Tensor]:
+        losses = dict()
+
+        for label_name in self.labels:
+            prediction = predictions[label_name]
+            label = labels[label_name]
+
+            losses[label_name] = self.loss(prediction, label)
+
+        return losses
 
     def compute_metrics(
-        self, metrics_func: callable, predictions: torch.Tensor, labels: Union[torch.Tensor, Dict[str, torch.Tensor]]
-    ):
-        return metrics_func(predictions, labels)
+        self, metrics_func: callable, predictions: Dict[str, Tensor], labels: Dict[str, Tensor]
+    ) -> Dict[str, Tensor]:
+        metrics = dict()
 
-    def to_device(self, data: Union[Dict[str, torch.Tensor], torch.Tensor]) -> Dict[str, torch.Tensor]:
-        if self.gpu:
-            return {key: value.cuda() for key, value in data.items()}
-        return data
+        for label_name in self.labels:
+            prediction = predictions[label_name]
+            label = labels[label_name]
+
+            metrics[label_name] = metrics_func(prediction, label)
+
+        return metrics
+
+    def to_device(self, data: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+        return {key: value.cuda() for key, value in data.items()} if self.gpu else data
 
     def train_step(self, model: nn.Module, data_loader: DataLoader) -> Dict:
         batch_cnt = 0
@@ -469,7 +484,9 @@ class BaseTrainer(abc.ABC):
                 metrics["train_loss"] = metrics["train_loss"] + loss.item() if "train_loss" in metrics else loss.item()
             elif isinstance(loss, Dict):
                 for name, loss in loss.items():
-                    metrics[f"{name}_train_loss"] = metrics[f"{name}_train_loss"] + loss.item() if f"{name}_train_loss" in metrics else loss.item()
+                    metrics[f"{name}_train_loss"] = (
+                        metrics[f"{name}_train_loss"] + loss.item() if f"{name}_train_loss" in metrics else loss.item()
+                    )
 
             # print(f"===> {loss}, {metrics['train_loss']}, {batch_cnt}, {metrics['train_loss'] / batch_cnt}")
 
@@ -491,7 +508,7 @@ class BaseTrainer(abc.ABC):
 
         return metrics
 
-    def compute_validation_loss(self, predictions: Union[torch.Tensor, Dict[str, torch.Tensor]], labels: Union[torch.Tensor, Dict]):
+    def compute_validation_loss(self, predictions: Dict[str, Tensor], labels: Dict[str, Tensor]) -> Dict[str, Tensor]:
         return self.compute_loss(predictions, labels)
 
     def validation_step_check(self, epoch: int, is_last_epoch: bool) -> bool:
@@ -524,12 +541,15 @@ class BaseTrainer(abc.ABC):
                     metrics["val_loss"] = metrics["val_loss"] + loss.item() if "val_loss" in metrics else loss.item()
                 elif isinstance(loss, Dict):
                     for name, loss in loss.items():
-                        metrics[f"{name}_val_loss"] = metrics[f"{name}_val_loss"] + loss.item() if f"{name}_val_loss" in metrics else loss.item()
+                        metrics[f"{name}_val_loss"] = (
+                            metrics[f"{name}_val_loss"] + loss.item() if f"{name}_val_loss" in metrics else loss.item()
+                        )
 
                 # Compute metrics
                 for p in self.metrics:
                     results = self.compute_metrics(self.metrics[p], outputs, val_labels)
-                    metrics[f"val_{p}"] = metrics[f"val_{p}"] + results.item() if p in metrics else results.item()
+                    for name, r in results.items():
+                        metrics[f"val_{name}_{p}"] = metrics[f"val_{name}_{p}"] + r.item() if p in metrics else r.item()
 
                 # print(batch_cnt, loss, metrics)
 

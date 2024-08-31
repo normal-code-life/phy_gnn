@@ -1,7 +1,7 @@
 import abc
 import os
 import platform
-from typing import Dict, Optional, Set
+from typing import Dict, List, Optional, Set, Union
 
 from pkg.train.datasets import logger
 
@@ -69,7 +69,7 @@ class BaseAbstractDataset(abc.ABC):
             raise NotADirectoryError(f"No directory at: {self.base_data_path}")
 
         # === traditional model training dataset path (non-tfrecord version)
-        self.stats_data_path = f"{self.base_data_path}/stats"
+        self.stats_data_path = f"{self.base_data_path}/stats/{self.data_type}"
         self.dataset_path = f"{self.base_data_path}/datasets/{self.data_type}"
 
         logger.info(f"base_data_path is {self.base_data_path}")
@@ -96,8 +96,6 @@ class BaseAbstractDataset(abc.ABC):
         self.context_description: Optional[Dict[str, str]] = None  # please overwrite this variable
 
         self.feature_description: Optional[Dict[str, str]] = None  # please overwrite this variable
-
-        self.labels: Optional[Set[str]] = None  # please overwrite this variable
 
 
 class BaseAbstractDataPreparationDataset(abc.ABC):

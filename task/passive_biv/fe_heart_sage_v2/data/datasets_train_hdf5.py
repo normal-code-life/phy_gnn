@@ -3,8 +3,9 @@ from typing import Dict
 import numpy as np
 from torchvision import transforms
 
+from common.constant import MAX_VAL, MIN_VAL, PERC_10_VAL, PERC_90_VAL
 from pkg.train.datasets.base_datasets_train import MultiHDF5Dataset
-from pkg.train.module.data_transform import CovertToModelInputs, MaxMinNorm, NormalNorm, SqueezeDataDim, ToTensor
+from pkg.train.module.data_transform import ClampTensor, CovertToModelInputs, MaxMinNorm, SqueezeDataDim, ToTensor
 from task.passive_biv.fe_heart_sage_v2.data.datasets import FEHeartSageV2Dataset
 
 
@@ -28,6 +29,15 @@ class FEHeartSageV2TrainDataset(MultiHDF5Dataset, FEHeartSageV2Dataset):
         }
         transform_list.append(ToTensor(hdf5_to_tensor_config))
 
+        climp_config = {
+            "displacement": {
+                MAX_VAL: 2.688125,
+                MIN_VAL: -2.8395823,
+            }
+        }
+
+        transform_list.append(ClampTensor(climp_config))
+
         norm_config = {
             "node_coord": self.node_coord_stats_path,
             "fiber_and_sheet": self.fiber_and_sheet_stats_path,
@@ -41,6 +51,10 @@ class FEHeartSageV2TrainDataset(MultiHDF5Dataset, FEHeartSageV2Dataset):
         norm_config = {
             "displacement": self.displacement_stats_path,
             "stress": self.stress_stats_path,
+            "replace_by_perc": {
+                MIN_VAL: PERC_10_VAL,
+                MAX_VAL: PERC_90_VAL,
+            },
         }
         transform_list.append(MaxMinNorm(norm_config, True))
 

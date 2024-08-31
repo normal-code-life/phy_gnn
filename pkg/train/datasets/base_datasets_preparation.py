@@ -19,7 +19,8 @@ class AbstractDataPreparationDataset(BaseAbstractDataPreparationDataset, BaseAbs
         else:
             logger.info(f"data already exists, no overwrite: {self.dataset_path}")
 
-        self._data_stats()
+        if check_and_clean_path(self.stats_data_path, self.overwrite_stats):
+            self._data_stats()
 
         self._data_stats_total_size()
 

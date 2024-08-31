@@ -123,6 +123,18 @@ class Norm(DataTransform):
 class MaxMinNorm(Norm):
     """Normalize a tensor with max and min."""
 
+    def __init__(self, config: Dict, global_scaling: bool = True, coarse_dim: bool = False) -> None:
+        replace_by_perc: Optional[Dict[str, str]] = config.pop("replace_by_perc", None)
+
+        super().__init__(config, global_scaling, coarse_dim)
+
+        self.max_val_name = MAX_VAL
+        self.min_val_name = MIN_VAL
+
+        if replace_by_perc is not None:
+            self.max_val_name = replace_by_perc[MAX_VAL]
+            self.min_val_name = replace_by_perc[MIN_VAL]
+
     def __call__(
         self, sample: Tuple[Dict[str, Tensor], Dict[str, Tensor]]
     ) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
@@ -131,7 +143,10 @@ class MaxMinNorm(Norm):
         for name, fea in context.items():
             if name in self.feature_config:
                 if self.global_scaling:
-                    max_val, min_val = self.feature_config[name][MAX_VAL], self.feature_config[name][MIN_VAL]
+                    max_val, min_val = (
+                        self.feature_config[name][self.max_val_name],
+                        self.feature_config[name][self.min_val_name],
+                    )
                 else:
                     max_val, min_val = self._calculate_max_min(fea)
                 if self.coarse_dim:
@@ -141,7 +156,10 @@ class MaxMinNorm(Norm):
         for name, fea in feature.items():
             if name in self.feature_config:
                 if self.global_scaling:
-                    max_val, min_val = self.feature_config[name][MAX_VAL], self.feature_config[name][MIN_VAL]
+                    max_val, min_val = (
+                        self.feature_config[name][self.max_val_name],
+                        self.feature_config[name][self.min_val_name],
+                    )
                 else:
                     max_val, min_val = self._calculate_max_min(fea)
                 if self.coarse_dim:
@@ -218,6 +236,30 @@ class CovertToModelInputs(DataTransform):
                     labels = fea
 
         return inputs, labels
+
+
+class ClampTensor(DataTransform):
+    def __init__(self, config: Dict) -> None:
+        self.clamp_config = config
+
+    def __call__(
+        self, sample: Tuple[Dict[str, Tensor], Dict[str, Tensor]]
+    ) -> Tuple[Dict[str, Tensor], Union[Tensor, Dict[str, Tensor]]]:
+        context, feature = sample
+
+        for name, fea in context.items():
+            if name in self.clamp_config:
+                max_val = self.clamp_config[name][MAX_VAL]
+                min_val = self.clamp_config[name][MIN_VAL]
+                context[name] = context[name].clamp(min_val, max_val)
+
+        for name, fea in feature.items():
+            if name in self.clamp_config:
+                max_val = self.clamp_config[name][MAX_VAL]
+                min_val = self.clamp_config[name][MIN_VAL]
+                feature[name] = feature[name].clamp(min_val, max_val)
+
+        return context, feature
 
 
 class SqueezeDataDim(DataTransform):

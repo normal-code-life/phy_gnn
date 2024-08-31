@@ -121,7 +121,7 @@ class PassiveBiVPreparationDataset(AbstractDataPreparationDataset, FEHeartSageV2
 
     def _data_stats(self) -> None:
         # we only allow train data stats write to path
-        write_to_path = self.data_type == TRAIN_NAME
+        write_to_path = True
 
         self._data_node_stats(write_to_path)
 

@@ -12,6 +12,8 @@ from common.constant import (
     PERC_25_VAL,
     PERC_75_VAL,
     PERC_90_VAL,
+    PERC_95_VAL,
+    PERC_99_VAL,
     STD_VAL
 )
 
@@ -57,6 +59,8 @@ def stats_analysis(
         PERC_25_VAL: np.percentile(value_set, [25], axis=axis),
         PERC_75_VAL: np.percentile(value_set, [75], axis=axis),
         PERC_90_VAL: np.percentile(value_set, [90], axis=axis),
+        PERC_95_VAL: np.percentile(value_set, [95], axis=axis),
+        PERC_99_VAL: np.percentile(value_set, [99], axis=axis),
     }
 
     # Log the statistics

@@ -42,7 +42,7 @@ class FEHeartSageV2Evaluation(FEHeartSageV2Dataset):
         self._init_transform()
 
         # output path
-        self.output_path = "./output.csv"
+        self.output_path = f"./output_{self.idx + 1:04d}.csv"
 
     def single_graph_evaluation(self):
         data = self._data_generation()
@@ -58,10 +58,10 @@ class FEHeartSageV2Evaluation(FEHeartSageV2Dataset):
 
             stats = np.load(self.displacement_stats_path)
 
-            mean_val = torch.tensor(stats[MAX_VAL])
-            std_val = torch.tensor(stats[MIN_VAL])
+            max_val = torch.tensor(stats[MAX_VAL])
+            min_val = torch.tensor(stats[MIN_VAL])
 
-            output = (output.squeeze(0) + std_val) * mean_val
+            output = output.squeeze(0) * (max_val - min_val) + min_val
 
             df = pd.DataFrame(output.squeeze(0).numpy())
             df.to_csv(self.output_path, index=False)
@@ -140,11 +140,11 @@ class FEHeartSageV2Evaluation(FEHeartSageV2Dataset):
 
         transform_list.append(MaxMinNorm(max_min_norm_config, True, True))
 
-        normal_norm_config = {
+        norm_config = {
             "displacement": self.displacement_stats_path,
             "stress": self.stress_stats_path,
         }
-        transform_list.append(NormalNorm(normal_norm_config))
+        transform_list.append(MaxMinNorm(norm_config, True))
 
         unsqueeze_data_dim_config = {
             "node_coord": 0,
@@ -168,7 +168,7 @@ class FEHeartSageV2Evaluation(FEHeartSageV2Dataset):
 
     def _load_model(self) -> nn.Module:
         model = torch.load(
-            f"{self.base_repo_path}/log/{self.task_name}/{self.exp_name}/checkpoint/ckpt.pth",
+            f"{self.base_repo_path}/log/{self.task_name}/{self.exp_name}/model/model.pth",
             map_location=torch.device("cpu"),
         )
 

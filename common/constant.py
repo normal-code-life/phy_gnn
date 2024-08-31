@@ -19,6 +19,8 @@ PERC_10_VAL = "10_percentile_val"
 PERC_25_VAL = "25_percentile_val"
 PERC_75_VAL = "75_percentile_val"
 PERC_90_VAL = "90_percentile_val"
+PERC_95_VAL = "95_percentile_val"
+PERC_99_VAL = "99_percentile_val"
 
 # platform
 DARWIN = "Darwin"

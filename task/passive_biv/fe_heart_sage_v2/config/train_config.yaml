@@ -1,7 +1,7 @@
 task_base:
   task_name: passive_biv
   model_name: fe_heart_sage_v2
-  exp_name: 60
+  exp_name: 61
   overwrite_exp_folder: True
   gpu: True
   cuda_core: "cuda:0"
@@ -9,6 +9,7 @@ task_base:
 task_data:
   task_data_name: passive_biv
   overwrite_data: False
+  overwrite_stats: False
   chunk_file_size: 50
   train_split_ratio: 0.8
   sections: [0, 20, 100, 250, 500, 1000]
@@ -75,3 +76,7 @@ task_train:
     layer_norm: False
     activation: tanh
     output_dim: 4
+  labels:
+    - displacement
+    # - stress
+
