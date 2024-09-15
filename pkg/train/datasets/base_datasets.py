@@ -2,9 +2,10 @@ import abc
 import os
 import platform
 from typing import Dict, List, Optional, Set, Union
-
+import sys
+from pkg.utils.io import get_repo_path, load_yaml
 from pkg.train.datasets import logger
-
+from common.constant import TRAIN_NAME, MODEL_TRAIN
 
 class BaseAbstractDataset(abc.ABC):
     """Abstract base class for dataset preparation and train.
@@ -29,7 +30,7 @@ class BaseAbstractDataset(abc.ABC):
         Name of the experiment, if specified.
     """
 
-    def __init__(self, data_config: Dict, data_type: str, *args, **kwargs) -> None:
+    def __init__(self, data_config: Dict, data_type: str, process: Optional[str] = None, *args, **kwargs) -> None:
         """Initialize the dataset with configuration details.
 
         Parameters:
@@ -38,6 +39,8 @@ class BaseAbstractDataset(abc.ABC):
             Dictionary containing configuration details such as paths and hardware setup.
         data_type : str
             String specifying the type of data (e.g., 'train', 'test').
+        process: str
+            String specifying the process of dataset
         args : tuple
             Additional positional arguments.
         kwargs : dict
@@ -70,6 +73,8 @@ class BaseAbstractDataset(abc.ABC):
 
         # === traditional model training dataset path (non-tfrecord version)
         self.stats_data_path = f"{self.base_data_path}/stats/{self.data_type}"
+        if process == MODEL_TRAIN:  # if process = training, we will load train stats for validation dataset
+            self.stats_data_path = f"{self.base_data_path}/stats/{TRAIN_NAME}"
         self.dataset_path = f"{self.base_data_path}/datasets/{self.data_type}"
 
         logger.info(f"base_data_path is {self.base_data_path}")
@@ -77,7 +82,7 @@ class BaseAbstractDataset(abc.ABC):
         logger.info(f"stats_data_path is {self.stats_data_path}")
         logger.info(f"dataset_path is {self.dataset_path}")
 
-        self.data_size_path = f"{self.stats_data_path}/{self.data_type}_data_size.npy"
+        self.data_size_path = f"{self.base_data_path}/stats/{self.data_type}/{self.data_type}_data_size.npy"
         logger.info(f"data_size_path is {self.data_size_path}")
 
         # hdf5 config
@@ -176,3 +181,26 @@ class BaseAbstractTrainDataset(BaseAbstractDataset):
         int : The number of items in the dataset.
         """
         raise NotImplementedError("Subclasses must implement __len__ method")
+
+
+def import_data_config(task_name: str, model_name: str, dataset_name: str) -> Dict:
+    # generate root path
+    cur_path = os.path.abspath(sys.argv[0])
+
+    repo_root_path = get_repo_path(cur_path)
+
+    # fetch data config
+    base_config = load_yaml(f"{repo_root_path}/task/{task_name}/{model_name}/config/train_config.yaml")
+    data_config = base_config["task_data"]
+
+    task_base = base_config["task_base"]
+    data_config["task_name"] = task_base["task_name"]
+    data_config["exp_name"] = task_base["exp_name"]
+
+    data_config["repo_path"] = repo_root_path
+    data_config["task_data_path"] = f"{repo_root_path}/pkg/data/{dataset_name}"
+    data_config["task_path"] = f"{repo_root_path}/task/{task_name}/{model_name}"
+    data_config["gpu"] = base_config["task_base"]["gpu"]
+    data_config["exp_name"] = base_config["task_base"]["exp_name"]
+
+    return data_config

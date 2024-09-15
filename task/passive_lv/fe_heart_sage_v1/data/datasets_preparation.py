@@ -24,7 +24,7 @@ class FEHeartSageV1PreparationDataset(AbstractDataPreparationDataset, FEHeartSag
 
     def prepare_dataset_process(self):
         # self._data_down_sampling_node_selection()
-        self._data_generation()
+        # self._data_generation()
         self._data_stats()
 
     def _data_generation(self):
@@ -40,7 +40,9 @@ class FEHeartSageV1PreparationDataset(AbstractDataPreparationDataset, FEHeartSag
         # fmt: on
 
     def _data_stats(self):
-        self._prepare_data_size_stats()
+        self._data_stats_total_size()
+
+        # self._check_stats()
 
         if self.data_type == VALIDATION_NAME:
             return
@@ -227,7 +229,14 @@ class FEHeartSageV1PreparationDataset(AbstractDataPreparationDataset, FEHeartSag
             f"{coord_max_norm_val} {coord_min_norm_val} "
         )
 
-    def _prepare_data_size_stats(self):
+    def _check_stats(self):
+        from pkg.data.utils.stats import stats_analysis
+
+        node_coords = np.load(self.node_coord_original_path).astype(np.float32)
+
+        stats_analysis("node_coord", node_coords, 2, "", logger, False)  # noqa
+
+    def _data_stats_total_size(self):
         data_size = np.load(self.displacement_path).astype(np.float32).shape[0]
 
         np.save(self.data_size_path, data_size)

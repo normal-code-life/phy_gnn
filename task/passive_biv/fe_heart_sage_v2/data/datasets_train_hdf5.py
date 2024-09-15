@@ -3,7 +3,7 @@ from typing import Dict
 import numpy as np
 from torchvision import transforms
 
-from common.constant import MAX_VAL, MIN_VAL, PERC_10_VAL, PERC_90_VAL
+from common.constant import MAX_VAL, MIN_VAL, PERC_10_VAL, PERC_90_VAL, MODEL_TRAIN
 from pkg.train.datasets.base_datasets_train import MultiHDF5Dataset
 from pkg.train.module.data_transform import ClampTensor, CovertToModelInputs, MaxMinNorm, SqueezeDataDim, ToTensor
 from task.passive_biv.fe_heart_sage_v2.data.datasets import FEHeartSageV2Dataset
@@ -13,7 +13,7 @@ class FEHeartSageV2TrainDataset(MultiHDF5Dataset, FEHeartSageV2Dataset):
     """Data loader for graph-formatted input-output data with common, fixed topology."""
 
     def __init__(self, data_config: Dict, data_type: str) -> None:
-        super().__init__(data_config, data_type)
+        super().__init__(data_config, data_type, MODEL_TRAIN)
 
         self.data_size = np.load(self.data_size_path).astype(np.int64).item()
 

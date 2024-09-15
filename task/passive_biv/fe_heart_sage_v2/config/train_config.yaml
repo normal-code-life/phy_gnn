@@ -1,11 +1,11 @@
 task_base:
   task_name: passive_biv
   model_name: fe_heart_sage_v2
-  exp_name: 61
+  exp_name: 62
   overwrite_exp_folder: True
   gpu: True
   cuda_core: "cuda:0"
-  gpu_num: 2
+  gpu_num: 4
 task_data:
   task_data_name: passive_biv
   overwrite_data: False
@@ -17,7 +17,7 @@ task_data:
   train_down_sampling_node: 10000
   val_down_sampling_node: 15000
 task_trainer:
-  epochs: 1500
+  epochs: 5000
   optimizer_param:
     name: adam
     learning_rate: 0.00001  # Learning rate for training the network
@@ -39,17 +39,17 @@ task_trainer:
     scheduling:
       avoid_work_hour: False
   dataset_param:
-    batch_size: 20
-    val_batch_size: 20
-    num_workers: 16
-    prefetch_factor: 20
-    val_prefetch_factor: 20
+    batch_size: 40
+    val_batch_size: 40
+    num_workers: 8
+    prefetch_factor: 40
+    val_prefetch_factor: 40
   static_graph: False
   init_model_weights: False
 task_train:
   neighbour_layers: 1
   node_input_mlp_layer:
-    unit_sizes: [17, 256, 128, 48]
+    unit_sizes: [14, 256, 128, 48]
     layer_norm: True
     activation: tanh
   message_passing_layer:
@@ -64,7 +64,7 @@ task_train:
       layer_norm: True
       activation: tanh
     edge_mlp_layer:
-      unit_sizes: [105, 256, 128, 48]
+      unit_sizes: [120, 256, 128, 48]
       layer_norm: True
       activation: tanh
   theta_input_mlp_layer:

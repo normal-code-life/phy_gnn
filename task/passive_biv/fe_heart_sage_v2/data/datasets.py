@@ -1,6 +1,6 @@
 import os
 import sys
-from typing import Dict
+from typing import Dict, Optional
 
 from pkg.train.datasets.base_datasets import BaseAbstractDataset
 from pkg.utils import io
@@ -29,8 +29,8 @@ class FEHeartSageV2Dataset(BaseAbstractDataset):
         Type of data to be processed (e.g., 'train', 'test', 'validate').
     """
 
-    def __init__(self, data_config: Dict, data_type: str) -> None:
-        super().__init__(data_config, data_type)
+    def __init__(self, data_config: Dict, data_type: str, process: Optional[str] = None) -> None:
+        super().__init__(data_config, data_type, process)
 
         # node related features
         # === read data path

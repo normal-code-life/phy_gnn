@@ -56,20 +56,3 @@ class FEHeartSageV1Dataset(BaseAbstractDataset):
 
         self.displacement_mean_path = f"{self.base_data_path}/normalisationStatistics/real-node-displacement-mean.npy"
         self.displacement_std_path = f"{self.base_data_path}/normalisationStatistics/real-node-displacement-std.npy"
-
-
-def import_data_config(task_name: str, model_name: str) -> Dict:
-    # generate root path
-    cur_path = os.path.abspath(sys.argv[0])
-
-    repo_root_path = get_repo_path(cur_path)
-
-    # fetch data config
-    base_config = load_yaml(f"{repo_root_path}/task/{task_name}/{model_name}/config/train_config.yaml")
-    data_config = base_config["task_data"]
-    data_config["task_data_path"] = f"{repo_root_path}/pkg/data/lvData"
-    data_config["task_path"] = f"{repo_root_path}/task/{task_name}/{model_name}"
-    data_config["gpu"] = base_config["task_base"]["gpu"]
-    data_config["exp_name"] = base_config["task_base"]["exp_name"]
-
-    return data_config
