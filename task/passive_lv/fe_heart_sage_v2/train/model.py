@@ -49,7 +49,7 @@ class FEHeartSageV2Trainer(BaseTrainer):
 
     def compute_metrics(self, metrics_func: callable, predictions: Dict[str, Tensor], labels: Dict[str, Tensor]):
         predictions["displacement"] = predictions["displacement"] * self.displacement_std + self.displacement_mean
-        return metrics_func(metrics_func, predictions, labels)
+        return super().compute_metrics(metrics_func, predictions, labels)
 
 
 class FEHeartSageV2Model(BaseModule):

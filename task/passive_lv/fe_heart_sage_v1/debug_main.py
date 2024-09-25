@@ -3,6 +3,7 @@ import sys
 
 from pkg.utils import io
 from task.passive_lv.fe_heart_sage_v1.train.model import FEHeartSAGETrainer
+from task.passive_lv.fe_heart_sage_v2.train.model import FEHeartSageV2Trainer
 
 # used for debug
 if __name__ == "__main__":
@@ -15,11 +16,11 @@ if __name__ == "__main__":
             "--task_name",
             "passive_lv",
             "--model_name",
-            "fe_heart_sage_v1",
+            "fe_heart_sage_v2",
             "--config_name",
             "train_config",
         ]
     )
 
-    model = FEHeartSAGETrainer()
+    model = FEHeartSageV2Trainer()
     model.train()

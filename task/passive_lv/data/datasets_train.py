@@ -62,13 +62,13 @@ class FEHeartSageTrainDataset(BaseDataset, FEHeartSageDataset):
         self._displacement = torch.from_numpy(self._displacement)
         self._shape_coeffs = torch.from_numpy(self._shape_coeffs)
 
-        if self.gpu:
-            self._node_features = self._node_features.cuda()
-            self._node_coord = self._node_coord.cuda()
-            self._edges_indices = self._edges_indices.cuda()
-            self._theta_vals = self._theta_vals.cuda()
-            self._shape_coeffs = self._shape_coeffs.cuda()
-            self._displacement = self._displacement.cuda()
+        # if self.gpu:
+        #     self._node_features = self._node_features.cuda()
+        #     self._node_coord = self._node_coord.cuda()
+        #     self._edges_indices = self._edges_indices.cuda()
+        #     self._theta_vals = self._theta_vals.cuda()
+        #     self._shape_coeffs = self._shape_coeffs.cuda()
+        #     self._displacement = self._displacement.cuda()
 
     def __getitem__(self, index) -> (Dict, torch.Tensor):
         node_features = self._node_features[index]
@@ -77,7 +77,15 @@ class FEHeartSageTrainDataset(BaseDataset, FEHeartSageDataset):
         shape_coeffs = self._shape_coeffs[index]
         theta_vals = self._theta_vals[index]
 
-        labels = {"displacement": self._displacement[index]}
+        displacement = self._displacement[index]
+
+        if self.gpu:
+            node_features = node_features.cuda()
+            node_coord = node_coord.cuda()
+            edges_indices = edges_indices.cuda()
+            theta_vals = theta_vals.cuda()
+            shape_coeffs = shape_coeffs.cuda()
+            displacement = displacement.cuda()
 
         sample = {
             "node_features": node_features,
@@ -86,6 +94,8 @@ class FEHeartSageTrainDataset(BaseDataset, FEHeartSageDataset):
             "shape_coeffs": shape_coeffs,
             "theta_vals": theta_vals,
         }
+
+        labels = {"displacement": displacement}
 
         return sample, labels
 
