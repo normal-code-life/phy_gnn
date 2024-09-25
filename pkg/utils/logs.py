@@ -26,6 +26,9 @@ def init_logger(logger_name: str = "gnn", debug_level: str = "INFO") -> logging:
     formatter = logging.Formatter("%(asctime)s - %(name)s [%(levelname)s] %(message)s")
     handler.setFormatter(formatter)
 
-    logger.addHandler(handler)
+    if not logger.handlers:
+        logger.addHandler(handler)
+
+    logger.propagate = False
 
     return logger

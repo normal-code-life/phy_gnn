@@ -1,6 +1,7 @@
 import abc
 from typing import Dict
 
+from common.constant import TRAIN_NAME
 from pkg.train.datasets import logger
 from pkg.train.datasets.base_datasets import BaseAbstractDataPreparationDataset, BaseAbstractDataset
 from pkg.utils.io import check_and_clean_path
@@ -19,7 +20,7 @@ class AbstractDataPreparationDataset(BaseAbstractDataPreparationDataset, BaseAbs
         else:
             logger.info(f"data already exists, no overwrite: {self.dataset_path}")
 
-        if check_and_clean_path(self.stats_data_path, self.overwrite_stats):
+        if self.data_type == TRAIN_NAME and check_and_clean_path(self.stats_data_path, self.overwrite_stats):
             self._data_stats()
 
         self._data_stats_total_size()

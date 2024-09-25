@@ -1,7 +1,7 @@
 #!/bin/bash
 
 export TASK_NAME="passive_lv"
-export MODEL_NAME="fe_heart_sage_v1"
+export MODEL_NAME="fe_heart_sage_v2"
 
 export PROJECT_PATH="$(cd `dirname $0`/../../; pwd)"
 echo "project root path: ${PROJECT_PATH}"

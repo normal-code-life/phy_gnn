@@ -1,13 +1,10 @@
-import os
-import sys
 from typing import Dict
 
 from pkg.train.datasets.base_datasets import BaseAbstractDataset
-from pkg.utils.io import get_repo_path, load_yaml
-from task.passive_lv.fe_heart_sage_v1.data import logger
+from task.passive_lv.data import logger
 
 
-class FEHeartSageV1Dataset(BaseAbstractDataset):
+class FEHeartSageDataset(BaseAbstractDataset):
     def __init__(self, data_config: Dict, data_type: str) -> None:
         super().__init__(data_config, data_type)
         self.default_padding_value = data_config.get("default_padding_value", -1)
@@ -33,11 +30,11 @@ class FEHeartSageV1Dataset(BaseAbstractDataset):
         self.shape_coeff_original_path = f"{self.processed_data_path}/shape-coeffs.npy"
 
         # clean data destination path
-        self.dataset_path = f"{self.base_data_path}/datasets/{self.model_name}/{self.data_type}"
+        self.dataset_path = f"{self.base_data_path}/datasets/{self.data_type}"
 
         self.node_feature_path = f"{self.dataset_path}/node_features.npy"
         self.node_coord_path = f"{self.dataset_path}/node_coords.npy"
-        self.edge_file_path = f"{self.dataset_path}/node_neighbours_{self.data_type}_{self.exp_name}.npy"
+        self.edge_file_path = f"{self.dataset_path}/node_neighbours_{self.data_type}.npy"
         self.theta_path = f"{self.dataset_path}/global_features.npy"
         self.displacement_path = f"{self.dataset_path}/node_displacement.npy"
         self.shape_coeff_path = f"{self.dataset_path}/shape_coeffs.npy"

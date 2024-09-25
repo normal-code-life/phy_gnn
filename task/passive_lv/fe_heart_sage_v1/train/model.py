@@ -2,13 +2,14 @@ from typing import Dict, Union
 
 import torch
 import torch.nn as nn
+from torch import Tensor
 
 from common.constant import TRAIN_NAME
 from pkg.train.layer.pooling_layer import MeanAggregator, SUMAggregator  # noqa
 from pkg.train.model.base_model import BaseModule
 from pkg.train.trainer.base_trainer import BaseTrainer, TrainerConfig
 from pkg.utils.logs import init_logger
-from task.passive_lv.fe_heart_sage_v1.data.datasets_train import FEHeartSageV1TrainDataset
+from task.passive_lv.data.datasets_train import FEHeartSageTrainDataset
 from task.passive_lv.utils.module.mlp_layer_ln import MLPLayerLN
 
 logger = init_logger("FEHeartSage")
@@ -18,7 +19,7 @@ torch.set_printoptions(precision=8)
 
 
 class FEHeartSAGETrainer(BaseTrainer):
-    dataset_class = FEHeartSageV1TrainDataset
+    dataset_class = FEHeartSageTrainDataset
 
     def __init__(self) -> None:
         config = TrainerConfig()
@@ -33,26 +34,16 @@ class FEHeartSAGETrainer(BaseTrainer):
         self.displacement_mean = dataset_config.get_displacement_mean()
         self.displacement_std = dataset_config.get_displacement_std()
 
-        self.metrics["l2_norm"] = self.compute_validation_loss_v2  # validation data loss has same scaling as train data
-
     def create_model(self) -> None:
         self.model = FEHeartSAGEModel(self.task_train)
 
-    def compute_loss(self, outputs: torch.Tensor, labels: Union[torch.Tensor, Dict[str, torch.Tensor]]):
-        return self.loss(outputs, labels["displacement"])
+    def compute_validation_loss(self, predictions: Dict[str, Tensor], labels: Dict[str, Tensor]):
+        predictions["displacement"] = predictions["displacement"] * self.displacement_std + self.displacement_mean
+        return self.compute_loss(predictions, labels)
 
-    def compute_validation_loss(self, predictions: torch.Tensor, labels: Union[torch.Tensor, Dict[str, torch.Tensor]]):
-        return self.compute_loss(predictions * self.displacement_std + self.displacement_mean, labels)
-
-    def compute_validation_loss_v2(
-        self, predictions: torch.Tensor, labels: Union[torch.Tensor, Dict[str, torch.Tensor]]
-    ):
-        return self.loss(predictions, labels)
-
-    def compute_metrics(
-        self, metrics_func: callable, predictions: torch.Tensor, labels: Union[torch.Tensor, Dict[str, torch.Tensor]]
-    ):
-        return metrics_func(predictions, (labels["displacement"] - self.displacement_mean) / self.displacement_std)
+    def compute_metrics(self, metrics_func: callable, predictions: Dict[str, Tensor], labels: Dict[str, Tensor]):
+        predictions["displacement"] = predictions["displacement"] * self.displacement_std + self.displacement_mean
+        return super().compute_metrics(metrics_func, predictions, labels)
 
 
 class FEHeartSAGEModel(BaseModule):
@@ -243,7 +234,8 @@ class FEHeartSAGEModel(BaseModule):
         ]  # shape: List[(batch_size, node_num, 1)]
 
         # concatenate the predictions of each individual decoder mlp
-        output = torch.concat(individual_mlp_predictions, dim=-1)  # shape: (batch_size, node_num, 1)
+        output = dict()
+        output["displacement"] = torch.concat(individual_mlp_predictions, dim=-1)  # shape: (batch_size, node_num, 1)
         return output
 
     # def _edge_coord_preprocess(self, x: Dict[str, torch.Tensor]) -> torch.Tensor:

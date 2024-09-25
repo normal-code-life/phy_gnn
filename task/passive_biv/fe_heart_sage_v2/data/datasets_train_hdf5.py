@@ -3,7 +3,7 @@ from typing import Dict
 import numpy as np
 from torchvision import transforms
 
-from common.constant import MAX_VAL, MIN_VAL, PERC_10_VAL, PERC_90_VAL, MODEL_TRAIN
+from common.constant import MAX_VAL, MIN_VAL, MODEL_TRAIN, PERC_10_VAL, PERC_90_VAL
 from pkg.train.datasets.base_datasets_train import MultiHDF5Dataset
 from pkg.train.module.data_transform import ClampTensor, CovertToModelInputs, MaxMinNorm, SqueezeDataDim, ToTensor
 from task.passive_biv.fe_heart_sage_v2.data.datasets import FEHeartSageV2Dataset

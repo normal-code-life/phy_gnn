@@ -4,9 +4,9 @@ import time
 import numpy as np
 
 from common.constant import TRAIN_NAME, VALIDATION_NAME
-from pkg.utils.monitor import monitor_cpu_usage
 from pkg.train.datasets.base_datasets import import_data_config
-from task.passive_lv.fe_heart_sage_v1.data.datasets_preparation import FEHeartSageV1PreparationDataset
+from pkg.utils.monitor import monitor_cpu_usage
+from task.passive_lv.data.datasets_preparation import FEHeartSagePreparationDataset
 
 if __name__ == "__main__":
     np.random.seed(753)
@@ -19,7 +19,7 @@ if __name__ == "__main__":
     config = import_data_config("passive_lv", "fe_heart_sage_v1", "lvData")
 
     for data_type in [TRAIN_NAME, VALIDATION_NAME]:
-        data_preprocess = FEHeartSageV1PreparationDataset(config, data_type)
+        data_preprocess = FEHeartSagePreparationDataset(config, data_type)
 
         data_preprocess.prepare_dataset_process()
 

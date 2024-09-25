@@ -62,7 +62,7 @@ class TrainerConfig(BaseConfig):
 
         # === setup gpu
         self.task_base["gpu"] = self.task_base["gpu"] and torch.cuda.is_available()
-        self.task_base["gpu_num"] = self.task_base["gpu_num"]
+        self.task_base["gpu_num"] = self.task_base.get("gpu_num", 1)
         self.task_base["cuda_core"] = self.task_base.get("cuda_core", None)
 
         # if self.task_base["gpu"]:
@@ -78,6 +78,7 @@ class TrainerConfig(BaseConfig):
         )
 
         self.task_data["task_name"] = task_name
+        self.task_data["model_name"] = self.task_base["model_name"]
         self.task_data["exp_name"] = self.task_base["exp_name"]
 
         self.task_data["gpu"] = self.task_base["gpu"]
@@ -162,8 +163,8 @@ class BaseTrainer(abc.ABC):
         self.labels: Optional[List[str]] = self.task_train.get("labels", None)
 
         # === init others
-        self.gpu: bool = self.task_trainer.get("gpu", False)
-        self.gpu_num: int = self.task_trainer.get("gpu_num", 1)
+        self.gpu: bool = self.task_trainer["gpu"]
+        self.gpu_num: int = self.task_trainer["gpu_num"]
         self.static_graph: bool = self.task_trainer.get("static_graph", False)
 
     # === dataset ===
@@ -282,7 +283,7 @@ class BaseTrainer(abc.ABC):
         )
 
     def init_model_weights(self) -> int:
-        init_model_weights = self.task_trainer["init_model_weights"]
+        init_model_weights = self.task_trainer.get("init_model_weights", False)
 
         if not init_model_weights:
             return 0
@@ -488,7 +489,7 @@ class BaseTrainer(abc.ABC):
                         metrics[f"{name}_train_loss"] + loss.item() if f"{name}_train_loss" in metrics else loss.item()
                     )
 
-            # print(f"===> {loss}, {metrics['train_loss']}, {batch_cnt}, {metrics['train_loss'] / batch_cnt}")
+            # print(f"===> {loss}, {metrics}, {batch_cnt}")
 
             # Before the backward pass, use the optimizer object to zero all the
             # gradients for the variables it will update (which are the learnable

@@ -39,11 +39,11 @@ task_trainer:
     scheduling:
       avoid_work_hour: False
   dataset_param:
-    batch_size: 40
-    val_batch_size: 40
-    num_workers: 8
-    prefetch_factor: 40
-    val_prefetch_factor: 40
+    batch_size: 1
+    val_batch_size: 1
+    num_workers: 1
+    prefetch_factor: 1
+    val_prefetch_factor: 1
   static_graph: False
   init_model_weights: False
 task_train:

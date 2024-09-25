@@ -26,7 +26,7 @@ class BaseDataset(AbstractTrainDataset):
     def get_head_inputs(self, batch_size) -> Dict:
         inputs, _ = self.__getitem__(np.arange(0, batch_size))
 
-        return {key: data for key, data in inputs.items()}
+        return {key: data.cpu() for key, data in inputs.items()}
 
 
 class BaseIterableDataset(AbstractTrainDataset, IterableDataset):
