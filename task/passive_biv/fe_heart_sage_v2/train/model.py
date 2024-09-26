@@ -102,11 +102,11 @@ class FEHeartSageV2Model(BaseModule):
         )
 
     def _node_preprocess(self, x: Dict[str, torch.Tensor]) -> torch.Tensor:
-        # input_node_coord: torch.Tensor = x["node_coord"]  # shape: (batch_size, node_num, coord_dim)
+        input_node_coord: torch.Tensor = x["node_coord"]  # shape: (batch_size, node_num, coord_dim)
         input_laplace_coord: torch.Tensor = x["laplace_coord"]  # shape: (batch_size, node_num, coord_dim)
         input_node_fea: torch.Tensor = x["fiber_and_sheet"]  # shape: (batch_size, node_num, node_feature_dim)
 
-        return torch.concat([input_laplace_coord, input_node_fea], dim=-1)
+        return torch.concat([input_node_coord, input_laplace_coord, input_node_fea], dim=-1)
 
     def _edge_emb(self, node_emb: torch.Tensor, selected_seq_node: torch.Tensor) -> torch.Tensor:
         emb_dim: int = node_emb.shape[-1]  # feature for each of the node
@@ -202,6 +202,7 @@ class FEHeartSageV2Model(BaseModule):
     def forward(self, x: Dict[str, torch.Tensor]):
         # ====== Input data (squeeze to align to previous project)
         input_edge_indices: torch.Tensor = x["edges_indices"]  # shape: (batch_size, node_num, seq)
+        input_node_coord: torch.Tensor = x["node_coord"]  # shape: (batch_size, node_num, coord_dim)
         input_node_laplace: torch.Tensor = x["laplace_coord"]  # shape: (batch_size, node_num, coord_dim)
         mat_param: torch.Tensor = x["mat_param"]  # shape: (batch_size, mat_param)
         pressure: torch.Tensor = x["pressure"]  # shape: (batch_size, pressure)
@@ -211,7 +212,7 @@ class FEHeartSageV2Model(BaseModule):
         node_emb = self.node_encode_mlp_layer(input_node)  # shape: (batch_size, node_num, node_emb)
 
         # ====== message passing layer: Encoder & Aggregate
-        z_local = self.message_passing_layer(input_edge_indices, input_node_laplace, node_emb)
+        z_local = self.message_passing_layer(input_edge_indices, input_node_coord, node_emb)
 
         # encode global parameters
         global_fea = self.theta_encode_mlp_layer(torch.concat([mat_param, pressure, input_shape_coeffs], dim=-1))

@@ -5,7 +5,7 @@ task_base:
   overwrite_exp_folder: True
   gpu: True
   cuda_core: "cuda:1"
-  gpu_num: 1
+  gpu_num: 3
 task_data:
   task_data_name: passive_biv
   overwrite_data: False
@@ -37,7 +37,7 @@ task_trainer:
       save_config: True
       save_task_code: True
     scheduling:
-      avoid_work_hour: False
+      avoid_work_hour: True
   dataset_param:
     batch_size: 20
     val_batch_size: 20
@@ -49,30 +49,30 @@ task_trainer:
 task_train:
   neighbour_layers: 1
   node_input_mlp_layer:
-    unit_sizes: [14, 256, 128, 48]
+    unit_sizes: [17, 128, 128, 40]
     layer_norm: True
     activation: tanh
   message_passing_layer:
     agg_method: MeanAggregator
-    layer_threshold: [20, 50, 80, 100]
-    layer_selected_node_num: [12, 12, 12, 12]
+    layer_threshold: [20, 50, 80, 90, 100]
+    layer_selected_node_num: [10, 10, 10, 10, 10]
     agg_layer:
       agg_dim: 2
       keep_dim: False
     node_mlp_layer:
-      unit_sizes: [96, 256, 128, 48]
+      unit_sizes: [80, 128, 128, 40]
       layer_norm: True
       activation: tanh
     edge_mlp_layer:
-      unit_sizes: [120, 256, 128, 48]
+      unit_sizes: [89, 128, 128, 40]
       layer_norm: True
       activation: tanh
   theta_input_mlp_layer:
-    unit_sizes: [66, 256, 128, 48]
+    unit_sizes: [66, 128, 128, 48]
     layer_norm: True
     activation: tanh
   decoder_layer:
-    unit_sizes: [96, 128, 128, 1]
+    unit_sizes: [88, 128, 128, 1]
     layer_norm: False
     activation: tanh
     output_dim: 4
