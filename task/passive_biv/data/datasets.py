@@ -5,7 +5,7 @@ from typing import Dict, Optional
 from pkg.train.datasets.base_datasets import BaseAbstractDataset
 from pkg.utils import io
 from pkg.utils.io import load_yaml
-from task.passive_biv.fe_heart_sage_v2.data import logger
+from task.passive_biv.data import logger
 
 
 class FEHeartSageV2Dataset(BaseAbstractDataset):

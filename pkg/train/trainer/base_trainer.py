@@ -550,7 +550,9 @@ class BaseTrainer(abc.ABC):
                 for p in self.metrics:
                     results = self.compute_metrics(self.metrics[p], outputs, val_labels)
                     for name, r in results.items():
-                        metrics[f"val_{name}_{p}"] = metrics[f"val_{name}_{p}"] + r.item() if p in metrics else r.item()
+                        metrics[f"val_{name}_{p}"] = (
+                            metrics[f"val_{name}_{p}"] + r.item() if f"val_{name}_{p}" in metrics else r.item()
+                        )
 
                 # print(batch_cnt, loss, metrics)
 

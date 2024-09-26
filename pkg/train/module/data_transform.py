@@ -95,10 +95,10 @@ class TensorToGPU(DataTransform):
         context, feature = sample
 
         for name, fea in context.items():
-            context[name] = fea.cuda(device=self.cuda_core)
+            context[name] = fea.cuda()
 
         for name, fea in feature.items():
-            feature[name] = fea.cuda(device=self.cuda_core)
+            feature[name] = fea.cuda()
 
         return context, feature
 

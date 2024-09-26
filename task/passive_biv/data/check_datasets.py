@@ -2,8 +2,8 @@ import time
 
 from torch.utils.data import DataLoader
 
-from task.passive_biv.fe_heart_sage_v2.data.datasets import import_data_config
-from task.passive_biv.fe_heart_sage_v2.data.datasets_train_hdf5 import FEHeartSageV2TrainDataset
+from task.passive_biv.data.datasets import import_data_config
+from task.passive_biv.data.datasets_train_hdf5 import FEHeartSageV2TrainDataset
 
 if __name__ == "__main__":
     data_config = import_data_config()

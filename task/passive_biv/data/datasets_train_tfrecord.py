@@ -3,17 +3,22 @@ from typing import Dict
 import numpy as np
 from torchvision import transforms
 
-from common.constant import MAX_VAL, MIN_VAL, MODEL_TRAIN, PERC_10_VAL, PERC_90_VAL
-from pkg.train.datasets.base_datasets_train import MultiHDF5Dataset
-from pkg.train.module.data_transform import ClampTensor, CovertToModelInputs, MaxMinNorm, SqueezeDataDim, ToTensor
-from task.passive_biv.fe_heart_sage_v2.data.datasets import FEHeartSageV2Dataset
+from pkg.train.datasets.base_datasets_train import MultiTFRecordDataset
+from pkg.train.module.data_transform import (
+    CovertToModelInputs,
+    MaxMinNorm,
+    NormalNorm,
+    SqueezeDataDim,
+    TFRecordToTensor
+)
+from task.passive_biv.data.datasets import FEHeartSageV2Dataset
 
 
-class FEHeartSageV2TrainDataset(MultiHDF5Dataset, FEHeartSageV2Dataset):
+class FEHeartSageV2TrainDataset(MultiTFRecordDataset, FEHeartSageV2Dataset):
     """Data loader for graph-formatted input-output data with common, fixed topology."""
 
     def __init__(self, data_config: Dict, data_type: str) -> None:
-        super().__init__(data_config, data_type, MODEL_TRAIN)
+        super().__init__(data_config, data_type)
 
         self.data_size = np.load(self.data_size_path).astype(np.int64).item()
 
@@ -23,22 +28,14 @@ class FEHeartSageV2TrainDataset(MultiHDF5Dataset, FEHeartSageV2Dataset):
     def _init_transform(self):
         transform_list = []
 
-        hdf5_to_tensor_config = {
+        # feature normalization
+        tfrecord_to_tensor_config = {
             "context_description": self.context_description,
             "feature_description": self.feature_description,
         }
-        transform_list.append(ToTensor(hdf5_to_tensor_config))
+        transform_list.append(TFRecordToTensor(tfrecord_to_tensor_config))
 
-        climp_config = {
-            "displacement": {
-                MAX_VAL: 2.688125,
-                MIN_VAL: -2.8395823,
-            }
-        }
-
-        transform_list.append(ClampTensor(climp_config))
-
-        norm_config = {
+        max_min_norm_config = {
             "node_coord": self.node_coord_stats_path,
             "fiber_and_sheet": self.fiber_and_sheet_stats_path,
             "shape_coeffs": self.shape_coeff_stats_path,
@@ -46,17 +43,13 @@ class FEHeartSageV2TrainDataset(MultiHDF5Dataset, FEHeartSageV2Dataset):
             "pressure": self.pressure_stats_path,
         }
 
-        transform_list.append(MaxMinNorm(norm_config, True, True))
+        transform_list.append(MaxMinNorm(max_min_norm_config, True, True))
 
-        norm_config = {
+        normal_norm_config = {
             "displacement": self.displacement_stats_path,
             "stress": self.stress_stats_path,
-            "replace_by_perc": {
-                MIN_VAL: PERC_10_VAL,
-                MAX_VAL: PERC_90_VAL,
-            },
         }
-        transform_list.append(MaxMinNorm(norm_config, True))
+        transform_list.append(NormalNorm(normal_norm_config))
 
         # convert data dim
         convert_data_dim_config = {"mat_param": -1, "pressure": -1, "shape_coeffs": -1}

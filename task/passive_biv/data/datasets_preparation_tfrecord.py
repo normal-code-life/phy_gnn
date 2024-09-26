@@ -8,8 +8,8 @@ from common.constant import DARWIN, TRAIN_NAME
 from pkg.data.utils.edge_generation import generate_distance_based_edges_nb, generate_distance_based_edges_ny
 from pkg.data.utils.stats import stats_analysis
 from pkg.train.datasets.base_datasets_preparation import AbstractDataPreparationDataset
-from task.passive_biv.fe_heart_sage_v2.data import logger
-from task.passive_biv.fe_heart_sage_v2.data.datasets import FEHeartSageV2Dataset
+from task.passive_biv.data import logger
+from task.passive_biv.data.datasets import FEHeartSageV2Dataset
 
 
 class PassiveBiVPreparationDataset(AbstractDataPreparationDataset, FEHeartSageV2Dataset):
