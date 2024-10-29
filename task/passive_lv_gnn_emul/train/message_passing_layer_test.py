@@ -1,6 +1,5 @@
-from pkg.utils.logging import init_logger
-from task.passive_lv_gnn_emul.train.message_passing_layer import (
-    MessagePassingConfig, MessagePassingModule)
+from pkg.utils.logs import init_logger
+from task.passive_lv_gnn_emul.train.message_passing_layer import MessagePassingConfig, MessagePassingModule
 
 # from torchsummary import summary
 

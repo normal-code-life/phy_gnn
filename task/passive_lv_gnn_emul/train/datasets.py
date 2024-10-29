@@ -4,8 +4,8 @@ from typing import Dict, Sequence
 import numpy as np
 import torch
 
-from pkg.train.datasets.base_datasets import BaseDataset
-from pkg.utils.logging import init_logger
+from pkg.train.datasets.base_datasets_train import BaseDataset
+from pkg.utils.logs import init_logger
 
 logger = init_logger("LV_Dataset")
 
@@ -17,7 +17,7 @@ class LvDataset(BaseDataset):
         super().__init__(data_config, data_type)
 
         base_data_path = f"{data_config['task_data_path']}"
-        n_shape_coeff = data_config['n_shape_coeff']
+        n_shape_coeff = data_config["n_shape_coeff"]
 
         if not os.path.isdir(base_data_path):
             raise NotADirectoryError(f"No directory at: {base_data_path}")
@@ -45,7 +45,9 @@ class LvDataset(BaseDataset):
 
         # array holding the displacement between end and start diastole
         # (normalised for training data, un-normalised for validation and test data)
-        self._displacement = torch.from_numpy(np.load(f"{processed_data_path}/real-node-displacement.npy").astype(np.float32))
+        self._displacement = torch.from_numpy(
+            np.load(f"{processed_data_path}/real-node-displacement.npy").astype(np.float32)
+        )
 
         # summary statistics for displacement values calculated on training data
         self._displacement_mean = np.load(f"{stats_data_path}/real-node-displacement-mean.npy").astype(np.float32)
