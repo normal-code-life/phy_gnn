@@ -5,8 +5,7 @@ from collections import OrderedDict
 import torch
 import torch.nn as nn
 
-
-def summary(
+def summary_model(
     model,
     *inputs,
     batch_size=-1,

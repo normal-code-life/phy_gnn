@@ -19,7 +19,8 @@ from pkg.train.datasets.base_datasets_train import AbstractTrainDataset, BaseDat
 from pkg.train.module.loss import EuclideanDistanceMSE
 from pkg.utils.io import load_yaml
 from pkg.utils.logs import init_logger
-from pkg.utils.model_summary import summary
+from pkg.utils.model_summary import summary_model
+from pkg.utils.model_debug import debug_model
 
 logger = init_logger("BASE_TRAINER")
 
@@ -198,7 +199,7 @@ class BaseTrainer(abc.ABC):
         logger.info("=== Print Model Structure ===")
         logger.info(model)
 
-        summary(
+        summary_model(
             model,
             inputs,
             show_input=model_summary["show_input"],
@@ -369,6 +370,8 @@ class BaseTrainer(abc.ABC):
 
         # ====== Init Model Weight ======
         init_epoch = self.init_model_weights()
+
+        # self.model = debug_model(self.model)
 
         # ====== Init callback ======
         self.create_callback()
