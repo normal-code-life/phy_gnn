@@ -22,10 +22,7 @@ class CallBack(abc.ABC):
 
         self.task_dir = task_base_param["task_path"]
 
-        if "log_dir" not in logs_param:
-            self.log_dir = task_base_param["logs_base_path"]
-        else:
-            self.log_dir = logs_param["log_dir"]
+        self.log_dir = task_base_param["logs_base_path"]
 
     def set_model(self, model: nn.Module) -> None:
         self.model = model

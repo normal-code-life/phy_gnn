@@ -19,8 +19,8 @@ from pkg.train.datasets.base_datasets_train import AbstractTrainDataset, BaseDat
 from pkg.train.module.loss import EuclideanDistanceMSE
 from pkg.utils.io import load_yaml
 from pkg.utils.logs import init_logger
-from pkg.utils.model_summary import summary_model
 from pkg.utils.model_debug import debug_model
+from pkg.utils.model_summary import summary_model
 
 logger = init_logger("BASE_TRAINER")
 
@@ -57,7 +57,6 @@ class TrainerConfig(BaseConfig):
         self.task_base["repo_path"] = repo_path
         self.task_base["task_path"] = task_path
         self.task_base["config_path"] = config_path
-        self.task_base["logs_base_path"] = f"{repo_path}/log/{task_name}/{self.exp_name}"
 
         self._create_logs_path(task_type)
 
@@ -112,7 +111,12 @@ class TrainerConfig(BaseConfig):
         if task_type != MODEL_TRAIN:
             return
 
-        log_path = f"{self.task_base['repo_path']}/log"
+        log_path = self.task_base.get("log_dir", "")
+        if log_path == "":
+            log_path = f"{self.task_base['repo_path']}/log"
+        else:
+            log_path = f"{log_path}/log"
+
         if not os.path.exists(log_path):
             os.makedirs(log_path)
 
@@ -128,7 +132,9 @@ class TrainerConfig(BaseConfig):
                 f"the current {exp_logs_path} directory can't be overwrite, please choice a new exp folder name"
             )
 
-        logger.info(f"{exp_logs_path} setup done")
+        self.task_base["logs_base_path"] = exp_logs_path
+
+        logger.info(f"log base path {exp_logs_path} setup done")
 
     def get_config(self) -> Dict:
         return {
@@ -185,16 +191,15 @@ class BaseTrainer(abc.ABC):
         raise NotImplementedError("please implement create_model func")
 
     def print_model(self, model: nn.Module, inputs: Dict):
-        model_summary = self.task_trainer.get(
-            "model_summary",
-            {
-                "show_input": False,
-                "show_hierarchical": False,
-                "print_summary": True,
-                "max_depth": 999,
-                "show_parent_layers": True,
-            },
-        )
+        default_summary_info = {
+            "show_input": False,
+            "show_hierarchical": False,
+            "print_summary": True,
+            "max_depth": 999,
+            "show_parent_layers": True,
+        }
+
+        model_summary = self.task_trainer.get("model_summary", default_summary_info)
 
         logger.info("=== Print Model Structure ===")
         logger.info(model)
@@ -371,7 +376,7 @@ class BaseTrainer(abc.ABC):
         # ====== Init Model Weight ======
         init_epoch = self.init_model_weights()
 
-        # self.model = debug_model(self.model)
+        self.model = debug_model(self.model, self.task_base["logs_base_path"])
 
         # ====== Init callback ======
         self.create_callback()

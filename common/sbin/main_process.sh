@@ -12,6 +12,8 @@ echo "${TASK_PATH}"
 
 args="--repo_path ${PROJECT_PATH} --task_name ${TASK_NAME} --task_type ${TASK_TYPE} --model_name ${MODEL_NAME} --config_name ${CONFIG_NAME}"
 
+echo "args: ${args}"
+
 if [ "${TASK_TYPE}" = "data_preparation" ]; then
   python "${TASK_PATH}"/main_data_preparation.py ${args}
 elif [ "${TASK_TYPE}" = "model_train" ]; then

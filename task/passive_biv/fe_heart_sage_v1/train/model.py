@@ -210,7 +210,9 @@ class FEHeartSAGEModel(BaseModule):
         z_local = self.message_passing_layer(x, node_emb)  # shape: (batch_size, node_num, node_emb)
 
         # encode global parameters theta
-        z_theta = self.theta_encode_mlp_layer(torch.concat([mat_param, pressure, input_shape_coeffs], dim=-1))  # shape: (batch_size, theta_feature)
+        z_theta = self.theta_encode_mlp_layer(
+            torch.concat([mat_param, pressure, input_shape_coeffs], dim=-1)
+        )  # shape: (batch_size, theta_feature)
 
         # tile global values
         global_fea = z_theta.unsqueeze(dim=-2)  # shape: (batch_size, 1, emb)

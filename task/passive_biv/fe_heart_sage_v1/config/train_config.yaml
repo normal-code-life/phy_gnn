@@ -6,16 +6,6 @@ task_base:
   gpu: True
   cuda_core: "cuda:0"
   gpu_num: 2
-task_data:
-  task_data_name: passive_biv
-  overwrite_data: False
-  overwrite_stats: False
-  chunk_file_size: 50
-  train_split_ratio: 0.8
-  sections: [0, 20, 100, 250, 500, 1000]
-  nodes_per_sections: [20, 30, 30, 10, 10]
-  train_down_sampling_node: 10000
-  val_down_sampling_node: 15000
 task_trainer:
   epochs: 30000
   optimizer_param:

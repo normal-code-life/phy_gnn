@@ -1,11 +1,12 @@
-import torch.nn as nn
-from torch.utils.tensorboard import SummaryWriter
 import functools
 
-writer = SummaryWriter('runs/model_debug')
+import torch.nn as nn
+from torch.utils.tensorboard import SummaryWriter
 
 
-def debug_model(model):
+def debug_model(model: nn.Module, log_base_path: str) -> nn.Module:
+    writer = SummaryWriter(f"{log_base_path}/runs/model_debug")
+
     def build_module_tree(module):
         def _in(module, id_parent, depth):
             for key, c in module.named_children():
@@ -53,8 +54,7 @@ def debug_model(model):
     build_module_tree(model)
 
     for m in model.modules():
-        print(m)
         if isinstance(m, nn.Linear) or isinstance(m, nn.LayerNorm) or isinstance(m, nn.Tanh):
-            m.register_forward_hook(functools.partial(print_hist_hook))
+            m.register_forward_hook(print_hist_hook)
 
     return model
