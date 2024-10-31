@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # check CUDA info
-echo "${CUDA_PATH}"
-echo "${CUDA_HOME}"
+#echo "${CUDA_PATH}"
+#echo "${CUDA_HOME}"
 
 export PYTHONPATH=${PYTHONPATH}:${PROJECT_PATH}
 

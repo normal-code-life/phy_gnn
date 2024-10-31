@@ -497,7 +497,7 @@ class BaseTrainer(abc.ABC):
                         metrics[f"{name}_train_loss"] + loss.item() if f"{name}_train_loss" in metrics else loss.item()
                     )
 
-            # print(f"===> {loss}, {metrics}, {batch_cnt}")
+            print(f"===> {loss}, {metrics}, {batch_cnt}")
 
             # Before the backward pass, use the optimizer object to zero all the
             # gradients for the variables it will update (which are the learnable

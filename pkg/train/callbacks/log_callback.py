@@ -62,6 +62,19 @@ class LogCallback(CallBack):
             logger.info(f"execute {cmd}")
             os.system(cmd)
 
+    def on_epoch_begin(self, epoch, **kwargs):
+        """Called at the end of each epoch.
+
+        Parameters:
+        -----------
+        epoch : int
+            The current epoch number.
+
+        kwargs : dict
+            Dictionary containing training and validation metrics.
+        """
+        logger.info(f"epoch begin formally start the model training")
+
     def on_evaluation_end(self, epoch, **kwargs):
         """Called at the end of evaluation end.
 
