@@ -8,7 +8,7 @@ export PYTHONPATH=${PYTHONPATH}:${PROJECT_PATH}
 
 TASK_PATH=${PROJECT_PATH}/task/${TASK_NAME}
 
-echo "${TASK_PATH}"
+echo "task_path: ${TASK_PATH}"
 
 args="--repo_path ${PROJECT_PATH} --task_name ${TASK_NAME} --task_type ${TASK_TYPE} --model_name ${MODEL_NAME} --config_name ${CONFIG_NAME}"
 

@@ -296,6 +296,9 @@ class BaseTrainer(abc.ABC):
 
         ckpt_path = f"{self.task_base['logs_base_path']}/checkpoint/ckpt.pth"
 
+        if not os.path.exists(ckpt_path):
+            return 0
+
         checkpoint = torch.load(ckpt_path)
 
         self.model.load_state_dict(checkpoint["model_state_dict"])

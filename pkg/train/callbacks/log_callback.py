@@ -73,7 +73,7 @@ class LogCallback(CallBack):
         kwargs : dict
             Dictionary containing training and validation metrics.
         """
-        logger.info(f"epoch begin formally start the model training")
+        logger.info(f"epoch begin: start the model training {epoch}")
 
     def on_evaluation_end(self, epoch, **kwargs):
         """Called at the end of evaluation end.

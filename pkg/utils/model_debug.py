@@ -45,7 +45,8 @@ def debug_model(model: nn.Module, log_base_path: str) -> nn.Module:
         _in(module, id_parent=id(module), depth=1)
 
     def print_hist_hook(module, input, output):
-        writer.add_histogram(module_summary.get(id(module)).get("module_name"), input[0])
+        print(f"Layer: {module_summary.get(id(module)).get('module_name')}\nInput mean: {input[0].mean()}, Output mean: {output.mean()}")
+        writer.add_histogram(module_summary.get(id(module)).get("module_name"), output[0, :, :])
 
     # create properties
     module_summary = dict()

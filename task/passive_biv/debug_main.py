@@ -18,9 +18,11 @@ if __name__ == "__main__":
             "--task_name",
             "passive_biv",
             "--model_name",
-            "fe_heart_sage_v1",
+            "fe_heart_sage_v2",
             "--config_name",
             "train_config",
+            "--task_type",
+            "model_train",
         ]
     )
 

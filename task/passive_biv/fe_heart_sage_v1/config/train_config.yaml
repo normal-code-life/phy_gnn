@@ -7,7 +7,7 @@ task_base:
   cuda_core: "cuda:0"
   gpu_num: 2
 task_trainer:
-  epochs: 30000
+  epochs: 13001
   optimizer_param:
     name: adam
     learning_rate: 0.00001  # Learning rate for training the network
@@ -27,7 +27,7 @@ task_trainer:
       save_config: True
       save_task_code: True
     scheduling:
-      avoid_work_hour: False
+      avoid_work_hour: True
   dataset_param:
     batch_size: 20
     val_batch_size: 20
