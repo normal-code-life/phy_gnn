@@ -17,7 +17,6 @@ task_trainer:
     - mean_absolute_error
   callback_param:
     tensorboard:
-#      log_dir: "./"
       profiler: False
     model_checkpoint:
       save_freq: 100
