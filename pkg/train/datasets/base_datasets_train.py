@@ -134,7 +134,9 @@ class MultiHDF5Dataset(BaseIterableDataset):
             shift, num_workers = worker_info.id, worker_info.num_workers
 
         if num_workers > self.num_of_files:
-            raise ValueError(f"the num of workers({num_workers}) should be small or equal to num of files({self.num_of_files})")
+            raise ValueError(
+                f"the num of workers({num_workers}) should be small or equal to num of files({self.num_of_files})"
+            )
 
         if num_workers == 0:
             splits = {str(num) for num in range(self.num_of_files)}

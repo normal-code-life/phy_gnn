@@ -73,6 +73,7 @@ class MLPLayer(BaseModule):
                 self.weight_init_dict = np.load(file, allow_pickle=True).item()
             if cur_layer_name in self.weight_init_dict:
                 fc.weight = nn.Parameter(torch.tensor(self.weight_init_dict[cur_layer_name]).t())
+                logger.info(f"init {cur_layer_name} model layer from {self.init_weight_file_path}")
             else:
                 raise ValueError(f"error, we don't have this layer {cur_layer_name}")
         else:

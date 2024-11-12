@@ -6,7 +6,7 @@ import pandas as pd
 from numba.typed import List as Numba_List
 
 from common.constant import TRAIN_NAME, VALIDATION_NAME
-from pkg.data.utils.edge_generation import generate_distance_based_edges_nb, generate_distance_based_edges_ny
+from pkg.data_utils.edge_generation import generate_distance_based_edges_nb, generate_distance_based_edges_ny
 from pkg.train.datasets.base_datasets_preparation import AbstractDataPreparationDataset
 from task.passive_lv.data import logger
 from task.passive_lv.data.datasets import FEHeartSageDataset
@@ -211,7 +211,7 @@ class FEHeartSagePreparationDataset(AbstractDataPreparationDataset, FEHeartSageD
         )
 
     def _check_stats(self):
-        from pkg.data.utils.stats import stats_analysis
+        from pkg.data_utils.stats import stats_analysis
 
         node_coords = np.load(self.node_coord_original_path).astype(np.float32)
 

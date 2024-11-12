@@ -88,12 +88,12 @@ class LvDataset(BaseDataset):
         self._theta_mean = np.load(f"{stats_data_path}/global-features-mean.npy").astype(np.float32)
         self._theta_std = np.load(f"{stats_data_path}/global-features-std.npy").astype(np.float32)
 
-        if self.gpu:
-            self._nodes = self._nodes.cuda()
-            self._edges = self._edges.cuda()
-            self._shape_coeffs = self._shape_coeffs.cuda()
-            self._theta_vals = self._theta_vals.cuda()
-            self._displacement = self._displacement.cuda()
+        # if self.gpu:
+        #     self._nodes = self._nodes.cuda()
+        #     self._edges = self._edges.cuda()
+        #     self._shape_coeffs = self._shape_coeffs.cuda()
+        #     self._theta_vals = self._theta_vals.cuda()
+        #     self._displacement = self._displacement.cuda()
 
     def __len__(self):
         return self._data_size
@@ -137,3 +137,8 @@ class LvDataset(BaseDataset):
     def get_displacement_std(self) -> torch.tensor:
         _displacement_std = torch.from_numpy(self._displacement_std)
         return _displacement_std if not self.gpu else _displacement_std.cuda()
+
+    def get_head_inputs(self, batch_size) -> Dict:
+        inputs, _ = self.__getitem__(np.arange(0, batch_size))
+
+        return inputs

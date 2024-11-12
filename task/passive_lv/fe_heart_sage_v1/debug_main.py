@@ -2,8 +2,8 @@ import os
 import sys
 
 from pkg.utils import io
-from task.passive_lv.fe_heart_sage_v1.train.model import FEHeartSAGETrainer
-from task.passive_lv.fe_heart_sage_v2.train.model import FEHeartSageV2Trainer
+from task.passive_lv.fe_heart_sage_v1.train.model import FEHeartSAGETrainer  # noqa
+from task.passive_lv.fe_heart_sage_v2.train.model import FEHeartSageV2Trainer  # noqa
 
 # used for debug
 if __name__ == "__main__":

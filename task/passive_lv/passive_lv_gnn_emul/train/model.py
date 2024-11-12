@@ -8,9 +8,9 @@ from pkg.dnn_utils.method import segment_sum
 from pkg.train.model.base_model import BaseModule
 from pkg.train.trainer.base_trainer import BaseTrainer, TrainerConfig
 from pkg.utils.logs import init_logger
-from task.passive_lv_gnn_emul.train.datasets import LvDataset
-from task.passive_lv_gnn_emul.train.message_passing_layer import MessagePassingModule
-from task.passive_lv_gnn_emul.train.mlp_layer_ln import MLPLayerLN
+from task.passive_lv.passive_lv_gnn_emul.train.datasets import LvDataset
+from task.passive_lv.passive_lv_gnn_emul.train.message_passing_layer import MessagePassingModule
+from task.passive_lv.passive_lv_gnn_emul.train.mlp_layer_ln import MLPLayerLN
 
 logger = init_logger("PassiveLvGNNEmul")
 
@@ -49,7 +49,7 @@ class PassiveLvGNNEmulTrainer(BaseTrainer):
             self.task_train, self.senders, self.receivers, self.real_node_indices, self.n_total_nodes
         )
 
-    def compute_loss(self, outputs, labels):
+    def compute_loss(self, outputs: torch.Tensor, labels: torch.Tensor):
         return self.loss(outputs, labels.squeeze(dim=0))
 
     def compute_validation_loss(self, predictions: torch.Tensor, labels: torch.Tensor):
@@ -57,6 +57,12 @@ class PassiveLvGNNEmulTrainer(BaseTrainer):
 
     def compute_metrics(self, metrics_func: callable, predictions: torch.Tensor, labels: torch.Tensor):
         return metrics_func(predictions * self.displacement_std + self.displacement_mean, labels.squeeze(dim=0))
+
+    def validation_step_check(self, epoch: int, is_last_epoch: bool) -> bool:
+        if epoch <= 20 or epoch % 5 == 0 or is_last_epoch:
+            return True
+        else:
+            return False
 
 
 class PassiveLvGNNEmulModel(BaseModule):

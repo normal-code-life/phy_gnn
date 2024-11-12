@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Dict
 
 import numpy as np
 import pandas as pd
@@ -7,19 +7,11 @@ from numba.typed import List as Numba_List
 from torch import nn
 from torchvision import transforms
 
-from common.constant import DARWIN, MAX_VAL, MEAN_VAL, MIN_VAL, STD_VAL
-from pkg.data.utils.edge_generation import generate_distance_based_edges_nb, generate_distance_based_edges_ny
-from pkg.train.module.data_transform import (
-    CovertToModelInputs,
-    MaxMinNorm,
-    NormalNorm,
-    SqueezeDataDim,
-    ToTensor,
-    UnSqueezeDataDim
-)
+from common.constant import DARWIN, MAX_VAL, MIN_VAL
+from pkg.data_utils.edge_generation import generate_distance_based_edges_nb, generate_distance_based_edges_ny
+from pkg.train.module.data_transform import CovertToModelInputs, MaxMinNorm, ToTensor, UnSqueezeDataDim
 from pkg.utils.logs import init_logger
-from task.passive_biv.fe_heart_sage_v2.data.datasets import FEHeartSageV2Dataset, import_data_config
-from task.passive_biv.fe_heart_sage_v2.train.model import FEHeartSageV2Model
+from task.passive_biv.data.datasets import FEHeartSageV2Dataset, import_data_config
 
 logger = init_logger("single_case_eval")
 

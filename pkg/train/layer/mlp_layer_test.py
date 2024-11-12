@@ -1,7 +1,8 @@
-from torchsummary import summary
+import torch
 
 from pkg.train.layer.mlp_layer import MLPLayer
 from pkg.utils.logs import init_logger
+from pkg.utils.model_summary import summary_model as summary
 
 logger = init_logger("test_mlp_module")
 
@@ -17,5 +18,4 @@ if __name__ == "__main__":
     model = MLPLayer(config)
     logger.info(f"module config: {model.get_config()}")
 
-    # 使用 torchsummary 打印模型结构
-    logger.info(summary(model, (128,)))
+    logger.info(summary(model, torch.rand((100, 128))))

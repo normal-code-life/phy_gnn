@@ -130,7 +130,11 @@ def summary_model(
     model_training = model.training
 
     model.eval()
-    model(*inputs)
+
+    try:
+        model(*inputs)
+    except RuntimeError as e:
+        print("got error and stop print model arch: ", type(e), e)
 
     if model_training:
         model.train()

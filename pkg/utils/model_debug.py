@@ -45,8 +45,11 @@ def debug_model(model: nn.Module, log_base_path: str) -> nn.Module:
         _in(module, id_parent=id(module), depth=1)
 
     def print_hist_hook(model_name, model_id, module, input, output):
-        print(f"Layer: {model_name} {model_id} {id(module)}\nInput mean: {input[0].mean()}, Output mean: {output.mean()}")
-        writer.add_histogram(model_name, output[0])
+        print(
+            f"Layer: {model_name} {model_id} {id(module)}\nInput mean: {input[0].mean()}, Output mean: {output.mean()}"
+        )
+        writer.add_histogram(model_name + "_input", input[0][0])
+        writer.add_histogram(model_name + "_output", output[0])
 
     # create properties
     module_summary = dict()
@@ -56,6 +59,8 @@ def debug_model(model: nn.Module, log_base_path: str) -> nn.Module:
 
     for m in model.modules():
         if isinstance(m, nn.Linear) or isinstance(m, nn.LayerNorm) or isinstance(m, nn.Tanh):
-            m.register_forward_hook(functools.partial(print_hist_hook, module_summary.get(id(m)).get('module_name'), id(m)))
+            m.register_forward_hook(
+                functools.partial(print_hist_hook, module_summary.get(id(m)).get("module_name"), id(m))
+            )
 
     return model

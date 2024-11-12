@@ -2,9 +2,8 @@ import abc
 import os
 import platform
 import sys
-from typing import Dict, List, Optional, Set, Union
+from typing import Dict, Optional
 
-from common.constant import MODEL_TRAIN, TRAIN_NAME
 from pkg.train.datasets import logger
 from pkg.utils.io import get_repo_path, load_yaml
 
@@ -54,7 +53,7 @@ class BaseAbstractDataset(abc.ABC):
         # common config
         # === Hardware configuration
         self.gpu = data_config["gpu"]
-        self.cuda_core = data_config.get("cuda_core", "gpu:0")
+        self.cuda_core = data_config.get("cuda_core", 0)
         self.platform = platform.system()
 
         # === model_name

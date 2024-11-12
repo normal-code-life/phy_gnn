@@ -8,18 +8,18 @@ import torchmetrics
 from torch import Tensor, nn
 from torch.utils.data import DataLoader
 
-from common.constant import MODEL_TRAIN, TEST_NAME, TRAIN_NAME, VALIDATION_NAME
+from common.constant import MODEL_TRAIN, TRAIN_NAME, VALIDATION_NAME
 from pkg.train.callbacks.base_callback import CallbackList
 from pkg.train.callbacks.log_callback import LogCallback
 from pkg.train.callbacks.model_checkpoint_callback import ModelCheckpointCallback
 from pkg.train.callbacks.scheduling_callback import SchedulingCallback
 from pkg.train.callbacks.tensorboard_callback import TensorBoardCallback
 from pkg.train.config.base_config import BaseConfig
-from pkg.train.datasets.base_datasets_train import AbstractTrainDataset, BaseDataset, BaseIterableDataset
+from pkg.train.datasets.base_datasets_train import AbstractTrainDataset, BaseDataset
 from pkg.train.module.loss import EuclideanDistanceMSE
 from pkg.utils.io import load_yaml
 from pkg.utils.logs import init_logger
-from pkg.utils.model_debug import debug_model
+# from pkg.utils.model_debug import debug_model
 from pkg.utils.model_summary import summary_model
 
 logger = init_logger("BASE_TRAINER")
@@ -63,10 +63,10 @@ class TrainerConfig(BaseConfig):
         # === setup gpu
         self.task_base["gpu"] = self.task_base["gpu"] and torch.cuda.is_available()
         self.task_base["gpu_num"] = self.task_base.get("gpu_num", 1)
-        self.task_base["cuda_core"] = self.task_base.get("cuda_core", None)
+        self.task_base["cuda_core"] = self.task_base.get("cuda_core", 0)
 
-        # if self.task_base["gpu"]:
-        #     torch.cuda.set_device(self.task_base["cuda_core"])
+        if self.task_base["gpu"]:
+            torch.cuda.set_device(self.task_base["cuda_core"])
 
         # task dataset info
         self.task_data = self.config.get("task_data", {})
@@ -360,10 +360,13 @@ class BaseTrainer(abc.ABC):
 
         if self.gpu:
             if self.gpu_num > 0:
-                self.model = nn.DataParallel(self.model, device_ids=[i for i in range(self.gpu_num)])
+                self.model = nn.DataParallel(
+                    self.model, device_ids=[i + self.task_data["cuda_core"] for i in range(self.gpu_num)]
+                )
 
             self.model = self.model.cuda()
             logger.info(f"cuda version: {torch.version.cuda}")
+            logger.info(f"default cuda device check: {self.task_data['cuda_core']}")
             logger.info(f"model device check: {next(self.model.parameters()).device}")
 
         if self.static_graph:
@@ -379,7 +382,7 @@ class BaseTrainer(abc.ABC):
         # ====== Init Model Weight ======
         init_epoch = self.init_model_weights()
 
-        self.model = debug_model(self.model, self.task_base["logs_base_path"])
+        # self.model = debug_model(self.model, self.task_base["logs_base_path"])
 
         # ====== Init callback ======
         self.create_callback()
@@ -459,7 +462,7 @@ class BaseTrainer(abc.ABC):
 
     def compute_metrics(
         self, metrics_func: callable, predictions: Dict[str, Tensor], labels: Dict[str, Tensor]
-    ) -> Dict[str, Tensor]:
+    ) -> Union[Dict[str, Tensor], Tensor]:
         metrics = dict()
 
         for label_name in self.labels:
@@ -470,8 +473,13 @@ class BaseTrainer(abc.ABC):
 
         return metrics
 
-    def to_device(self, data: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
-        return {key: value.cuda() for key, value in data.items()} if self.gpu else data
+    def to_device(self, data: Dict[str, torch.Tensor]) -> Union[Dict[str, torch.Tensor], torch.Tensor]:
+        if self.gpu:
+            if isinstance(data, torch.Tensor):
+                return data.cuda()
+            return {key: value.cuda() for key, value in data.items()}
+        else:
+            return data
 
     def train_step(self, model: nn.Module, data_loader: DataLoader) -> Dict:
         batch_cnt = 0
@@ -500,7 +508,7 @@ class BaseTrainer(abc.ABC):
                         metrics[f"{name}_train_loss"] + loss.item() if f"{name}_train_loss" in metrics else loss.item()
                     )
 
-            print(f"===> {loss}, {metrics}, {batch_cnt}")
+            # print(f"===> {loss}, {metrics}, {batch_cnt}")
 
             # Before the backward pass, use the optimizer object to zero all the
             # gradients for the variables it will update (which are the learnable
@@ -549,21 +557,31 @@ class BaseTrainer(abc.ABC):
 
                 loss = self.compute_validation_loss(outputs, val_labels)
 
-                if isinstance(loss, torch.Tensor):
+                if isinstance(loss, torch.Tensor):  # v1, deprecated
                     metrics["val_loss"] = metrics["val_loss"] + loss.item() if "val_loss" in metrics else loss.item()
+
+                    # Compute metrics
+                    for p in self.metrics:
+                        results: Tensor = self.compute_metrics(self.metrics[p], outputs, val_labels)
+                        metrics[f"val_{p}"] = (
+                            metrics[f"val_{p}"] + results.item()
+                            if f"val_{p}" in metrics
+                            else results.item()
+                        )
+
                 elif isinstance(loss, Dict):
                     for name, loss in loss.items():
                         metrics[f"{name}_val_loss"] = (
                             metrics[f"{name}_val_loss"] + loss.item() if f"{name}_val_loss" in metrics else loss.item()
                         )
 
-                # Compute metrics
-                for p in self.metrics:
-                    results = self.compute_metrics(self.metrics[p], outputs, val_labels)
-                    for name, r in results.items():
-                        metrics[f"val_{name}_{p}"] = (
-                            metrics[f"val_{name}_{p}"] + r.item() if f"val_{name}_{p}" in metrics else r.item()
-                        )
+                    # Compute metrics
+                    for p in self.metrics:
+                        results: Dict[str, Tensor] = self.compute_metrics(self.metrics[p], outputs, val_labels)
+                        for name, r in results.items():
+                            metrics[f"val_{name}_{p}"] = (
+                                metrics[f"val_{name}_{p}"] + r.item() if f"val_{name}_{p}" in metrics else r.item()
+                            )
 
                 # print(batch_cnt, loss, metrics)
 

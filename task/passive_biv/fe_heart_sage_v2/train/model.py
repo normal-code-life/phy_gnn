@@ -1,4 +1,4 @@
-from typing import Dict, Optional, Union
+from typing import Dict, Optional
 
 import torch
 import torch.nn as nn
@@ -203,7 +203,7 @@ class FEHeartSageV2Model(BaseModule):
         # ====== Input data (squeeze to align to previous project)
         input_edge_indices: torch.Tensor = x["edges_indices"]  # shape: (batch_size, node_num, seq)
         input_node_coord: torch.Tensor = x["node_coord"]  # shape: (batch_size, node_num, coord_dim)
-        input_node_laplace: torch.Tensor = x["laplace_coord"]  # shape: (batch_size, node_num, coord_dim)
+        # input_node_laplace: torch.Tensor = x["laplace_coord"]  # shape: (batch_size, node_num, coord_dim)
         mat_param: torch.Tensor = x["mat_param"]  # shape: (batch_size, mat_param)
         pressure: torch.Tensor = x["pressure"]  # shape: (batch_size, pressure)
         input_shape_coeffs: torch.Tensor = x["shape_coeffs"]  # shape: (batch_size, graph_feature)
