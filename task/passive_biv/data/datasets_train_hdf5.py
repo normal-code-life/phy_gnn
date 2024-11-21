@@ -1,9 +1,9 @@
-from typing import Dict
-
+from typing import Dict, Tuple, Union
+import torch
 import numpy as np
 from torchvision import transforms
-
-from common.constant import MAX_VAL, MIN_VAL, MODEL_TRAIN, PERC_10_VAL, PERC_90_VAL
+from torch import Tensor
+from common.constant import MAX_VAL, MIN_VAL, MODEL_TRAIN, PERC_10_VAL, PERC_90_VAL, TRAIN_NAME
 from pkg.train.datasets.base_datasets_train import MultiHDF5Dataset
 from pkg.train.module.data_transform import ClampTensor, CovertToModelInputs, MaxMinNorm, SqueezeDataDim, ToTensor
 from task.passive_biv.data.datasets import FEHeartSageV2Dataset
@@ -65,9 +65,32 @@ class FEHeartSageV2TrainDataset(MultiHDF5Dataset, FEHeartSageV2Dataset):
         # convert to model inputs
         convert_model_input_config = {"labels": self.labels}
 
-        transform_list.append(CovertToModelInputs(convert_model_input_config, True))
+        transform_list.append(CovertToModelInputsRandom(convert_model_input_config, True))
 
         self.transform = transforms.Compose(transform_list)
 
     def __len__(self):
         return self.data_size
+
+
+class CovertToModelInputsRandom(CovertToModelInputs):
+    def __init__(
+            self, config: Dict, multi_obj: bool = False, selected_node_num: int = 300
+    ) -> None:
+        super().__init__(config, multi_obj)
+        self.selected_node_num = selected_node_num
+
+    def __call__(
+        self, sample: Tuple[Dict[str, Tensor], Dict[str, Tensor]]
+    ) -> Tuple[Dict[str, Tensor], Union[Tensor, Dict[str, Tensor]]]:
+        inputs, labels = super().__call__(sample)
+
+        node_num, _ = inputs["edges_indices"].shape
+
+        selected_node = torch.randint(0, node_num, size=(self.selected_node_num,), dtype=torch.int64)
+
+        inputs["selected_node"] = selected_node
+        labels["selected_node"] = selected_node
+
+        return inputs, labels
+

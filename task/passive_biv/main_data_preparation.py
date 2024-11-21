@@ -1,20 +1,32 @@
+import argparse
 import time
+from typing import List
 
 import numpy as np
 
 from common.constant import HDF5, TEST_NAME, TRAIN_NAME, VALIDATION_NAME, TFrecord
-from pkg.data.utils.dataset_generation import split_dataset_indices
-from task.passive_biv.fe_heart_sage_v2.data import datasets_preparation_hdf5, datasets_preparation_tfrecord
-from task.passive_biv.fe_heart_sage_v2.data.datasets import import_data_config
+from pkg.data_utils.dataset_generation import split_dataset_indices
+from pkg.train.datasets.base_datasets import import_data_config
+from task.passive_biv.data import datasets_preparation_hdf5, datasets_preparation_tfrecord
 
 data_format = HDF5
 
 if __name__ == "__main__":
     np.random.seed(753)
 
+    parser = argparse.ArgumentParser(description="Model Selection")
+
+    parser.add_argument("--model_name", type=str, default="fe_heart_sage_v3", help="model name")
+
+    args: (argparse.Namespace, List[str]) = parser.parse_known_args()
+
     start_time = time.time()
 
-    data_config = import_data_config()
+    model_name = args[0].model_name
+
+    data_config = import_data_config("passive_biv", model_name, "passive_biv")
+
+    data_config["sample_path"] = f"{data_config['task_data_path']}/record_inputs"
 
     # generate sample indices
     sample_indices_dict = split_dataset_indices(
@@ -26,6 +38,7 @@ if __name__ == "__main__":
 
     # generate dataset
     for data_type in [TRAIN_NAME, VALIDATION_NAME, TEST_NAME]:
+        print(f"start {data_type} {sample_indices_dict[data_type]}")
         data_config["sample_indices"] = sample_indices_dict[data_type]
 
         if data_format == TFrecord:

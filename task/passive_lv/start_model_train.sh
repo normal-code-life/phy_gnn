@@ -1,7 +1,7 @@
 #!/bin/bash
 
 export TASK_NAME="passive_lv"
-export MODEL_NAME="passive_lv_gnn_emul"
+export MODEL_NAME="fe_heart_sage_v1"
 
 if [ "${1}" = "--model_name" ]; then
   export MODEL_NAME="${2}"
@@ -13,7 +13,7 @@ fi
 export PROJECT_PATH="$(cd `dirname $0`/../../; pwd)"
 echo "project root path: ${PROJECT_PATH}"
 
-export CONFIG_NAME="train_config_lv_data"
+export CONFIG_NAME="train_config"
 export TASK_TYPE="model_train"
 
 

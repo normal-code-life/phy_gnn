@@ -5,9 +5,10 @@ import numpy as np
 import pandas as pd
 from numba.typed import List as Numba_List
 
-from common.constant import TRAIN_NAME, VALIDATION_NAME
+from common.constant import TRAIN_NAME
 from pkg.data_utils.edge_generation import generate_distance_based_edges_nb, generate_distance_based_edges_ny
 from pkg.train.datasets.base_datasets_preparation import AbstractDataPreparationDataset
+from pkg.utils.io import check_and_clean_path
 from task.passive_lv.data import logger
 from task.passive_lv.data.datasets import FEHeartSageDataset
 
@@ -22,6 +23,18 @@ class FEHeartSagePreparationDataset(AbstractDataPreparationDataset, FEHeartSageD
         )
         self.select_nodes: Optional[np.ndarray] = None
 
+    def prepare_dataset_process(self):
+        if check_and_clean_path(self.dataset_path, self.overwrite_data):
+            self._data_generation()
+        else:
+            logger.info(f"data already exists, no overwrite: {self.dataset_path}")
+
+        self._data_down_sampling_node_selection()
+        self._data_generation()
+
+        if self.data_type == TRAIN_NAME and check_and_clean_path(self.stats_data_path, self.overwrite_stats):
+            self._data_stats()
+
     def _data_generation(self):
         # fmt: off
         self._prepare_features()
@@ -33,12 +46,20 @@ class FEHeartSagePreparationDataset(AbstractDataPreparationDataset, FEHeartSageD
     def _data_stats(self):
         self._data_stats_total_size()
 
-        self._check_stats()
-
-        if self.data_type == VALIDATION_NAME:
-            return
+        # self._check_stats()
 
         self._prepare_node_coord_stats()
+
+    def _data_down_sampling_node_selection(self):
+        if self.down_sampling is None or self.down_sampling == 1.0:
+            return
+
+        data = np.load(self.displacement_original_path)
+        node_size = data.shape[1]
+
+        self.select_nodes = np.random.choice(node_size, size=int(node_size * self.down_sampling), replace=False)
+
+        logger.info(f"given the down sampling ratio {self.down_sampling}, we choice {len(self.select_nodes)} nodes")
 
     def _prepare_features(self) -> None:
         node_features = np.load(self.node_feature_original_path).astype(np.float32)
@@ -131,7 +152,6 @@ class FEHeartSagePreparationDataset(AbstractDataPreparationDataset, FEHeartSageD
             raise ValueError("please check and define the edge_generate_method properly")
 
         np.save(self.edge_file_path, edges.astype(np.int64))
-        logger.info(f"save edge data to {self.edge_file_path}")
 
         logger.info("====== prepare_edge DONE ======")
 

@@ -28,8 +28,6 @@ class TensorBoardCallback(CallBack):
         self.logger = init_logger("TENSORBOARD_CALLBACK")
 
     def on_train_begin(self):
-        self.logger.info("====== model training start ======")
-
         if self.profiler:
             self.profiler.start()
 

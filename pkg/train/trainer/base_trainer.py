@@ -368,6 +368,7 @@ class BaseTrainer(abc.ABC):
             logger.info(f"cuda version: {torch.version.cuda}")
             logger.info(f"default cuda device check: {self.task_data['cuda_core']}")
             logger.info(f"model device check: {next(self.model.parameters()).device}")
+            logger.info(f"model device count: {torch.cuda.device_count()}")
 
         if self.static_graph:
             self.model = torch.jit.trace(self.model, train_dataset.get_head_inputs(1))
@@ -564,9 +565,7 @@ class BaseTrainer(abc.ABC):
                     for p in self.metrics:
                         results: Tensor = self.compute_metrics(self.metrics[p], outputs, val_labels)
                         metrics[f"val_{p}"] = (
-                            metrics[f"val_{p}"] + results.item()
-                            if f"val_{p}" in metrics
-                            else results.item()
+                            metrics[f"val_{p}"] + results.item() if f"val_{p}" in metrics else results.item()
                         )
 
                 elif isinstance(loss, Dict):

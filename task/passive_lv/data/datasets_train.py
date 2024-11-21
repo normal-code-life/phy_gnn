@@ -79,13 +79,13 @@ class FEHeartSageTrainDataset(BaseDataset, FEHeartSageDataset):
 
         displacement = self._displacement[index]
 
-        if self.gpu:
-            node_features = node_features.cuda()
-            node_coord = node_coord.cuda()
-            edges_indices = edges_indices.cuda()
-            theta_vals = theta_vals.cuda()
-            shape_coeffs = shape_coeffs.cuda()
-            displacement = displacement.cuda()
+        # if self.gpu:
+        #     node_features = node_features.cuda()
+        #     node_coord = node_coord.cuda()
+        #     edges_indices = edges_indices.cuda()
+        #     theta_vals = theta_vals.cuda()
+        #     shape_coeffs = shape_coeffs.cuda()
+        #     displacement = displacement.cuda()
 
         sample = {
             "node_features": node_features,

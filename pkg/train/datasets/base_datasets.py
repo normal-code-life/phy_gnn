@@ -192,7 +192,7 @@ def import_data_config(task_name: str, model_name: str, dataset_name: str) -> Di
     repo_root_path = get_repo_path(cur_path)
 
     # fetch data config
-    base_config = load_yaml(f"{repo_root_path}/task/{task_name}/{model_name}/config/train_config.yaml")
+    base_config = load_yaml(f"{repo_root_path}/task/{task_name}/{model_name}/config/data_config.yaml")
     data_config = base_config["task_data"]
 
     task_base = base_config["task_base"]

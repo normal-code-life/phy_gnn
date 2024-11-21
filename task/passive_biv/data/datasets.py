@@ -94,7 +94,7 @@ def import_data_config() -> Dict:
     repo_root_path = io.get_repo_path(cur_path)
 
     # fetch data config
-    base_config = load_yaml(f"{repo_root_path}/task/passive_biv/fe_heart_sage_v2/config/train_config.yaml")
+    base_config = load_yaml(f"{repo_root_path}/task/passive_biv/fe_heart_sage_v2/config/data_config.yaml")
     data_config = base_config["task_data"]
 
     task_base = base_config["task_base"]
