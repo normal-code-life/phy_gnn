@@ -31,7 +31,7 @@ task_trainer:
   dataset_param:
     batch_size: 1
     val_batch_size: 1
-    num_workers: 2
+    num_workers: 0
     prefetch_factor: 1
     val_prefetch_factor: 1
   static_graph: False

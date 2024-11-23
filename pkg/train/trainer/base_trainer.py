@@ -1,6 +1,7 @@
 import abc
 import argparse
 import os
+import time
 from typing import Dict, List, Optional, Union
 
 import torch
@@ -490,18 +491,25 @@ class BaseTrainer(abc.ABC):
 
         model.train()
 
+        start_time = time.time()
+
         for batch, data in enumerate(data_loader):
+            step_time_start = time.time()
             # Forward pass: compute predicted y by passing x to the model.
             # note: by default, we assume batch size = 1
             train_inputs, train_labels = data
 
             train_inputs, train_labels = self.to_device(train_inputs), self.to_device(train_labels)  # noqa
 
+            time_2_device = time.time()
+
             # Compute and print loss.
             outputs = model(train_inputs)  # noqa
             loss = self.compute_loss(outputs, train_labels)
 
             batch_cnt += 1
+
+            time_2_fw = time.time()
 
             if isinstance(loss, torch.Tensor):
                 metrics["train_loss"] = metrics["train_loss"] + loss.item() if "train_loss" in metrics else loss.item()
@@ -510,8 +518,6 @@ class BaseTrainer(abc.ABC):
                     metrics[f"{name}_train_loss"] = (
                         metrics[f"{name}_train_loss"] + loss.item() if f"{name}_train_loss" in metrics else loss.item()
                     )
-
-            # print(f"===> {loss}, {metrics}, {batch_cnt}")
 
             # Before the backward pass, use the optimizer object to zero all the
             # gradients for the variables it will update (which are the learnable
@@ -525,6 +531,16 @@ class BaseTrainer(abc.ABC):
 
             # Calling the step function on an Optimizer makes an update to its parameters
             self.optimizer.step()
+
+            time_2_bw = time.time()
+
+            print(
+                f"===> {batch}, loss:{loss}, metrics:{metrics}, batch_cnt:{batch_cnt}, "
+                f"step_time_start:{step_time_start - start_time}, "
+                f"time_2_device: {time_2_device - step_time_start}, "
+                f"time_2_fw:{time_2_fw - time_2_device}, "
+                f"time_2_bw: {time_2_bw - time_2_fw}"
+            )
 
         for p in metrics:
             metrics[p] = metrics[p] / batch_cnt
