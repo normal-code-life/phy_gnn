@@ -13,13 +13,19 @@ class TensorBoardCallback(CallBack):
         super(TensorBoardCallback, self).__init__(task_base_param, param)
 
         use_profiler: bool = param["profiler"]
+        profiler_wait: int = param.get("wait", 1)
+        profiler_warmup: int = param.get("warmup", 1)
+        profiler_active: int = param.get("active", 1)
+        profiler_repeat: int = param.get("repeat", 1)
 
         self.writer = SummaryWriter(self.log_dir)
 
         self.profiler: Optional[torch.profiler.profile] = None
         if use_profiler:
             self.profiler = torch.profiler.profile(
-                schedule=torch.profiler.schedule(wait=1, warmup=1, active=1, repeat=1),
+                schedule=torch.profiler.schedule(
+                    wait=profiler_wait, warmup=profiler_warmup, active=profiler_active, repeat=profiler_repeat
+                ),
                 on_trace_ready=torch.profiler.tensorboard_trace_handler(f"{self.log_dir}/profiler"),
                 record_shapes=True,
                 with_stack=True,

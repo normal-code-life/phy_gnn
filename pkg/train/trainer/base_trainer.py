@@ -344,6 +344,7 @@ class BaseTrainer(abc.ABC):
                 batch_size=dataset_param.get("batch_size", 1),
                 num_workers=dataset_param.get("num_workers", 0),
                 prefetch_factor=dataset_param.get("prefetch_factor", None),
+                pin_memory=dataset_param.get("pin_memory", True),
             )
 
             validation_data_loader = DataLoader(
@@ -351,6 +352,7 @@ class BaseTrainer(abc.ABC):
                 batch_size=dataset_param.get("val_batch_size", 1),
                 num_workers=dataset_param.get("num_workers", 0),
                 prefetch_factor=dataset_param.get("val_prefetch_factor", None),
+                pin_memory=dataset_param.get("pin_memory", True),
             )
 
         # ====== Create model ======
@@ -477,8 +479,8 @@ class BaseTrainer(abc.ABC):
     def to_device(self, data: Dict[str, torch.Tensor]) -> Union[Dict[str, torch.Tensor], torch.Tensor]:
         if self.gpu:
             if isinstance(data, torch.Tensor):
-                return data.cuda()
-            return {key: value.cuda() for key, value in data.items()}
+                return data.cuda(non_blocking=True)
+            return {key: value.cuda(non_blocking=True) for key, value in data.items()}
         else:
             return data
 

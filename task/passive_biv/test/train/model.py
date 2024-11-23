@@ -16,7 +16,7 @@ torch.manual_seed(753)
 torch.set_printoptions(precision=8)
 
 
-class FEHeartSageV3Trainer(BaseTrainer):
+class TestTrainer(BaseTrainer):
     dataset_class = FEHeartSageV2TrainDataset
 
     def __init__(self) -> None:
@@ -28,12 +28,6 @@ class FEHeartSageV3Trainer(BaseTrainer):
 
     def create_model(self) -> None:
         self.model = FEHeartSAGEModel(self.task_train)
-
-    def validation_step_check(self, epoch: int, is_last_epoch: bool) -> bool:
-        if epoch <= 20 or epoch % 5 == 0 or is_last_epoch:
-            return True
-        else:
-            return False
 
     def compute_loss(
         self, predictions: Dict[str, torch.Tensor], labels: Dict[str, torch.Tensor]
@@ -236,25 +230,14 @@ class FEHeartSAGEModel(BaseModule):
         input_node = self._node_preprocess(x)  # shape: (batch_size, node_num, node_feature_dim+coord_dim)
 
         # ====== message passing layer: Encoder & Aggregate
-        node_emb = self.node_encode_mlp_layer(input_node)  # shape: (batch_size, node_num, node_emb)
+        # node_emb = self.node_encode_mlp_layer(input_node)  # shape: (batch_size, node_num, node_emb)
 
-        z_local = self.message_passing_layer(x, node_emb)  # shape: (batch_size, node_num, node_emb)
-
-        # encode global parameters theta
-        z_theta = self.theta_encode_mlp_layer(
-            torch.concat([mat_param, pressure, input_shape_coeffs], dim=-1)
-        )  # shape: (batch_size, theta_feature)
-
-        # tile global values
-        global_fea = z_theta.unsqueeze(dim=-2)  # shape: (batch_size, 1, emb)
-        global_fea_expanded = torch.tile(global_fea, (1, z_local.shape[1], 1))  # shape: (batch_size, node_num, emb)
-
-        encoding_emb = torch.concat((global_fea_expanded, z_local), dim=-1)  # shape: (batch_size, node_num, emb)
+        # z_local = self.message_passing_layer(x, node_emb)  # shape: (batch_size, node_num, node_emb)
 
         # ====== Decoder:
         # make prediction for forward displacement using different decoder mlp for each dimension
         individual_mlp_predictions = [
-            decode_mlp(encoding_emb) for decode_mlp in self.decoder_layer
+            decode_mlp(input_node) for decode_mlp in self.decoder_layer
         ]  # shape: List[(batch_size, node_num, 1)]
 
         # concatenate the predictions of each individual decoder mlp

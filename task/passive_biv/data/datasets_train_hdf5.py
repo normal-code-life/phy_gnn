@@ -1,8 +1,10 @@
 from typing import Dict, Tuple, Union
-import torch
+
 import numpy as np
-from torchvision import transforms
+import torch
 from torch import Tensor
+from torchvision import transforms
+
 from common.constant import MAX_VAL, MIN_VAL, MODEL_TRAIN, PERC_10_VAL, PERC_90_VAL, TRAIN_NAME
 from pkg.train.datasets.base_datasets_train import MultiHDF5Dataset
 from pkg.train.module.data_transform import ClampTensor, CovertToModelInputs, MaxMinNorm, SqueezeDataDim, ToTensor
@@ -74,9 +76,7 @@ class FEHeartSageV2TrainDataset(MultiHDF5Dataset, FEHeartSageV2Dataset):
 
 
 class CovertToModelInputsRandom(CovertToModelInputs):
-    def __init__(
-            self, config: Dict, multi_obj: bool = False, selected_node_num: int = 300
-    ) -> None:
+    def __init__(self, config: Dict, multi_obj: bool = False, selected_node_num: int = 300) -> None:
         super().__init__(config, multi_obj)
         self.selected_node_num = selected_node_num
 
@@ -93,4 +93,3 @@ class CovertToModelInputsRandom(CovertToModelInputs):
         labels["selected_node"] = selected_node
 
         return inputs, labels
-
