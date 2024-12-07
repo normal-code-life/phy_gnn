@@ -1,12 +1,12 @@
 from torch.utils.data import DataLoader
 
 from pkg.train.datasets.base_datasets import import_data_config
-from task.passive_lv.fe_heart_sage_v1.data.datasets_train import FEHeartSageV1TrainDataset
+from task.passive_lv.data.datasets_train import FEHeartSageTrainDataset
 
 if __name__ == "__main__":
     data_config = import_data_config("passive_lv", "fe_heart_sage_v2", "lvData")
 
-    train_data = FEHeartSageV1TrainDataset(data_config, "train")
+    train_data = FEHeartSageTrainDataset(data_config, "train")
 
     train_data_loader = DataLoader(
         dataset=train_data,

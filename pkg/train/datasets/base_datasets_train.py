@@ -118,6 +118,7 @@ class MultiHDF5Dataset(BaseIterableDataset):
 
         # === shuffle queue size
         self.shuffle_queue_size = data_config.get("shuffle_queue_size", 5)
+        self.infinite = data_config.get("infinite", False) if data_type == TRAIN_NAME else False
 
         # transform
         self.transform: Optional[transforms.Compose] = None
@@ -146,7 +147,7 @@ class MultiHDF5Dataset(BaseIterableDataset):
         it = multi_hdf5_loader(
             data_pattern=self.dataset_h5_path,
             splits=splits,
-            infinite=False,
+            infinite=self.infinite,
             description=self.context_description,
             sequence_description=self.feature_description,
         )

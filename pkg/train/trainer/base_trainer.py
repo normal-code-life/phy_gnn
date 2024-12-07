@@ -175,9 +175,13 @@ class BaseTrainer(abc.ABC):
         self.gpu_num: int = self.task_trainer["gpu_num"]
         self.static_graph: bool = self.task_trainer.get("static_graph", False)
 
+        # === init debug
+        self.debug: bool = self.task_trainer.get("debug", False)
+
     # === dataset ===
     def create_dataset(self) -> (AbstractTrainDataset, AbstractTrainDataset):
-        task_data = self.task_data
+        # legacy issue: in the future, the dataset should only come from the task_trainer["dataset_param"]
+        task_data = {**self.task_data, **self.task_trainer["dataset_param"]}
 
         train_dataset = self.dataset_class(task_data, TRAIN_NAME)
         logger.info(f"Number of train data points: {len(train_dataset)}")
@@ -318,7 +322,13 @@ class BaseTrainer(abc.ABC):
 
         # ====== Params ======
         epoch = task_trainer["epochs"]
+        per_epoch_steps = task_trainer.get("per_epoch_steps", None)
         dataset_param = task_trainer["dataset_param"]
+
+        # corner case test:
+        # if infinite = True and per_epoch_steps = None, the model will stuck in train loops
+        if not per_epoch_steps and task_trainer.get("infinite", False):
+            raise ValueError("when infinite = True, please setup the per_epoch_steps")
 
         # ====== Generate dataset ======
         train_dataset, validation_dataset = self.create_dataset()
@@ -343,17 +353,19 @@ class BaseTrainer(abc.ABC):
             train_data_loader = DataLoader(
                 dataset=train_dataset,
                 batch_size=dataset_param.get("batch_size", 1),
-                num_workers=dataset_param.get("num_workers", 0),
+                num_workers=dataset_param.get("val_num_workers", dataset_param.get("num_workers", 0)),
                 prefetch_factor=dataset_param.get("prefetch_factor", None),
                 pin_memory=dataset_param.get("pin_memory", True),
+                persistent_workers=dataset_param.get("persistent_workers", False)
             )
 
             validation_data_loader = DataLoader(
                 dataset=validation_dataset,
                 batch_size=dataset_param.get("val_batch_size", 1),
-                num_workers=dataset_param.get("num_workers", 0),
+                num_workers=dataset_param.get("val_num_workers", dataset_param.get("num_workers", 0)),
                 prefetch_factor=dataset_param.get("val_prefetch_factor", None),
                 pin_memory=dataset_param.get("pin_memory", True),
+                persistent_workers=dataset_param.get("persistent_workers", False)
             )
 
         # ====== Create model ======
@@ -390,12 +402,13 @@ class BaseTrainer(abc.ABC):
 
         # ====== Init callback ======
         self.create_callback()
+
         self.callback.on_train_begin()
 
         for t in range(init_epoch + 1, epoch + 1):
             self.callback.on_epoch_begin(t)
 
-            train_metrics = self.train_step(self.model, train_data_loader)
+            train_metrics = self.train_step(self.model, train_data_loader, per_epoch_steps)
 
             val_metrics = self.validation_step(self.model, validation_data_loader, t, t == epoch)
 
@@ -485,16 +498,19 @@ class BaseTrainer(abc.ABC):
         else:
             return data
 
-    def train_step(self, model: nn.Module, data_loader: DataLoader) -> Dict:
-        batch_cnt = 0
+    def train_step(self, model: nn.Module, data_loader: DataLoader, per_epoch_steps: Optional[int]) -> Dict:
+        batch = 0
+
         metrics = {}
 
         model.train()
 
-        start_time = time.time()
+        for _, data in enumerate(data_loader):
+            if batch == per_epoch_steps:
+                break
 
-        for batch, data in enumerate(data_loader):
             step_time_start = time.time()
+
             # Forward pass: compute predicted y by passing x to the model.
             # note: by default, we assume batch size = 1
             train_inputs, train_labels = data
@@ -505,11 +521,8 @@ class BaseTrainer(abc.ABC):
 
             # Compute and print loss.
             outputs = model(train_inputs)  # noqa
+
             loss = self.compute_loss(outputs, train_labels)
-
-            batch_cnt += 1
-
-            time_2_fw = time.time()
 
             if isinstance(loss, torch.Tensor):
                 metrics["train_loss"] = metrics["train_loss"] + loss.item() if "train_loss" in metrics else loss.item()
@@ -518,6 +531,8 @@ class BaseTrainer(abc.ABC):
                     metrics[f"{name}_train_loss"] = (
                         metrics[f"{name}_train_loss"] + loss.item() if f"{name}_train_loss" in metrics else loss.item()
                     )
+
+            time_2_fw = time.time()
 
             # Before the backward pass, use the optimizer object to zero all the
             # gradients for the variables it will update (which are the learnable
@@ -534,16 +549,21 @@ class BaseTrainer(abc.ABC):
 
             time_2_bw = time.time()
 
-            print(
-                f"===> {batch}, loss:{loss}, metrics:{metrics}, batch_cnt:{batch_cnt}, "
-                f"step_time_start:{step_time_start - start_time}, "
-                f"time_2_device: {time_2_device - step_time_start}, "
-                f"time_2_fw:{time_2_fw - time_2_device}, "
-                f"time_2_bw: {time_2_bw - time_2_fw}"
+            metrics.update(
+                **{
+                    "time_2_device": time_2_device - step_time_start,
+                    "time_2_fw": time_2_fw - time_2_device,
+                    "time_2_bw": time_2_bw - time_2_fw,
+                    "time_per_step": time_2_bw - step_time_start,
+                }
             )
 
+            self.callback.on_train_batch_end(batch, metrics=metrics)
+
+            batch += 1
+
         for p in metrics:
-            metrics[p] = metrics[p] / batch_cnt
+            metrics[p] = metrics[p] / batch
 
         return metrics
 
@@ -559,14 +579,14 @@ class BaseTrainer(abc.ABC):
 
         # Set the model to evaluation mode, disabling dropout and using population
         # statistics for batch normalization.
-        batch_cnt = 0
+        total_batch = 0
         metrics = {}
 
         model.eval()
 
         with torch.no_grad():
             for batch, val_data in enumerate(data_loader):
-                batch_cnt += 1
+                total_batch += 1
 
                 val_inputs, val_labels = val_data
 
@@ -602,7 +622,7 @@ class BaseTrainer(abc.ABC):
 
                 # print(batch_cnt, loss, metrics)
 
-        for p in metrics:
-            metrics[p] = metrics[p] / batch_cnt
+            for p in metrics:
+                metrics[p] = metrics[p] / total_batch
 
         return metrics

@@ -2,18 +2,20 @@ import time
 
 from torch.utils.data import DataLoader
 
-from task.passive_biv.data.datasets import import_data_config
-from task.passive_biv.data.datasets_train_hdf5 import FEHeartSageV2TrainDataset
+from pkg.train.datasets.base_datasets import import_data_config
+from task.passive_biv.data.datasets_train_hdf5 import FEHeartSageTrainDataset
 
 if __name__ == "__main__":
-    data_config = import_data_config()
+    data_config = import_data_config("passive_biv", "fe_heart_sage_v3", "passive_biv")
 
-    train_data = FEHeartSageV2TrainDataset(data_config, "train")
+    data_config["sample_path"] = f"{data_config['task_data_path']}/record_inputs"
+
+    train_data = FEHeartSageTrainDataset(data_config, "train")
 
     train_data_loader = DataLoader(
         dataset=train_data,
         batch_size=data_config.get("batch_size", 1),
-        num_workers=1,
+        num_workers=0,
         prefetch_factor=None,
     )
 

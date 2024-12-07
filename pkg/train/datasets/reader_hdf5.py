@@ -187,7 +187,7 @@ def shuffle_iterator(iterator: Iterator, queue_size: int) -> Iterable[Any]:
         for _ in range(queue_size):
             buffer.append(next(iterator))
     except StopIteration:
-        logger.warn("Number of elements in the iterator is less than the " f"queue size (N={queue_size}).")
+        logger.warn("Number of elements in the iterator is less than the queue size (N={queue_size}).")
     while buffer:
         index = np.random.randint(len(buffer))
         try:

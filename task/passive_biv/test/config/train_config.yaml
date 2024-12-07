@@ -5,9 +5,10 @@ task_base:
   overwrite_exp_folder: True
   gpu: True
   cuda_core: 0
-  gpu_num: 1
+  gpu_num: 2
 task_trainer:
-  epochs: 4
+  epochs: 10
+  per_epoch_steps: 40
   optimizer_param:
     name: adam
     learning_rate: 0.00001  # Learning rate for training the network
@@ -18,7 +19,8 @@ task_trainer:
   callback_param:
     tensorboard:
       profiler: True
-      active: 2
+      active: 4
+      repeat: 2
     model_checkpoint:
       save_freq: 100
       save_model_freq: 200
@@ -26,14 +28,19 @@ task_trainer:
       update_freq: 1
       save_config: True
       save_task_code: True
+      debug: True
     scheduling:
       avoid_work_hour: True
   dataset_param:
-    batch_size: 1
-    val_batch_size: 1
+    batch_size: 25
+    val_batch_size: 25
     num_workers: 0
-    prefetch_factor: 1
-    val_prefetch_factor: 1
+    val_num_workers: 0
+#    prefetch_factor: 1
+#    val_prefetch_factor: 1
+    shuffle_queue_size: 25
+    infinite: False # whether to use infinite dataset
+    persistent_workers: False
   static_graph: False
   init_model_weights: False
 task_train:

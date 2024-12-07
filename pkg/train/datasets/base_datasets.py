@@ -31,7 +31,7 @@ class BaseAbstractDataset(abc.ABC):
         Name of the experiment, if specified.
     """
 
-    def __init__(self, data_config: Dict, data_type: str, process: Optional[str] = None, *args, **kwargs) -> None:
+    def __init__(self, data_config: Dict, data_type: str, *args, **kwargs) -> None:
         """Initialize the dataset with configuration details.
 
         Parameters:
@@ -40,8 +40,6 @@ class BaseAbstractDataset(abc.ABC):
             Dictionary containing configuration details such as paths and hardware setup.
         data_type : str
             String specifying the type of data (e.g., 'train', 'test').
-        process: str
-            String specifying the process of dataset
         args : tuple
             Additional positional arguments.
         kwargs : dict

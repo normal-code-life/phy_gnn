@@ -1,22 +1,23 @@
-from typing import Dict
+from typing import Dict, Tuple, Union
 
 import numpy as np
 import pandas as pd
 import torch
 from numba.typed import List as Numba_List
-from torch import nn
+from torch import Tensor, nn
 from torchvision import transforms
 
-from common.constant import DARWIN, MAX_VAL, MIN_VAL
+from common.constant import DARWIN, MAX_VAL, MIN_VAL, PERC_10_VAL, PERC_90_VAL
 from pkg.data_utils.edge_generation import generate_distance_based_edges_nb, generate_distance_based_edges_ny
+from pkg.train.datasets.base_datasets import import_data_config
 from pkg.train.module.data_transform import CovertToModelInputs, MaxMinNorm, ToTensor, UnSqueezeDataDim
 from pkg.utils.logs import init_logger
-from task.passive_biv.data.datasets import FEHeartSageV2Dataset, import_data_config
+from task.passive_biv.data.datasets import FEHeartSageDataset
 
 logger = init_logger("single_case_eval")
 
 
-class FEHeartSageV2Evaluation(FEHeartSageV2Dataset):
+class FEHeartSageV2Evaluation(FEHeartSageDataset):
     """Data loader for graph-formatted input-output data with common, fixed topology."""
 
     def __init__(self, data_config: Dict, data_type: str, idx: int = 1) -> None:
@@ -50,12 +51,12 @@ class FEHeartSageV2Evaluation(FEHeartSageV2Dataset):
 
             stats = np.load(self.displacement_stats_path)
 
-            max_val = torch.tensor(stats[MAX_VAL])
-            min_val = torch.tensor(stats[MIN_VAL])
+            max_val = torch.tensor(stats[MAX_VAL], device="cuda")
+            min_val = torch.tensor(stats[MIN_VAL], device="cuda")
 
-            output = output.squeeze(0) * (max_val - min_val) + min_val
+            output = output["displacement"].squeeze(0) * (max_val - min_val) + min_val
 
-            df = pd.DataFrame(output.squeeze(0).numpy())
+            df = pd.DataFrame(output.to("cpu").squeeze(0).numpy())
             df.to_csv(self.output_path, index=False)
 
     def _data_generation(self) -> (Dict[str, np.ndarray], Dict[str, np.ndarray]):
@@ -122,7 +123,7 @@ class FEHeartSageV2Evaluation(FEHeartSageV2Dataset):
         }
         transform_list.append(ToTensor(hdf5_to_tensor_config))
 
-        max_min_norm_config = {
+        norm_config = {
             "node_coord": self.node_coord_stats_path,
             "fiber_and_sheet": self.fiber_and_sheet_stats_path,
             "shape_coeffs": self.shape_coeff_stats_path,
@@ -130,11 +131,15 @@ class FEHeartSageV2Evaluation(FEHeartSageV2Dataset):
             "pressure": self.pressure_stats_path,
         }
 
-        transform_list.append(MaxMinNorm(max_min_norm_config, True, True))
+        transform_list.append(MaxMinNorm(norm_config, True, True))
 
         norm_config = {
             "displacement": self.displacement_stats_path,
             "stress": self.stress_stats_path,
+            "replace_by_perc": {
+                MIN_VAL: PERC_10_VAL,
+                MAX_VAL: PERC_90_VAL,
+            },
         }
         transform_list.append(MaxMinNorm(norm_config, True))
 
@@ -154,7 +159,9 @@ class FEHeartSageV2Evaluation(FEHeartSageV2Dataset):
         # convert to model inputs
         convert_model_input_config = {"labels": self.labels}
 
-        transform_list.append(CovertToModelInputs(convert_model_input_config, True))
+        transform_list.append(CovertToModelInputsRandom(convert_model_input_config, True))
+
+        self.transform = transforms.Compose(transform_list)
 
         return transforms.Compose(transform_list)
 
@@ -169,8 +176,28 @@ class FEHeartSageV2Evaluation(FEHeartSageV2Dataset):
         return model
 
 
+class CovertToModelInputsRandom(CovertToModelInputs):
+    def __init__(self, config: Dict, multi_obj: bool = False, selected_node_num: int = 300) -> None:
+        super().__init__(config, multi_obj)
+        self.selected_node_num = selected_node_num
+
+    def __call__(
+        self, sample: Tuple[Dict[str, Tensor], Dict[str, Tensor]]
+    ) -> Tuple[Dict[str, Tensor], Union[Tensor, Dict[str, Tensor]]]:
+        inputs, labels = super().__call__(sample)
+
+        _, node_num, _ = inputs["edges_indices"].shape
+
+        selected_node = torch.randint(0, node_num, size=(self.selected_node_num,), dtype=torch.int64)
+
+        inputs["selected_node"] = selected_node.unsqueeze(0)
+        labels["selected_node"] = selected_node.unsqueeze(0)
+
+        return inputs, labels
+
+
 if __name__ == "__main__":
-    config = import_data_config()
+    config = import_data_config("passive_biv", "fe_heart_sage_v3", "passive_biv")
 
     evaluation = FEHeartSageV2Evaluation(config, "eval", 2)
 

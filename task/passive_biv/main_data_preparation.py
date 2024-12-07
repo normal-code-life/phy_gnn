@@ -7,7 +7,7 @@ import numpy as np
 from common.constant import HDF5, TEST_NAME, TRAIN_NAME, VALIDATION_NAME, TFrecord
 from pkg.data_utils.dataset_generation import split_dataset_indices
 from pkg.train.datasets.base_datasets import import_data_config
-from task.passive_biv.data import datasets_preparation_hdf5, datasets_preparation_tfrecord
+from task.passive_biv.data.datasets_preparation_hdf5 import PassiveBiVPreparationDataset
 
 data_format = HDF5
 
@@ -41,10 +41,8 @@ if __name__ == "__main__":
         print(f"start {data_type} {sample_indices_dict[data_type]}")
         data_config["sample_indices"] = sample_indices_dict[data_type]
 
-        if data_format == TFrecord:
-            data = datasets_preparation_tfrecord.PassiveBiVPreparationDataset(data_config, data_type)
-        elif data_format == HDF5:
-            data = datasets_preparation_hdf5.PassiveBiVPreparationDataset(data_config, data_type)
+        if data_format == HDF5:
+            data = PassiveBiVPreparationDataset(data_config, data_type)
         else:
             raise ValueError(f"please check the accuracy of data_format {data_format}")
 

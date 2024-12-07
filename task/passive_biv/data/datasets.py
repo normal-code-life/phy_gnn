@@ -8,7 +8,7 @@ from pkg.utils.io import load_yaml
 from task.passive_biv.data import logger
 
 
-class FEHeartSageV2Dataset(BaseAbstractDataset):
+class FEHeartSageDataset(BaseAbstractDataset):
     """FE Heart Sage V2 Dataset main class which including our basic attributes.
 
     This class is responsible for loading and processing data for a specific task,

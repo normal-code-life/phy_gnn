@@ -4,15 +4,15 @@ import h5py
 import numpy as np
 from numba.typed import List as Numba_List
 
-from common.constant import DARWIN, TEST_NAME, TRAIN_NAME
+from common.constant import DARWIN, TEST_NAME, TRAIN_NAME, VALIDATION_NAME
 from pkg.data_utils.edge_generation import generate_distance_based_edges_nb, generate_distance_based_edges_ny
 from pkg.data_utils.stats import stats_analysis
 from pkg.train.datasets.base_datasets_preparation import AbstractDataPreparationDataset
 from task.passive_biv.data import logger
-from task.passive_biv.data.datasets import FEHeartSageV2Dataset
+from task.passive_biv.data.datasets import FEHeartSageDataset
 
 
-class PassiveBiVPreparationDataset(AbstractDataPreparationDataset, FEHeartSageV2Dataset):
+class PassiveBiVPreparationDataset(AbstractDataPreparationDataset, FEHeartSageDataset):
     def __init__(self, data_config: Dict, data_type: str) -> None:
         super(PassiveBiVPreparationDataset, self).__init__(data_config, data_type)
         # sample indices
@@ -54,7 +54,9 @@ class PassiveBiVPreparationDataset(AbstractDataPreparationDataset, FEHeartSageV2
 
                 points = record_inputs.shape[0]
 
-                if (self.train_down_sampling_node or self.val_down_sampling_node) and self.data_type != TEST_NAME:
+                if self.data_type == VALIDATION_NAME or self.val_down_sampling_node:
+                    record_inputs, record_outputs = self._down_sampling_node(record_inputs, record_outputs)
+                if self.data_type == TRAIN_NAME and self.train_down_sampling_node:
                     record_inputs, record_outputs = self._down_sampling_node(record_inputs, record_outputs)
 
                 edge: np.ndarray = self._generate_distance_based_edges(record_inputs[:, 0:3])
@@ -120,16 +122,13 @@ class PassiveBiVPreparationDataset(AbstractDataPreparationDataset, FEHeartSageV2
         )
 
     def _data_stats(self) -> None:
-        # we only allow train data stats write to path
-        write_to_path = True
+        self._data_node_stats()
 
-        self._data_node_stats(write_to_path)
+        self._data_global_feature_stats()
 
-        self._data_global_feature_stats(write_to_path)
+        self._data_label_stats()
 
-        self._data_label_stats(write_to_path)
-
-    def _data_node_stats(self, write_to_path: bool) -> None:
+    def _data_node_stats(self, write_to_path: bool = True) -> None:
         # fmt: off
         node_coord_set: Optional[np.ndarray] = None
         laplace_coord_set: Optional[np.ndarray] = None
@@ -160,7 +159,7 @@ class PassiveBiVPreparationDataset(AbstractDataPreparationDataset, FEHeartSageV2
 
         # fmt: on
 
-    def _data_global_feature_stats(self, write_to_path: bool) -> None:
+    def _data_global_feature_stats(self, write_to_path: bool = True) -> None:
         # fmt: off
         data_global_feature = np.loadtxt(self.global_feature_data_path, delimiter=",")
         data_shape_coeff = np.loadtxt(self.shape_data_path, delimiter=",")
@@ -171,7 +170,7 @@ class PassiveBiVPreparationDataset(AbstractDataPreparationDataset, FEHeartSageV2
 
         # fmt: on
 
-    def _data_label_stats(self, write_to_path: bool) -> None:
+    def _data_label_stats(self, write_to_path: bool = True) -> None:
         # fmt: off
         displacement_set: Optional[np.ndarray] = None
         stress_set: Optional[np.ndarray] = None

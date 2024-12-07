@@ -36,7 +36,7 @@ def load_yaml(path: str) -> Dict:
 def check_and_clean_path(path: str, overwrite: bool) -> bool:
     if os.path.exists(path):
         size = len(os.listdir(path))
-        logger.info(f"directory size: {size}")
+        logger.info(f"directory of {path} size: {size}")
         if size > 0:
             if overwrite:
                 shutil.rmtree(path)

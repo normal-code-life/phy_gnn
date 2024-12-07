@@ -48,6 +48,8 @@ class LogCallback(CallBack):
 
         self.save_task_code = param.get("save_task_code", False)
 
+        self.debug = param.get("debug", False)
+
         self.logger = init_logger("LOGS_CALLBACK")
 
     def on_train_begin(self, **kwargs):
@@ -123,3 +125,33 @@ class LogCallback(CallBack):
 
             # Log the message, including the current epoch and elapsed time
             self.logger.info(f"metrics: {epoch} - {round(time.time() - self.start_time, 2)}s - {msg}")
+
+    def on_train_batch_end(self, batch, **kwargs):
+        if not self.debug:
+            return
+
+        if "metrics" not in kwargs:
+            raise ValueError(f"on_train_batch_end error, metrics not in the kwargs")
+
+        metrics = kwargs["metrics"]
+
+        time_2_device = metrics.get("time_2_device", 0)
+        time_2_fw = metrics.get("time_2_fw", 0)
+        time_2_bw = metrics.get("time_2_bw", 0)
+        time_per_step = metrics.get("time_per_step", 0)
+
+        self.logger.info(
+            f"time info per step: {batch}, "
+            f"step_time_start:{time.time() - self.start_time}, "
+            f"time_2_device: {time_2_device}, "
+            f"time_2_fw:{time_2_fw}, "
+            f"time_2_bw: {time_2_bw}, "
+            f"time_per_step: {time_per_step}, "
+        )
+
+        # Format the log message
+        msg = " - ".join(f"{name}: {round(val, 5)}" for name, val in metrics.items() if "train" in name)
+
+        # Log the message, including the current epoch and elapsed time
+        # self.logger.info(f"metrics per step: {batch} - {round(time.time() - self.start_time, 2)}s - {msg}")
+

@@ -8,10 +8,10 @@ from torchvision import transforms
 from common.constant import MAX_VAL, MIN_VAL, MODEL_TRAIN, PERC_10_VAL, PERC_90_VAL, TRAIN_NAME
 from pkg.train.datasets.base_datasets_train import MultiHDF5Dataset
 from pkg.train.module.data_transform import ClampTensor, CovertToModelInputs, MaxMinNorm, SqueezeDataDim, ToTensor
-from task.passive_biv.data.datasets import FEHeartSageV2Dataset
+from task.passive_biv.data.datasets import FEHeartSageDataset
 
 
-class FEHeartSageV2TrainDataset(MultiHDF5Dataset, FEHeartSageV2Dataset):
+class FEHeartSageTrainDataset(MultiHDF5Dataset, FEHeartSageDataset):
     """Data loader for graph-formatted input-output data with common, fixed topology."""
 
     def __init__(self, data_config: Dict, data_type: str) -> None:
