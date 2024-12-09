@@ -20,7 +20,7 @@ if __name__ == "__main__":
             "--task_name",
             "passive_biv",
             "--model_name",
-            "test",
+            "fe_heart_sage_v3",
             "--config_name",
             "train_config",
             "--task_type",

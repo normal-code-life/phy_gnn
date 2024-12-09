@@ -355,7 +355,7 @@ class BaseTrainer(abc.ABC):
                 batch_size=dataset_param.get("batch_size", 1),
                 num_workers=dataset_param.get("val_num_workers", dataset_param.get("num_workers", 0)),
                 prefetch_factor=dataset_param.get("prefetch_factor", None),
-                pin_memory=dataset_param.get("pin_memory", True),
+                pin_memory=dataset_param.get("pin_memory", False),
                 persistent_workers=dataset_param.get("persistent_workers", False)
             )
 
@@ -364,7 +364,7 @@ class BaseTrainer(abc.ABC):
                 batch_size=dataset_param.get("val_batch_size", 1),
                 num_workers=dataset_param.get("val_num_workers", dataset_param.get("num_workers", 0)),
                 prefetch_factor=dataset_param.get("val_prefetch_factor", None),
-                pin_memory=dataset_param.get("pin_memory", True),
+                pin_memory=dataset_param.get("pin_memory", False),
                 persistent_workers=dataset_param.get("persistent_workers", False)
             )
 
@@ -500,6 +500,7 @@ class BaseTrainer(abc.ABC):
 
     def train_step(self, model: nn.Module, data_loader: DataLoader, per_epoch_steps: Optional[int]) -> Dict:
         batch = 0
+        samples = 0
 
         metrics = {}
 
@@ -549,12 +550,15 @@ class BaseTrainer(abc.ABC):
 
             time_2_bw = time.time()
 
+            samples += train_inputs["node_coord"].shape[0]
+
             metrics.update(
                 **{
                     "time_2_device": time_2_device - step_time_start,
                     "time_2_fw": time_2_fw - time_2_device,
                     "time_2_bw": time_2_bw - time_2_fw,
                     "time_per_step": time_2_bw - step_time_start,
+                    "sample_size": samples
                 }
             )
 

@@ -1,13 +1,14 @@
 task_base:
   task_name: passive_biv
   model_name: fe_heart_sage_v3
-  exp_name: rec_old_3
+  exp_name: rec_4
   overwrite_exp_folder: True
   gpu: True
   cuda_core: 0
   gpu_num: 2
 task_trainer:
-  epochs: 3000
+  epochs: 6
+#  per_epoch_steps: 160
   optimizer_param:
     name: adam
     learning_rate: 0.00001  # Learning rate for training the network
@@ -18,6 +19,8 @@ task_trainer:
   callback_param:
     tensorboard:
       profiler: True
+      active: 1
+      wait: 2
     model_checkpoint:
       save_freq: 100
       save_model_freq: 200
@@ -25,16 +28,22 @@ task_trainer:
       update_freq: 1
       save_config: True
       save_task_code: True
+      debug: True
     scheduling:
       avoid_work_hour: True
   dataset_param:
-    batch_size: 40
-    val_batch_size: 40
-    num_workers: 8
-    prefetch_factor: 2
-    val_prefetch_factor: 2
+    batch_size: 50
+    val_batch_size: 50
+    num_workers: 32
+    val_num_workers: 16
+    prefetch_factor: 1
+    val_prefetch_factor: 1
+    shuffle_queue_size: 5
+    infinite: False # whether to use infinite dataset
+    persistent_workers: True
+    pin_memory: True
   static_graph: False
-  init_model_weights: True
+  init_model_weights: False
 task_train:
   select_edge_num: 12
   select_node_num: 300

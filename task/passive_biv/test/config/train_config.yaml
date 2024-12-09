@@ -19,8 +19,8 @@ task_trainer:
   callback_param:
     tensorboard:
       profiler: True
-      active: 4
-      repeat: 2
+      active: 3
+      wait: 2
     model_checkpoint:
       save_freq: 100
       save_model_freq: 200
@@ -32,15 +32,16 @@ task_trainer:
     scheduling:
       avoid_work_hour: True
   dataset_param:
-    batch_size: 25
-    val_batch_size: 25
-    num_workers: 0
-    val_num_workers: 0
+    batch_size: 1
+    val_batch_size: 1
+    num_workers: 1
+    val_num_workers: 1
 #    prefetch_factor: 1
 #    val_prefetch_factor: 1
-    shuffle_queue_size: 25
+    shuffle_queue_size: 1
     infinite: False # whether to use infinite dataset
     persistent_workers: False
+    pin_memory: True
   static_graph: False
   init_model_weights: False
 task_train:

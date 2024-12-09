@@ -139,9 +139,11 @@ class LogCallback(CallBack):
         time_2_fw = metrics.get("time_2_fw", 0)
         time_2_bw = metrics.get("time_2_bw", 0)
         time_per_step = metrics.get("time_per_step", 0)
+        sample_size = metrics.get("sample_size", 0)
 
         self.logger.info(
             f"time info per step: {batch}, "
+            f"sample size: {sample_size}, "
             f"step_time_start:{time.time() - self.start_time}, "
             f"time_2_device: {time_2_device}, "
             f"time_2_fw:{time_2_fw}, "
@@ -150,7 +152,7 @@ class LogCallback(CallBack):
         )
 
         # Format the log message
-        msg = " - ".join(f"{name}: {round(val, 5)}" for name, val in metrics.items() if "train" in name)
+        # msg = " - ".join(f"{name}: {round(val, 5)}" for name, val in metrics.items() if "train" in name)
 
         # Log the message, including the current epoch and elapsed time
         # self.logger.info(f"metrics per step: {batch} - {round(time.time() - self.start_time, 2)}s - {msg}")
