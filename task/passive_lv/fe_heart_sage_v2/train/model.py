@@ -9,7 +9,7 @@ from pkg.train.layer.pooling_layer import MeanAggregator, SUMAggregator  # noqa
 from pkg.train.model.base_model import BaseModule
 from pkg.train.trainer.base_trainer import BaseTrainer, TrainerConfig
 from pkg.utils.logs import init_logger
-from task.passive_biv.utils.module.mlp_layer_ln import MLPLayerLN
+from task.passive_biv.utils.module.mlp_layer_ln import MLPLayer
 from task.passive_lv.data.datasets_train import FEHeartSageTrainDataset
 
 logger = init_logger("FE_Heart_Sage_v2")
@@ -91,7 +91,7 @@ class FEHeartSageV2Model(BaseModule):
 
     def _init_graph(self):
         # 2 encoder mlp
-        self.node_encode_mlp_layer = MLPLayerLN(self.node_input_mlp_layer_config, prefix_name="node_encode")
+        self.node_encode_mlp_layer = MLPLayer(self.node_input_mlp_layer_config, prefix_name="node_encode")
 
         # aggregator pooling
         agg_method = self.message_passing_layer_config["agg_method"]
@@ -99,20 +99,20 @@ class FEHeartSageV2Model(BaseModule):
 
         for i in range(len(self.layer_threshold)):
             self.node_update_fn.append(
-                MLPLayerLN(self.message_passing_layer_config["node_mlp_layer"], prefix_name=f"message_node_{i}")
+                MLPLayer(self.message_passing_layer_config["node_mlp_layer"], prefix_name=f"message_node_{i}")
             )
             self.edge_update_fn.append(
-                MLPLayerLN(self.message_passing_layer_config["edge_mlp_layer"], prefix_name=f"message_edge_{i}")
+                MLPLayer(self.message_passing_layer_config["edge_mlp_layer"], prefix_name=f"message_edge_{i}")
             )
 
         # theta mlp
-        self.theta_encode_mlp_layer = MLPLayerLN(self.theta_input_mlp_layer_config, prefix_name="theta_encode")
+        self.theta_encode_mlp_layer = MLPLayer(self.theta_input_mlp_layer_config, prefix_name="theta_encode")
 
         # decoder MLPs
         decoder_layer_config = self.decoder_layer_config
         self.decoder_layer = nn.ModuleList(
             [
-                MLPLayerLN(decoder_layer_config, prefix_name=f"decode_{i}")
+                MLPLayer(decoder_layer_config, prefix_name=f"decode_{i}")
                 for i in range(decoder_layer_config["output_dim"])
             ]
         )

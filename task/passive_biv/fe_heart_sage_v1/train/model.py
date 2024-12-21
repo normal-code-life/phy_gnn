@@ -8,7 +8,7 @@ from pkg.train.model.base_model import BaseModule
 from pkg.train.trainer.base_trainer import BaseTrainer, TrainerConfig
 from pkg.utils.logs import init_logger
 from task.passive_biv.data.datasets_train_hdf5 import FEHeartSageTrainDataset
-from task.passive_biv.utils.module.mlp_layer_ln import MLPLayerLN
+from task.passive_biv.utils.module.mlp_layer_ln import MLPLayer
 
 logger = init_logger("FEHeartSage")
 
@@ -76,8 +76,8 @@ class FEHeartSAGEModel(BaseModule):
 
     def _init_graph(self):
         # 2 encoder mlp
-        self.node_encode_mlp_layer = MLPLayerLN(self.node_input_mlp_layer_config, prefix_name="node_encode")
-        self.edge_encode_mlp_layer = MLPLayerLN(self.edge_input_mlp_layer_config, prefix_name="edge_encode")
+        self.node_encode_mlp_layer = MLPLayer(self.node_input_mlp_layer_config, prefix_name="node_encode")
+        self.edge_encode_mlp_layer = MLPLayer(self.edge_input_mlp_layer_config, prefix_name="edge_encode")
 
         # aggregator pooling
         agg_method = self.message_passing_layer_config["agg_method"]
@@ -85,20 +85,20 @@ class FEHeartSAGEModel(BaseModule):
 
         for i in range(self.message_layer_num):
             self.node_update_fn.append(
-                MLPLayerLN(self.message_passing_layer_config["node_mlp_layer"], prefix_name=f"message_node_{i}")
+                MLPLayer(self.message_passing_layer_config["node_mlp_layer"], prefix_name=f"message_node_{i}")
             )
             self.edge_update_fn.append(
-                MLPLayerLN(self.message_passing_layer_config["edge_mlp_layer"], prefix_name=f"message_edge_{i}")
+                MLPLayer(self.message_passing_layer_config["edge_mlp_layer"], prefix_name=f"message_edge_{i}")
             )
 
         # theta mlp
-        self.theta_encode_mlp_layer = MLPLayerLN(self.theta_input_mlp_layer_config, prefix_name="theta_encode")
+        self.theta_encode_mlp_layer = MLPLayer(self.theta_input_mlp_layer_config, prefix_name="theta_encode")
 
         # decoder MLPs
         decoder_layer_config = self.decoder_layer_config
         self.decoder_layer = nn.ModuleList(
             [
-                MLPLayerLN(decoder_layer_config, prefix_name=f"decode_{i}")
+                MLPLayer(decoder_layer_config, prefix_name=f"decode_{i}")
                 for i in range(decoder_layer_config["output_dim"])
             ]
         )

@@ -67,7 +67,7 @@ class FEHeartSageTrainDataset(MultiHDF5Dataset, FEHeartSageDataset):
         # convert to model inputs
         convert_model_input_config = {"labels": self.labels}
 
-        transform_list.append(CovertToModelInputsRandom(convert_model_input_config, True))
+        transform_list.append(CovertToModelInputs(convert_model_input_config, True))
 
         self.transform = transforms.Compose(transform_list)
 

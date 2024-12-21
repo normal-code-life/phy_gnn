@@ -92,6 +92,7 @@ class TrainerConfig(BaseConfig):
 
         # task train
         self.task_train = self.config["task_train"]
+        self.task_train["gpu"] = self.task_base["gpu"]
 
     @staticmethod
     def parse_args() -> argparse.Namespace:
@@ -498,6 +499,12 @@ class BaseTrainer(abc.ABC):
         else:
             return data
 
+    def post_transform_data(self, data: (Union[Dict[str, Tensor], Tensor], Union[Dict[str, Tensor], Tensor])) -> (Union[Dict[str, Tensor], Tensor], Union[Dict[str, Tensor], Tensor]):
+
+        inputs, labels = data
+
+        return self.to_device(inputs), self.to_device(labels)
+
     def train_step(self, model: nn.Module, data_loader: DataLoader, per_epoch_steps: Optional[int]) -> Dict:
         batch = 0
         samples = 0
@@ -514,9 +521,7 @@ class BaseTrainer(abc.ABC):
 
             # Forward pass: compute predicted y by passing x to the model.
             # note: by default, we assume batch size = 1
-            train_inputs, train_labels = data
-
-            train_inputs, train_labels = self.to_device(train_inputs), self.to_device(train_labels)  # noqa
+            train_inputs, train_labels = self.post_transform_data(data)
 
             time_2_device = time.time()
 
@@ -577,6 +582,12 @@ class BaseTrainer(abc.ABC):
     def validation_step_check(self, epoch: int, is_last_epoch: bool) -> bool:
         return True
 
+    def post_transform_val_data(self, data: (Union[Dict[str, Tensor], Tensor], Union[Dict[str, Tensor], Tensor])) -> (Union[Dict[str, Tensor], Tensor], Union[Dict[str, Tensor], Tensor]):
+
+        inputs, labels = data
+
+        return self.to_device(inputs), self.to_device(labels)
+
     def validation_step(self, model: nn.Module, data_loader: DataLoader, epoch: int, is_last_epoch: bool) -> Dict:
         if not self.validation_step_check(epoch, is_last_epoch):
             return dict()
@@ -589,12 +600,10 @@ class BaseTrainer(abc.ABC):
         model.eval()
 
         with torch.no_grad():
-            for batch, val_data in enumerate(data_loader):
+            for _, val_data in enumerate(data_loader):
                 total_batch += 1
 
-                val_inputs, val_labels = val_data
-
-                val_inputs, val_labels = self.to_device(val_inputs), self.to_device(val_labels)  # noqa
+                val_inputs, val_labels = self.post_transform_val_data(val_data)  # noqa
 
                 outputs = model(val_inputs)
 

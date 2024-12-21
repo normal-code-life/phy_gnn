@@ -1,14 +1,13 @@
 task_base:
   task_name: passive_biv
   model_name: fe_heart_sage_v3
-  exp_name: rec_4
+  exp_name: rec_old_3
   overwrite_exp_folder: True
   gpu: True
   cuda_core: 0
   gpu_num: 2
 task_trainer:
-  epochs: 6
-#  per_epoch_steps: 160
+  epochs: 50000
   optimizer_param:
     name: adam
     learning_rate: 0.00001  # Learning rate for training the network
@@ -18,9 +17,7 @@ task_trainer:
     - mean_absolute_error
   callback_param:
     tensorboard:
-      profiler: True
-      active: 1
-      wait: 2
+      profiler: False
     model_checkpoint:
       save_freq: 100
       save_model_freq: 200
@@ -28,32 +25,46 @@ task_trainer:
       update_freq: 1
       save_config: True
       save_task_code: True
-      debug: True
     scheduling:
-      avoid_work_hour: True
+      avoid_work_hour: False
   dataset_param:
-    batch_size: 50
-    val_batch_size: 50
-    num_workers: 32
-    val_num_workers: 16
-    prefetch_factor: 1
-    val_prefetch_factor: 1
-    shuffle_queue_size: 5
-    infinite: False # whether to use infinite dataset
-    persistent_workers: True
-    pin_memory: True
+    batch_size: 1
+    val_batch_size: 1
+    num_workers: 5
+    prefetch_factor: 2
+    val_prefetch_factor: 2
   static_graph: False
-  init_model_weights: False
+  init_model_weights: True
 task_train:
   select_edge_num: 12
   select_node_num: 300
-  node_input_mlp_layer:
-    unit_sizes: [14, 128, 128, 40]
-    layer_norm: True
-    activation: tanh
+  input_layer:
+    laplace_coord:
+      unit_sizes: [9, 128]
+      activation: rrelu
+      init_func: xavier_normal
+    fiber_and_sheet:
+      unit_sizes: [5, 128]
+      activation: rrelu
+      init_func: xavier_normal
+    mat_param:
+      unit_sizes: [10, 128]
+      activation: rrelu
+      init_func: xavier_normal
+    pressure:
+      unit_sizes: [2, 128]
+      activation: rrelu
+      init_func: xavier_normal
+    input_shape_coeffs:
+      unit_sizes: [2, 128]
+      activation: rrelu
+      init_func: xavier_normal
+#  node_input_mlp_layer:
+#    unit_sizes: [256, 128, 128, 40]
+#    layer_norm: True
+#    activation: tanh
   message_passing_layer:
     agg_method: MeanAggregator
-    message_layer_num: 1
     agg_layer:
       agg_dim: 2
       keep_dim: False
