@@ -47,6 +47,10 @@ class MLPLayerBase(BaseModule):
 
         return {**base_config, **mlp_config}
 
+    @property
+    def get_prefix_name(self) -> str:
+        return self.prefix_name
+
     @abc.abstractmethod
     def _init_graph(self) -> None:
         raise NotImplementedError("please implement this method")

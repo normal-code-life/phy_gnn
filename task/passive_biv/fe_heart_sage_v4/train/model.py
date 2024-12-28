@@ -137,9 +137,10 @@ class FEHeartSAGEModel(BaseModule):
 
     def _init_graph(self):
         # Input layer
-        self.input_layer: Dict[str, nn.Module] = dict()
+        self.input_layer: nn.ModuleList = nn.ModuleList()
         for layer_name, layer_config in self.input_layer_config.items():
-            self.input_layer[layer_name] = MLPLayerV2(layer_config, prefix_name=f"{layer_name}_input")
+            self.input_layer.append(MLPLayerV2(layer_config, prefix_name=layer_name))
+
 
         self.node_mlp_layer = MLPLayerV2(self.node_mlp_layer_config, prefix_name="node_input")
 
@@ -273,9 +274,11 @@ class FEHeartSAGEModel(BaseModule):
     def forward(self, x: Dict[str, Tensor]):
         # ====== Input data
         # ============ input transform
-        x_trans: Dict[str, Tensor] = {
-            f"{n}_emb": self.input_layer[n](t) for n, t in x.items() if n in self.input_layer
-        }
+        x_trans: Dict[str, Tensor] = {}
+        for preprocess_layer in self.input_layer:
+            n = preprocess_layer.get_prefix_name
+            if n in self.input_layer_config:
+                x_trans[f"{n}_emb"] = preprocess_layer(x[n])
 
         # ============ input fetch
         input_node_coord: Tensor = x["node_coord"]  # shape: (batch_size, node_num, coord_dim)

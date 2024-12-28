@@ -375,7 +375,7 @@ class BaseTrainer(abc.ABC):
         self.print_model(self.model, train_dataset.get_head_inputs(dataset_param.get("batch_size", 1)))
 
         if self.gpu:
-            if self.gpu_num > 0:
+            if self.gpu_num > 1:
                 self.model = nn.DataParallel(
                     self.model, device_ids=[i + self.task_data["cuda_core"] for i in range(self.gpu_num)]
                 )

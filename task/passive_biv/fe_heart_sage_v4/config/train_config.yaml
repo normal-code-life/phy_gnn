@@ -5,7 +5,7 @@ task_base:
   overwrite_exp_folder: True
   gpu: True
   cuda_core: 0
-  gpu_num: 2
+  gpu_num: 1
 task_trainer:
   epochs: 50000
   optimizer_param:
@@ -28,8 +28,8 @@ task_trainer:
     scheduling:
       avoid_work_hour: False
   dataset_param:
-    batch_size: 40
-    val_batch_size: 40
+    batch_size: 20
+    val_batch_size: 20
     num_workers: 32
     prefetch_factor: 1
     val_prefetch_factor: 1
