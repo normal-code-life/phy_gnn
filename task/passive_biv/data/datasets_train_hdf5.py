@@ -74,6 +74,33 @@ class FEHeartSageTrainDataset(MultiHDF5Dataset, FEHeartSageDataset):
     def __len__(self):
         return self.data_size
 
+    def get_head_inputs(self, batch_size) -> Dict:
+        res: Dict = {}
+        for i in range(batch_size):
+            inputs, _ = next(self.__iter__())
+
+            inputs = {key: inputs[key].unsqueeze(0) for key in inputs}
+
+            for key in inputs:
+                res[key] = torch.concat([res[key], inputs[key]], dim=0) if key in res else inputs[key]
+
+        # for version `fe_heart_sage_v4` we need to input extra `selected_node` and `selected_node_num`:
+        # considering it is only for demo, we will use a dummy node num
+        _, node_num, _ = res["edges_indices"].shape
+
+        selected_node_num = 300
+
+        selected_node = torch.randint(
+            0, node_num, size=(selected_node_num,), dtype=torch.int64, device="cpu"
+        )
+
+        selected_node_num = torch.tensor(selected_node_num, dtype=torch.int64, device="cpu")
+
+        res["selected_node"] = selected_node
+        res["selected_node_num"] = selected_node_num
+
+        return res
+
 
 class CovertToModelInputsRandom(CovertToModelInputs):
     def __init__(self, config: Dict, multi_obj: bool = False, selected_node_num: int = 300) -> None:

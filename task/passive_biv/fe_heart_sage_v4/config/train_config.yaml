@@ -1,14 +1,13 @@
 task_base:
   task_name: passive_biv
   model_name: fe_heart_sage_v4
-  exp_name: rec_4
+  exp_name: rec_5
   overwrite_exp_folder: True
   gpu: True
   cuda_core: 0
   gpu_num: 2
 task_trainer:
-  epochs: 6
-#  per_epoch_steps: 160
+  epochs: 50000
   optimizer_param:
     name: adam
     learning_rate: 0.00001  # Learning rate for training the network
@@ -18,9 +17,7 @@ task_trainer:
     - mean_absolute_error
   callback_param:
     tensorboard:
-      profiler: True
-      active: 1
-      wait: 2
+      profiler: False
     model_checkpoint:
       save_freq: 100
       save_model_freq: 200
@@ -28,51 +25,67 @@ task_trainer:
       update_freq: 1
       save_config: True
       save_task_code: True
-      debug: True
     scheduling:
-      avoid_work_hour: True
+      avoid_work_hour: False
   dataset_param:
-    batch_size: 1
-    val_batch_size: 1
-    num_workers: 1
-    val_num_workers: 1
-#    prefetch_factor: 1
-#    val_prefetch_factor: 1
-    shuffle_queue_size: 5
-    infinite: False # whether to use infinite dataset
-    persistent_workers: True
-    pin_memory: True
+    batch_size: 40
+    val_batch_size: 40
+    num_workers: 32
+    prefetch_factor: 1
+    val_prefetch_factor: 1
   static_graph: False
-  init_model_weights: False
+  init_model_weights: True
 task_train:
   select_edge_num: 12
   select_node_num: 300
-  node_input_mlp_layer:
-    unit_sizes: [14, 128, 128, 40]
-    layer_norm: True
-    activation: tanh
+  input_layer:
+#    node_coord:
+#      unit_sizes: [3, 128]
+#      activation: rrelu
+#      init_func: xavier_normal
+    laplace_coord:
+      unit_sizes: [8, 128]
+      activation: rrelu
+      init_func: xavier_normal
+    fiber_and_sheet:
+      unit_sizes: [6, 128]
+      activation: rrelu
+      init_func: xavier_normal
+    mat_param:
+      unit_sizes: [6, 128]
+      activation: rrelu
+      init_func: xavier_normal
+    pressure:
+      unit_sizes: [2, 128]
+      activation: rrelu
+      init_func: xavier_normal
+    shape_coeffs:
+      unit_sizes: [58, 128]
+      activation: rrelu
+      init_func: xavier_normal
+  node_mlp_layer:
+    unit_sizes: [3, 128]
+    activation: rrelu
+  edge_mlp_layer:
+    unit_sizes: [3, 128]
+    activation: rrelu
   message_passing_layer:
     agg_method: MeanAggregator
-    message_layer_num: 1
     agg_layer:
       agg_dim: 2
       keep_dim: False
-    node_mlp_layer:
-      unit_sizes: [120, 128, 128, 40]
+    message_update_layer:
+      unit_sizes: [384, 256, 128, 128]
       layer_norm: True
-      activation: tanh
-    edge_mlp_layer:
-      unit_sizes: [9, 128, 128, 40]
-      layer_norm: True
-      activation: tanh
+      activation: rrelu
   theta_input_mlp_layer:
-    unit_sizes: [66, 128, 128, 40]
+    unit_sizes: [384, 256, 128, 128]
     layer_norm: True
-    activation: tanh
+    activation: rrelu
   decoder_layer:
-    unit_sizes: [80, 128, 128, 1]
+    unit_sizes: [256, 128, 128, 1]
     layer_norm: False
-    activation: tanh
+    activation: rrelu
     output_dim: 3
   labels:
     - displacement

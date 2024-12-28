@@ -11,6 +11,6 @@ def get_activation(activation: str):
     elif activation == TANH:
         return nn.Tanh()
     elif activation == RReLU:
-        return nn.RReLU
+        return nn.RReLU()
     else:
         raise ValueError("please type in the correct activation function")
