@@ -259,19 +259,19 @@ class FEHeartSAGEModel(BaseModule):
         )  # shape: (batch_size, node_num, seq, node_emb)
 
         # ============ generate relative coord emb (agg vertices emb at both ends + segment emb)
-        _, _, edge_coord = (
-            self._generate_edge_coord(input_node_coord, selected_edge)
-        )  # (batch_size, node_num, seq, coord_emb)
+        # _, _, edge_coord = (
+        #     self._generate_edge_coord(input_node_coord, selected_edge)
+        # )  # (batch_size, node_num, seq, coord_emb)
         _, _, edge_laplace_coord = (
             self._generate_edge_coord(input_node_laplace_coord, selected_edge)
         )  # (batch_size, node_num, seq, coord_emb)
 
         # node_coord_emb = self.node_mlp_layer(node_coord_expanded)  # (batch_size, node_num, seq, coord_emb)
         # node_seq_coord_emb = self.node_mlp_layer(node_seq_coord)  # (batch_size, node_num, seq, coord_emb)
-        edge_coord_emb = self.edge_mlp_layer(edge_coord)  # (batch_size, node_num, seq, coord_emb)
+        # edge_coord_emb = self.edge_mlp_layer(edge_coord)  # (batch_size, node_num, seq, coord_emb)
         edge_laplace_coord_emb = self.edge_laplace_mlp_layer(edge_laplace_coord)  # (batch_size, node_num, seq, coord_emb)
 
-        coord_emb = edge_coord_emb + edge_laplace_coord_emb
+        coord_emb = edge_laplace_coord_emb
 
         # ============ agg node, edge, coord emb and send to message passing layer & pooling
         emb_concat = torch.concat([node_seq_emb, edge_seq_emb, coord_emb], dim=-1)[:, selected_node, :, :]
