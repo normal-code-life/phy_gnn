@@ -163,6 +163,7 @@ class BaseTrainer(abc.ABC):
         self.model: Optional[nn.Module] = None
         self.loss: Optional[nn.Module] = None
         self.optimizer: Optional[torch.optim.Optimizer] = None
+        self.scheduler: Optional[torch.optim.lr_scheduler.LRScheduler] = None
         self.metrics: Dict[str, callable] = {}
 
         # === init callback
@@ -227,6 +228,13 @@ class BaseTrainer(abc.ABC):
             self.optimizer = torch.optim.Adam(self.model.parameters(), lr=optimizer_param["learning_rate"])
         else:
             raise ValueError(f"optimizer name do not set properly, please check: {optimizer_param['optimizer']}")
+
+        if optimizer_param.get("scheduler", None) == "multi_step":
+            self.scheduler = torch.optim.lr_scheduler.MultiStepLR(
+                self.optimizer,
+                milestones=[i * optimizer_param["ratio"] for i in optimizer_param["milestones"]],
+                gamma=optimizer_param["decay_per_step"],
+            )
 
     def create_loss(self) -> None:
         loss_param = self.task_trainer["loss_param"]
@@ -552,6 +560,9 @@ class BaseTrainer(abc.ABC):
 
             # Calling the step function on an Optimizer makes an update to its parameters
             self.optimizer.step()
+
+            if self.scheduler:
+                self.scheduler.step()
 
             time_2_bw = time.time()
 

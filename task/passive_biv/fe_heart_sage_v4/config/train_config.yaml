@@ -1,7 +1,7 @@
 task_base:
   task_name: passive_biv
   model_name: fe_heart_sage_v4
-  exp_name: rec_7
+  exp_name: rec_8
   overwrite_exp_folder: True
   gpu: True
   cuda_core: 0
@@ -11,6 +11,10 @@ task_trainer:
   optimizer_param:
     name: adam
     learning_rate: 0.001  # Learning rate for training the network
+    scheduler: multi_step
+    milestones: [1000, 2000, 3000, 4000, 5000]
+    ratio: 200
+    decay_per_step: 0.5
   loss_param:
     name: euclidean_distance_mse
   metrics_param:
@@ -63,9 +67,6 @@ task_train:
       unit_sizes: [58, 128]
       activation: rrelu
       init_func: xavier_normal
-  node_mlp_layer:
-    unit_sizes: [3, 128]
-    activation: rrelu
   edge_mlp_layer:
     unit_sizes: [3, 128]
     activation: rrelu

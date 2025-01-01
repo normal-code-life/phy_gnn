@@ -43,47 +43,29 @@ class FEHeartSageV4Trainer(BaseTrainer):
     def post_transform_data(self, data: (Union[Dict[str, Tensor], Tensor], Union[Dict[str, Tensor], Tensor])) -> (Union[Dict[str, Tensor], Tensor], Union[Dict[str, Tensor], Tensor]):
         inputs, labels = super().post_transform_data(data)
 
-        _, node_num, _ = inputs["edges_indices"].shape
+        batch_size, node_num, _ = inputs["edges_indices"].shape
 
         selected_node = torch.randint(
             0, node_num, size=(self.selected_node_num, ), dtype=torch.int64, device=self.device
         )
 
-        inputs["selected_node"] = selected_node
-        labels["selected_node"] = selected_node
+        inputs["selected_node"] = selected_node.unsqueeze(0).expand(batch_size, -1)
+
+        for label_name in self.labels:
+            labels[label_name] = labels[label_name][:, selected_node, :]
 
         return inputs, labels
 
     def post_transform_val_data(self, data: (Union[Dict[str, Tensor], Tensor], Union[Dict[str, Tensor], Tensor])) -> (Union[Dict[str, Tensor], Tensor], Union[Dict[str, Tensor], Tensor]):
         inputs, labels = super().post_transform_val_data(data)
 
-        _, node_num, _ = inputs["edges_indices"].shape
+        batch_size, node_num, _ = inputs["edges_indices"].shape
 
-        selected_node = torch.arange(node_num, device=self.device)
+        selected_node = torch.arange(node_num, device=self.device).unsqueeze(0).expand(batch_size, -1)
 
         inputs["selected_node"] = selected_node
-        labels["selected_node"] = selected_node
 
         return inputs, labels
-
-    def compute_loss(
-        self, predictions: Dict[str, Tensor], labels: Dict[str, Tensor]
-    ) -> Dict[str, Tensor]:
-        losses = dict()
-
-        for label_name in self.labels:
-            prediction = predictions[label_name]
-            label = labels[label_name]
-
-            selected_node = labels["selected_node"]
-            label = label[:, selected_node, :]
-
-            losses[label_name] = self.loss(prediction, label)
-
-        return losses
-
-    def compute_validation_loss(self, predictions: Dict[str, Tensor], labels: Dict[str, Tensor]) -> Dict[str, Tensor]:
-        return super().compute_loss(predictions, labels)
 
 
 class FEHeartSAGEModel(BaseModule):
@@ -98,7 +80,6 @@ class FEHeartSAGEModel(BaseModule):
 
         # mlp layer config
         self.input_layer_config = config["input_layer"]
-        self.node_mlp_layer_config = config["node_mlp_layer"]
         self.edge_mlp_layer_config = config["edge_mlp_layer"]
         self.edge_laplace_mlp_layer_config = config["edge_laplace_mlp_layer"]
         self.theta_input_mlp_layer_config = config["theta_input_mlp_layer"]
@@ -131,8 +112,6 @@ class FEHeartSAGEModel(BaseModule):
         self.input_layer: nn.ModuleList = nn.ModuleList()
         for layer_name, layer_config in self.input_layer_config.items():
             self.input_layer.append(MLPLayerV2(layer_config, prefix_name=layer_name))
-
-        self.node_mlp_layer = MLPLayerV2(self.node_mlp_layer_config, prefix_name="node_input")
 
         self.edge_mlp_layer = MLPLayerV2(self.edge_mlp_layer_config, prefix_name="edge_input")
 
@@ -197,7 +176,7 @@ class FEHeartSAGEModel(BaseModule):
         return torch.gather(node_emb_expanded, 1, edge_seq_indices)
 
     @staticmethod
-    def _generate_edge_coord(input_node_coord: Tensor, input_edge_indices: Tensor) -> (torch.Tensor, torch.Tensor, torch.Tensor):
+    def _generate_edge_coord(input_node_coord: Tensor, input_edge_indices: Tensor) -> torch.Tensor:
         coord_dim: int = input_node_coord.shape[-1]  # coord for each of the node
         seq: int = input_edge_indices.shape[-1]  # neighbours seq for each of the center node
 
@@ -219,7 +198,7 @@ class FEHeartSAGEModel(BaseModule):
 
         edge_coord: Tensor = node_coord_expanded - node_seq_coord
 
-        return node_coord_expanded, node_seq_coord, edge_coord
+        return edge_coord
 
     def forward(self, x: Dict[str, Tensor]):
         # ====== Input data
@@ -237,7 +216,7 @@ class FEHeartSAGEModel(BaseModule):
         input_node_fea_emb: Tensor = x_trans["fiber_and_sheet_emb"]  # shape: (batch_size, node_num, node_feature_dim
 
         input_edge_indices: Tensor = x["edges_indices"]  # shape: (batch_size, node_num, seq)
-        selected_node: Tensor = x["selected_node"]  # shape: (batch_size, selected_node_num)
+        selected_node: Tensor = x["selected_node"][0]  # shape: (batch_size, selected_node_num)
 
         input_mat_param_emb: Tensor = x_trans["mat_param_emb"]  # shape: (batch_size, mat_param)
         input_pressure_emb: Tensor = x_trans["pressure_emb"]  # shape: (batch_size, pressure)
@@ -259,19 +238,19 @@ class FEHeartSAGEModel(BaseModule):
         )  # shape: (batch_size, node_num, seq, node_emb)
 
         # ============ generate relative coord emb (agg vertices emb at both ends + segment emb)
-        # _, _, edge_coord = (
-        #     self._generate_edge_coord(input_node_coord, selected_edge)
-        # )  # (batch_size, node_num, seq, coord_emb)
-        _, _, edge_laplace_coord = (
+        edge_coord = (
+            self._generate_edge_coord(input_node_coord, selected_edge)
+        )  # (batch_size, node_num, seq, coord_emb)
+        edge_laplace_coord = (
             self._generate_edge_coord(input_node_laplace_coord, selected_edge)
         )  # (batch_size, node_num, seq, coord_emb)
 
         # node_coord_emb = self.node_mlp_layer(node_coord_expanded)  # (batch_size, node_num, seq, coord_emb)
         # node_seq_coord_emb = self.node_mlp_layer(node_seq_coord)  # (batch_size, node_num, seq, coord_emb)
-        # edge_coord_emb = self.edge_mlp_layer(edge_coord)  # (batch_size, node_num, seq, coord_emb)
+        edge_coord_emb = self.edge_mlp_layer(edge_coord)  # (batch_size, node_num, seq, coord_emb)
         edge_laplace_coord_emb = self.edge_laplace_mlp_layer(edge_laplace_coord)  # (batch_size, node_num, seq, coord_emb)
 
-        coord_emb = edge_laplace_coord_emb
+        coord_emb = edge_coord_emb + edge_laplace_coord_emb
 
         # ============ agg node, edge, coord emb and send to message passing layer & pooling
         emb_concat = torch.concat([node_seq_emb, edge_seq_emb, coord_emb], dim=-1)[:, selected_node, :, :]
