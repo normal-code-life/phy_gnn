@@ -8,7 +8,7 @@ import torch
 import torchmetrics
 from torch import Tensor, nn
 from torch.utils.data import DataLoader
-
+from pkg.train.module.learning_rate_scheduler import DefaultLRScheduler
 from common.constant import MODEL_TRAIN, TRAIN_NAME, VALIDATION_NAME
 from pkg.train.callbacks.base_callback import CallbackList
 from pkg.train.callbacks.log_callback import LogCallback
@@ -229,12 +229,25 @@ class BaseTrainer(abc.ABC):
         else:
             raise ValueError(f"optimizer name do not set properly, please check: {optimizer_param['optimizer']}")
 
-        if optimizer_param.get("scheduler", None) == "multi_step":
+    def create_lr(self) -> None:
+        optimizer_param = self.task_trainer["optimizer_param"]
+
+        scheduler_method = optimizer_param.get("scheduler", "default")
+
+        if scheduler_method == "multi_step":
+            ratio = optimizer_param.get("ratio", 1)
+            milestones = optimizer_param["milestones"]
+            decay_per_step = optimizer_param.get("decay_per_step", 1)
+
             self.scheduler = torch.optim.lr_scheduler.MultiStepLR(
                 self.optimizer,
-                milestones=[i * optimizer_param["ratio"] for i in optimizer_param["milestones"]],
-                gamma=optimizer_param["decay_per_step"],
+                milestones=[i * ratio for i in milestones],
+                gamma=decay_per_step,
             )
+        else:
+            decay_per_step = optimizer_param.get("decay_per_step", 1)
+
+            self.scheduler = DefaultLRScheduler(self.optimizer, gamma=decay_per_step)
 
     def create_loss(self) -> None:
         loss_param = self.task_trainer["loss_param"]
@@ -400,6 +413,8 @@ class BaseTrainer(abc.ABC):
         # ====== Init optimizer ======
         self.create_optimize()
 
+        self.create_lr()
+
         # ====== Init loss & metrics ======
         self.create_loss()
         self.create_metrics()
@@ -515,7 +530,6 @@ class BaseTrainer(abc.ABC):
 
     def train_step(self, model: nn.Module, data_loader: DataLoader, per_epoch_steps: Optional[int]) -> Dict:
         batch = 0
-        samples = 0
 
         metrics = {}
 
@@ -561,12 +575,9 @@ class BaseTrainer(abc.ABC):
             # Calling the step function on an Optimizer makes an update to its parameters
             self.optimizer.step()
 
-            if self.scheduler:
-                self.scheduler.step()
+            self.scheduler.step()
 
             time_2_bw = time.time()
-
-            samples += train_inputs["node_coord"].shape[0]
 
             metrics.update(
                 **{
@@ -574,7 +585,7 @@ class BaseTrainer(abc.ABC):
                     "time_2_fw": time_2_fw - time_2_device,
                     "time_2_bw": time_2_bw - time_2_fw,
                     "time_per_step": time_2_bw - step_time_start,
-                    "sample_size": samples
+                    "lr": self.scheduler.get_last_lr()[0],
                 }
             )
 
@@ -583,7 +594,8 @@ class BaseTrainer(abc.ABC):
             batch += 1
 
         for p in metrics:
-            metrics[p] = metrics[p] / batch
+            if "loss" in metrics or "error" in metrics:
+                metrics[p] = metrics[p] / batch
 
         return metrics
 
