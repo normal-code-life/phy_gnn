@@ -594,7 +594,7 @@ class BaseTrainer(abc.ABC):
             batch += 1
 
         for p in metrics:
-            if "loss" in metrics or "error" in metrics:
+            if "loss" in p or "error" in p:
                 metrics[p] = metrics[p] / batch
 
         return metrics
