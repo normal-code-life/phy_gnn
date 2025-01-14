@@ -1,8 +1,9 @@
+from typing import Dict
+
 from torch import nn
 
 from pkg.train.layer.mlp_layer import MLPLayerBase
 from pkg.train.module.activation import get_activation
-from typing import Dict
 
 
 class MLPLayer(MLPLayerBase):
@@ -19,9 +20,7 @@ class MLPLayer(MLPLayerBase):
 
         # add batch/layer norm
         if self.layer_norm:
-            self.mlp_layers.add_module(
-                f"{self.layer_name}_ln", nn.LayerNorm(self.unit_sizes[-1], eps=1e-6)
-            )
+            self.mlp_layers.add_module(f"{self.layer_name}_ln", nn.LayerNorm(self.unit_sizes[-1], eps=1e-6))
 
 
 class MLPLayerV2(MLPLayerBase):
@@ -38,7 +37,4 @@ class MLPLayerV2(MLPLayerBase):
 
         # add batch/layer norm
         if self.layer_norm:
-            self.mlp_layers.add_module(
-                f"{self.layer_name}_ln", nn.LayerNorm(self.unit_sizes[-1], eps=1e-6)
-            )
-
+            self.mlp_layers.add_module(f"{self.layer_name}_ln", nn.LayerNorm(self.unit_sizes[-1], eps=1e-6))

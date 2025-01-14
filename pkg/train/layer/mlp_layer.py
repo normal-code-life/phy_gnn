@@ -55,7 +55,12 @@ class MLPLayerBase(BaseModule):
     def _init_graph(self) -> None:
         raise NotImplementedError("please implement this method")
 
-    def _init_fc(self, cur_layer_name: str, input_unit_size: int, output_unit_size: int, ) -> None:
+    def _init_fc(
+        self,
+        cur_layer_name: str,
+        input_unit_size: int,
+        output_unit_size: int,
+    ) -> None:
         fc = nn.Linear(input_unit_size, output_unit_size)
 
         if self.init_weight_file_path:

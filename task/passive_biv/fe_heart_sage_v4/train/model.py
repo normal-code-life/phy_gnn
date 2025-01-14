@@ -40,13 +40,15 @@ class FEHeartSageV4Trainer(BaseTrainer):
         else:
             return False
 
-    def post_transform_data(self, data: (Union[Dict[str, Tensor], Tensor], Union[Dict[str, Tensor], Tensor])) -> (Union[Dict[str, Tensor], Tensor], Union[Dict[str, Tensor], Tensor]):
+    def post_transform_data(
+        self, data: (Union[Dict[str, Tensor], Tensor], Union[Dict[str, Tensor], Tensor])
+    ) -> (Union[Dict[str, Tensor], Tensor], Union[Dict[str, Tensor], Tensor]):
         inputs, labels = super().post_transform_data(data)
 
         batch_size, node_num, _ = inputs["edges_indices"].shape
 
         selected_node = torch.randint(
-            0, node_num, size=(self.selected_node_num, ), dtype=torch.int64, device=self.device
+            0, node_num, size=(self.selected_node_num,), dtype=torch.int64, device=self.device
         )
 
         inputs["selected_node"] = selected_node.unsqueeze(0).expand(batch_size, -1)
@@ -56,7 +58,9 @@ class FEHeartSageV4Trainer(BaseTrainer):
 
         return inputs, labels
 
-    def post_transform_val_data(self, data: (Union[Dict[str, Tensor], Tensor], Union[Dict[str, Tensor], Tensor])) -> (Union[Dict[str, Tensor], Tensor], Union[Dict[str, Tensor], Tensor]):
+    def post_transform_val_data(
+        self, data: (Union[Dict[str, Tensor], Tensor], Union[Dict[str, Tensor], Tensor])
+    ) -> (Union[Dict[str, Tensor], Tensor], Union[Dict[str, Tensor], Tensor]):
         inputs, labels = super().post_transform_val_data(data)
 
         batch_size, node_num, _ = inputs["edges_indices"].shape
@@ -102,7 +106,7 @@ class FEHeartSAGEModel(BaseModule):
             "message_config": self.message_layer_config,
             "decoder_layer_config": self.decoder_layer_config,
             "gpu": self.gpu,
-            "device": self.device
+            "device": self.device,
         }
 
         return {**base_config, **mlp_config}
@@ -117,9 +121,19 @@ class FEHeartSAGEModel(BaseModule):
 
         self.edge_laplace_mlp_layer = MLPLayerV2(self.edge_laplace_mlp_layer_config, prefix_name="edge_laplace_input")
 
-        self.message_update_layer = MLPLayerV2(
-            self.message_passing_layer_config["message_update_layer"], prefix_name="message"
-        )
+        if self.message_passing_layer_config["arch"] == "attention":
+            self.message_update_layer = nn.TransformerEncoderLayer(
+                d_model=self.message_passing_layer_config["message_update_layer"].get("d_model", 128),
+                nhead=self.message_passing_layer_config["message_update_layer"].get("nhead", 4),
+                dim_feedforward=self.message_passing_layer_config["message_update_layer"].get("dim_feedforward", 512),
+                dropout=self.message_passing_layer_config["message_update_layer"].get("dropout", 0.1),
+                device=self.device,
+                batch_first=True,
+            )
+        else:
+            self.message_update_layer = MLPLayerV2(
+                self.message_passing_layer_config["message_update_layer"], prefix_name="message"
+            )
 
         # aggregator pooling
         agg_method = self.message_passing_layer_config["agg_method"]
@@ -144,8 +158,11 @@ class FEHeartSAGEModel(BaseModule):
         select_batch = torch.arange(batch_size, device=device)
 
         select_indices = torch.randint(
-            0, seq_num, (batch_size, node_num, selected_edge_num),
-            dtype=torch.int64, device=device,
+            0,
+            seq_num,
+            (batch_size, node_num, selected_edge_num),
+            dtype=torch.int64,
+            device=device,
         )  # TODO: train/test setup different edge num
 
         selected_node = torch.arange(node_num, device=device)
@@ -225,8 +242,8 @@ class FEHeartSAGEModel(BaseModule):
         # ====== Message passing Encoder & Aggregate
         # ============ generate node emb (node emb itself)  TODO: test whether to involve the node itself
         input_node_emb = input_node_laplace_coord_emb + input_node_fea_emb  # (batch_size, node_num, node_emb)
-        node_seq_emb = (
-            input_node_emb.unsqueeze(dim=-2).expand(-1, -1, self.select_edge_num, -1)
+        node_seq_emb = input_node_emb.unsqueeze(dim=-2).expand(
+            -1, -1, self.select_edge_num, -1
         )  # (batch_size, node_num, 1, node_emb) => (batch_size, node_num, seq, node_emb)
 
         # ============ generate edge emb (agg by neighbours emb)
@@ -238,23 +255,37 @@ class FEHeartSAGEModel(BaseModule):
         )  # shape: (batch_size, node_num, seq, node_emb)
 
         # ============ generate relative coord emb (agg vertices emb at both ends + segment emb)
-        edge_coord = (
-            self._generate_edge_coord(input_node_coord, selected_edge)
+        edge_coord = self._generate_edge_coord(
+            input_node_coord, selected_edge
         )  # (batch_size, node_num, seq, coord_emb)
-        edge_laplace_coord = (
-            self._generate_edge_coord(input_node_laplace_coord, selected_edge)
+        edge_laplace_coord = self._generate_edge_coord(
+            input_node_laplace_coord, selected_edge
         )  # (batch_size, node_num, seq, coord_emb)
 
         # node_coord_emb = self.node_mlp_layer(node_coord_expanded)  # (batch_size, node_num, seq, coord_emb)
         # node_seq_coord_emb = self.node_mlp_layer(node_seq_coord)  # (batch_size, node_num, seq, coord_emb)
         edge_coord_emb = self.edge_mlp_layer(edge_coord)  # (batch_size, node_num, seq, coord_emb)
-        edge_laplace_coord_emb = self.edge_laplace_mlp_layer(edge_laplace_coord)  # (batch_size, node_num, seq, coord_emb)
+        edge_laplace_coord_emb = self.edge_laplace_mlp_layer(
+            edge_laplace_coord
+        )  # (batch_size, node_num, seq, coord_emb)
 
         coord_emb = edge_coord_emb + edge_laplace_coord_emb
 
-        # ============ agg node, edge, coord emb and send to message passing layer & pooling
-        emb_concat = torch.concat([node_seq_emb, edge_seq_emb, coord_emb], dim=-1)[:, selected_node, :, :]
-        node_emb_up = self.message_update_layer(emb_concat)  # shape: (batch_size, node_num, seq, node_emb)
+        if self.message_passing_layer_config["arch"] == "attention":
+            # ============ agg node, edge, coord emb and send to message passing layer & pooling
+            emb_concat = (node_seq_emb + edge_seq_emb + coord_emb)[:, selected_node, :, :]
+
+            node_emb_up = emb_concat.view(
+                -1, emb_concat.shape[2], emb_concat.shape[3]
+            )  # shape: (batch_size * selected_node_num, seq_len, embed_dim)
+            node_emb_up = self.message_update_layer(node_emb_up)  # shape: (batch_size * node_num, seq, node_emb)
+            node_emb_up = node_emb_up.view(emb_concat.shape)  # shape: (batch_size, node_num, seq, node_emb)
+        else:
+            # ============ agg node, edge, coord emb and send to message passing layer & pooling
+            emb_concat = torch.concat([node_seq_emb, edge_seq_emb, coord_emb], dim=-1)[:, selected_node, :, :]
+
+            node_emb_up = self.message_update_layer(emb_concat)  # shape: (batch_size, node_num, seq, node_emb)
+
         node_emb_pooling = self.message_agg_pooling(node_emb_up)  # shape: (batch_size, node_num, node_emb)
 
         # ============ res

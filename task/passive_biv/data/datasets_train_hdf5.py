@@ -90,8 +90,10 @@ class FEHeartSageTrainDataset(MultiHDF5Dataset, FEHeartSageDataset):
 
         selected_node_num = 300
 
-        selected_node = torch.randint(
-            0, node_num, size=(selected_node_num,), dtype=torch.int64, device="cpu"
+        selected_node = (
+            torch.randint(0, node_num, size=(selected_node_num,), dtype=torch.int64, device="cpu")
+            .unsqueeze(0)
+            .expand(batch_size, -1)
         )
 
         selected_node_num = torch.tensor(selected_node_num, dtype=torch.int64, device="cpu")

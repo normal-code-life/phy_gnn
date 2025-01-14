@@ -8,7 +8,7 @@ import torch
 import torchmetrics
 from torch import Tensor, nn
 from torch.utils.data import DataLoader
-from pkg.train.module.learning_rate_scheduler import DefaultLRScheduler
+
 from common.constant import MODEL_TRAIN, TRAIN_NAME, VALIDATION_NAME
 from pkg.train.callbacks.base_callback import CallbackList
 from pkg.train.callbacks.log_callback import LogCallback
@@ -17,6 +17,7 @@ from pkg.train.callbacks.scheduling_callback import SchedulingCallback
 from pkg.train.callbacks.tensorboard_callback import TensorBoardCallback
 from pkg.train.config.base_config import BaseConfig
 from pkg.train.datasets.base_datasets_train import AbstractTrainDataset, BaseDataset
+from pkg.train.module.learning_rate_scheduler import DefaultLRScheduler
 from pkg.train.module.loss import EuclideanDistanceMSE
 from pkg.utils.io import load_yaml
 from pkg.utils.logs import init_logger
@@ -378,7 +379,7 @@ class BaseTrainer(abc.ABC):
                 num_workers=dataset_param.get("val_num_workers", dataset_param.get("num_workers", 0)),
                 prefetch_factor=dataset_param.get("prefetch_factor", None),
                 pin_memory=dataset_param.get("pin_memory", False),
-                persistent_workers=dataset_param.get("persistent_workers", False)
+                persistent_workers=dataset_param.get("persistent_workers", False),
             )
 
             validation_data_loader = DataLoader(
@@ -387,7 +388,7 @@ class BaseTrainer(abc.ABC):
                 num_workers=dataset_param.get("val_num_workers", dataset_param.get("num_workers", 0)),
                 prefetch_factor=dataset_param.get("val_prefetch_factor", None),
                 pin_memory=dataset_param.get("pin_memory", False),
-                persistent_workers=dataset_param.get("persistent_workers", False)
+                persistent_workers=dataset_param.get("persistent_workers", False),
             )
 
         # ====== Create model ======
@@ -522,8 +523,9 @@ class BaseTrainer(abc.ABC):
         else:
             return data
 
-    def post_transform_data(self, data: (Union[Dict[str, Tensor], Tensor], Union[Dict[str, Tensor], Tensor])) -> (Union[Dict[str, Tensor], Tensor], Union[Dict[str, Tensor], Tensor]):
-
+    def post_transform_data(
+        self, data: (Union[Dict[str, Tensor], Tensor], Union[Dict[str, Tensor], Tensor])
+    ) -> (Union[Dict[str, Tensor], Tensor], Union[Dict[str, Tensor], Tensor]):
         inputs, labels = data
 
         return self.to_device(inputs), self.to_device(labels)
@@ -605,8 +607,9 @@ class BaseTrainer(abc.ABC):
     def validation_step_check(self, epoch: int, is_last_epoch: bool) -> bool:
         return True
 
-    def post_transform_val_data(self, data: (Union[Dict[str, Tensor], Tensor], Union[Dict[str, Tensor], Tensor])) -> (Union[Dict[str, Tensor], Tensor], Union[Dict[str, Tensor], Tensor]):
-
+    def post_transform_val_data(
+        self, data: (Union[Dict[str, Tensor], Tensor], Union[Dict[str, Tensor], Tensor])
+    ) -> (Union[Dict[str, Tensor], Tensor], Union[Dict[str, Tensor], Tensor]):
         inputs, labels = data
 
         return self.to_device(inputs), self.to_device(labels)

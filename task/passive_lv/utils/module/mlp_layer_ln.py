@@ -18,6 +18,4 @@ class MLPLayerLN(MLPLayerBase):
 
         # add batch/layer norm
         if self.layer_norm:
-            self.mlp_layers.add_module(
-                f"{self.layer_name}_ln", nn.LayerNorm(self.unit_sizes[-1], eps=1e-6)
-            )
+            self.mlp_layers.add_module(f"{self.layer_name}_ln", nn.LayerNorm(self.unit_sizes[-1], eps=1e-6))

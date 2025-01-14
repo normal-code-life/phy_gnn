@@ -7,4 +7,4 @@ class DefaultLRScheduler(LRScheduler):
         super(DefaultLRScheduler, self).__init__(optimizer, last_epoch)
 
     def get_lr(self):
-        return [group['lr'] * self.gamma for group in self.optimizer.param_groups]
+        return [group["lr"] * self.gamma for group in self.optimizer.param_groups]

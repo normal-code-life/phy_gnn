@@ -158,4 +158,3 @@ class LogCallback(CallBack):
 
         # Log the message, including the current epoch and elapsed time
         # self.logger.info(f"metrics per step: {batch} - {round(time.time() - self.start_time, 2)}s - {msg}")
-
