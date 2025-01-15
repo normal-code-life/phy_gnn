@@ -127,8 +127,11 @@ class FEHeartSAGEModel(BaseModule):
                 nhead=self.message_passing_layer_config["message_update_layer"].get("nhead", 4),
                 dim_feedforward=self.message_passing_layer_config["message_update_layer"].get("dim_feedforward", 512),
                 dropout=self.message_passing_layer_config["message_update_layer"].get("dropout", 0.1),
-                device=self.device,
+                # device=self.device,
                 batch_first=True,
+            )
+            self.message_update_layer_mlp = MLPLayerV2(
+                self.message_passing_layer_config["message_update_layer_mlp"], prefix_name="message"
             )
         else:
             self.message_update_layer = MLPLayerV2(
@@ -271,19 +274,17 @@ class FEHeartSAGEModel(BaseModule):
 
         coord_emb = edge_coord_emb + edge_laplace_coord_emb
 
-        if self.message_passing_layer_config["arch"] == "attention":
-            # ============ agg node, edge, coord emb and send to message passing layer & pooling
-            emb_concat = (node_seq_emb + edge_seq_emb + coord_emb)[:, selected_node, :, :]
+        # ============ agg node, edge, coord emb and send to message passing layer & pooling
+        emb_concat = torch.concat([node_seq_emb, edge_seq_emb, coord_emb], dim=-1)[:, selected_node, :, :]
 
+        if self.message_passing_layer_config["arch"] == "attention":
             node_emb_up = emb_concat.view(
                 -1, emb_concat.shape[2], emb_concat.shape[3]
             )  # shape: (batch_size * selected_node_num, seq_len, embed_dim)
             node_emb_up = self.message_update_layer(node_emb_up)  # shape: (batch_size * node_num, seq, node_emb)
             node_emb_up = node_emb_up.view(emb_concat.shape)  # shape: (batch_size, node_num, seq, node_emb)
+            node_emb_up = self.message_update_layer_mlp(node_emb_up)
         else:
-            # ============ agg node, edge, coord emb and send to message passing layer & pooling
-            emb_concat = torch.concat([node_seq_emb, edge_seq_emb, coord_emb], dim=-1)[:, selected_node, :, :]
-
             node_emb_up = self.message_update_layer(emb_concat)  # shape: (batch_size, node_num, seq, node_emb)
 
         node_emb_pooling = self.message_agg_pooling(node_emb_up)  # shape: (batch_size, node_num, node_emb)

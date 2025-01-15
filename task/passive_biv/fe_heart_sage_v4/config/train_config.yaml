@@ -1,10 +1,10 @@
 task_base:
   task_name: passive_biv
   model_name: fe_heart_sage_v4
-  exp_name: rec_9
+  exp_name: rec_9_1
   overwrite_exp_folder: True
   gpu: True
-  cuda_core: 1
+  cuda_core: 0
   gpu_num: 1
 task_trainer:
   epochs: 10000
@@ -12,7 +12,7 @@ task_trainer:
     name: adam
     learning_rate: 0.001  # Learning rate for training the network
     scheduler: multi_step
-    milestones: [500, 1000, 1500, 2000, 2500, 3000, 3500, 4000]
+    milestones:  [250, 500, 750, 1000]
     ratio: 200
     decay_per_step: 0.5
   loss_param:
@@ -30,10 +30,10 @@ task_trainer:
       save_config: True
       save_task_code: True
     scheduling:
-      avoid_work_hour: False
+      avoid_work_hour: True
   dataset_param:
     batch_size: 20
-    val_batch_size: 20
+    val_batch_size: 1
     num_workers: 20
     prefetch_factor: 1
     val_prefetch_factor: 1
@@ -84,10 +84,14 @@ task_train:
 #      layer_norm: True
 #      activation: rrelu
     message_update_layer:
-      d_model: 128
+      d_model: 384
       nhead: 4
-      dim_feedforward: 512
+      dim_feedforward: 1536
       dropout: 0.025
+    message_update_layer_mlp:
+      unit_sizes: [384, 128]
+      layer_norm: False
+      activation: rrelu
   theta_input_mlp_layer:
     unit_sizes: [384, 256, 128, 128]
     layer_norm: True
