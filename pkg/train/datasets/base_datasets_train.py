@@ -39,6 +39,7 @@ class BaseIterableDataset(AbstractTrainDataset, IterableDataset):
 
     def get_head_inputs(self, batch_size) -> Dict:
         res = {}
+
         for i in range(batch_size):
             inputs, _ = next(self.__iter__())
 

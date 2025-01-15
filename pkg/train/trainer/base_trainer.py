@@ -198,6 +198,21 @@ class BaseTrainer(abc.ABC):
     def create_model(self) -> None:
         raise NotImplementedError("please implement create_model func")
 
+    def model_to_cuda(self) -> None:
+        if not self.gpu:
+            return
+
+        if self.gpu_num > 1:
+            self.model = nn.DataParallel(
+                self.model, device_ids=[i + self.task_data["cuda_core"] for i in range(self.gpu_num)]
+            )
+
+        self.model = self.model.cuda()
+        logger.info(f"cuda version: {torch.version.cuda}")
+        logger.info(f"default cuda device check: {self.task_data['cuda_core']}")
+        logger.info(f"model device check: {next(self.model.parameters()).device}")
+        logger.info(f"model device count: {torch.cuda.device_count()}")
+
     def print_model(self, model: nn.Module, inputs: Dict):
         default_summary_info = {
             "show_input": False,
@@ -211,6 +226,9 @@ class BaseTrainer(abc.ABC):
 
         logger.info("=== Print Model Structure ===")
         logger.info(model)
+
+        if self.gpu:
+            inputs = {key: inputs[key].cuda() for key in inputs}
 
         summary_model(
             model,
@@ -394,19 +412,9 @@ class BaseTrainer(abc.ABC):
         # ====== Create model ======
         self.create_model()
 
+        self.model_to_cuda()
+
         self.print_model(self.model, train_dataset.get_head_inputs(dataset_param.get("batch_size", 1)))
-
-        if self.gpu:
-            if self.gpu_num > 1:
-                self.model = nn.DataParallel(
-                    self.model, device_ids=[i + self.task_data["cuda_core"] for i in range(self.gpu_num)]
-                )
-
-            self.model = self.model.cuda()
-            logger.info(f"cuda version: {torch.version.cuda}")
-            logger.info(f"default cuda device check: {self.task_data['cuda_core']}")
-            logger.info(f"model device check: {next(self.model.parameters()).device}")
-            logger.info(f"model device count: {torch.cuda.device_count()}")
 
         if self.static_graph:
             self.model = torch.jit.trace(self.model, train_dataset.get_head_inputs(1))
@@ -414,10 +422,13 @@ class BaseTrainer(abc.ABC):
         # ====== Init optimizer ======
         self.create_optimize()
 
+        # ====== Init learning rate ======
         self.create_lr()
 
-        # ====== Init loss & metrics ======
+        # ====== Init loss ======
         self.create_loss()
+
+        # ====== Init metrics ======
         self.create_metrics()
 
         # ====== Init Model Weight ======

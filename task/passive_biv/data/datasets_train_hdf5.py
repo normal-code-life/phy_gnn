@@ -96,10 +96,7 @@ class FEHeartSageTrainDataset(MultiHDF5Dataset, FEHeartSageDataset):
             .expand(batch_size, -1)
         )
 
-        selected_node_num = torch.tensor(selected_node_num, dtype=torch.int64, device="cpu")
-
         res["selected_node"] = selected_node
-        res["selected_node_num"] = selected_node_num
 
         return res
 

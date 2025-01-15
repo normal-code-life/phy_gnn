@@ -133,10 +133,12 @@ class FEHeartSAGEModel(BaseModule):
             self.message_update_layer_mlp = MLPLayerV2(
                 self.message_passing_layer_config["message_update_layer_mlp"], prefix_name="message"
             )
-        else:
+        elif self.message_passing_layer_config["arch"] == "mlp":
             self.message_update_layer = MLPLayerV2(
                 self.message_passing_layer_config["message_update_layer"], prefix_name="message"
             )
+        else:
+            raise ValueError(f"please define the arch properly, current is {self.message_passing_layer_config['arch']}")
 
         # aggregator pooling
         agg_method = self.message_passing_layer_config["agg_method"]
