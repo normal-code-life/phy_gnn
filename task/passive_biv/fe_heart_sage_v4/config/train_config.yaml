@@ -1,11 +1,11 @@
 task_base:
   task_name: passive_biv
   model_name: fe_heart_sage_v4
-  exp_name: rec_8_3
+  exp_name: rec_9_2
   overwrite_exp_folder: True
   gpu: True
   cuda_core: 0
-  gpu_num: 1
+  gpu_num: 2
 task_trainer:
   epochs: 10000
   optimizer_param:
@@ -80,20 +80,20 @@ task_train:
       agg_dim: 2
       keep_dim: False
     # used for mlp
-    message_update_layer:
-      unit_sizes: [384, 1536, 512, 128]
-      layer_norm: True
-      activation: rrelu
-    # used for attention
 #    message_update_layer:
-#      d_model: 384
-#      nhead: 4
-#      dim_feedforward: 1536
-#      dropout: 0.025
-#    message_update_layer_mlp:
-#      unit_sizes: [384, 128]
-#      layer_norm: False
+#      unit_sizes: [384, 1536, 512, 128]
+#      layer_norm: True
 #      activation: rrelu
+    # used for attention
+    message_update_layer:
+      d_model: 384
+      nhead: 4
+      dim_feedforward: 1536
+      dropout: 0.025
+    message_update_layer_mlp:
+      unit_sizes: [384, 128]
+      layer_norm: False
+      activation: rrelu
   theta_input_mlp_layer:
     unit_sizes: [384, 256, 128, 128]
     layer_norm: True
