@@ -230,6 +230,10 @@ class BaseTrainer(abc.ABC):
         if self.gpu:
             inputs = {key: inputs[key].cuda() for key in inputs}
 
+        if self.gpu_num >= 2:
+            logger.info("when gpu num is over 2, we do not support model summary function")
+            return
+
         summary_model(
             model,
             inputs,

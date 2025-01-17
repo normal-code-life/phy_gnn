@@ -133,7 +133,7 @@ class FEHeartSAGEModel(BaseModule):
             self.message_update_layer_mlp = MLPLayerV2(
                 self.message_passing_layer_config["message_update_layer_mlp"], prefix_name="message"
             )
-        elif self.message_passing_layer_config["arch"] == "mlp":
+        elif self.message_passing_layer_config["arch"] == "attention":
             self.message_update_layer = MLPLayerV2(
                 self.message_passing_layer_config["message_update_layer"], prefix_name="message"
             )
