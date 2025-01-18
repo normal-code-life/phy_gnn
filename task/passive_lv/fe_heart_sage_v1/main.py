@@ -1,4 +1,4 @@
-from task.passive_lv.graph_sage.train.model import GraphSAGETrainer
+from task.passive_lv.fe_heart_sage_v1.train.model import GraphSAGETrainer
 
 if __name__ == "__main__":
     # fetch config path and serve to our model
