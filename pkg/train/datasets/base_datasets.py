@@ -194,14 +194,14 @@ def import_data_config(task_name: str, model_name: str, dataset_name: str) -> Di
     data_config = base_config["task_data"]
 
     task_base = base_config["task_base"]
-    data_config["task_name"] = task_base["task_name"]
-    data_config["exp_name"] = task_base["exp_name"]
-    data_config["model_name"] = task_base["model_name"]
+    data_config["task_name"] = task_base.get("task_name", task_name)
+    data_config["exp_name"] = task_base.get("exp_name", "default")
+    data_config["model_name"] = task_base.get("model_name", model_name)
 
     data_config["repo_path"] = repo_root_path
     data_config["task_data_path"] = f"{repo_root_path}/pkg/data/{dataset_name}"
     data_config["task_path"] = f"{repo_root_path}/task/{task_name}/{model_name}"
-    data_config["gpu"] = base_config["task_base"]["gpu"]
+    data_config["gpu"] = base_config["task_base"].get("gpu", False)
     data_config["exp_name"] = base_config["task_base"]["exp_name"]
 
     return data_config

@@ -16,6 +16,7 @@ class AbstractDataPreparationDataset(BaseAbstractDataPreparationDataset, BaseAbs
 
     def prepare_dataset_process(self):
         if check_and_clean_path(self.dataset_path, self.overwrite_data):
+            logger.info(f"data generation starts: {self.dataset_path}")
             self._data_generation()
         else:
             logger.info(f"data already exists, no overwrite: {self.dataset_path}")

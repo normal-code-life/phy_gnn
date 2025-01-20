@@ -79,6 +79,16 @@ class FEHeartSageTrainDataset(BaseDataset, FEHeartSageDataset):
 
         displacement = self._displacement[index]
 
+        # for version `fe_heart_sage_v3` we need to input extra `selected_node` and `selected_node_num`:
+        # considering it is only for demo, we will use a dummy node num
+        selected_node_num = 300
+
+        selected_node = (
+            torch.randint(0, node_coord.shape[1], size=(selected_node_num,), dtype=torch.int64, device="cpu")
+            .unsqueeze(0)
+            .expand(node_coord.shape[0], -1)
+        )
+
         # if self.gpu:
         #     node_features = node_features.cuda()
         #     node_coord = node_coord.cuda()
@@ -93,6 +103,7 @@ class FEHeartSageTrainDataset(BaseDataset, FEHeartSageDataset):
             "edges_indices": edges_indices,
             "shape_coeffs": shape_coeffs,
             "theta_vals": theta_vals,
+            "selected_node": selected_node,
         }
 
         labels = {"displacement": displacement}

@@ -2,9 +2,7 @@ import argparse
 import threading
 import time
 from typing import List
-
 import numpy as np
-
 from common.constant import TRAIN_NAME, VALIDATION_NAME
 from pkg.train.datasets.base_datasets import import_data_config
 from pkg.utils.monitor import monitor_cpu_usage
@@ -15,7 +13,7 @@ np.random.seed(753)
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Model Selection")
 
-    parser.add_argument("--model_name", type=str, default="", help="model name")
+    parser.add_argument("--model_name", type=str, default="fe_heart_sage_v3", help="model name")
 
     args: (argparse.Namespace, List[str]) = parser.parse_known_args()
 

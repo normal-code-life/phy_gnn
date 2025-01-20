@@ -23,24 +23,17 @@ class FEHeartSagePreparationDataset(AbstractDataPreparationDataset, FEHeartSageD
         )
         self.select_nodes: Optional[np.ndarray] = None
 
-    def prepare_dataset_process(self):
-        if check_and_clean_path(self.dataset_path, self.overwrite_data):
-            self._data_generation()
-        else:
-            logger.info(f"data already exists, no overwrite: {self.dataset_path}")
-
-        self._data_down_sampling_node_selection()
-        self._data_generation()
-
-        if self.data_type == TRAIN_NAME and check_and_clean_path(self.stats_data_path, self.overwrite_stats):
-            self._data_stats()
-
     def _data_generation(self):
         # fmt: off
+
         self._prepare_features()
+
         self._prepare_global_features("global_feature", self.theta_original_path, self.theta_path, np.float32, False)  # noqa
+
         self._prepare_global_features("shape_coeff", self.shape_coeff_original_path, self.shape_coeff_path, np.float32, False)  # noqa
+
         self._prepare_edge()
+
         # fmt: on
 
     def _data_stats(self):

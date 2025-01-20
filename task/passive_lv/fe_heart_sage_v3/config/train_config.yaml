@@ -1,0 +1,111 @@
+task_base:
+  task_name: lvData
+  model_name: fe_heart_sage_v3
+  exp_name: old_rec_9
+  overwrite_exp_folder: True
+  gpu: True
+  cuda_core: 0
+  gpu_num: 1
+task_data:
+  task_data_name: lvData
+  overwrite_data: True
+  edge_indices_generate_method: 4
+  n_shape_coeff: 32  # Number of shape coefficients to input to the emulator
+  sections: [0, 20, 50, 100, 250, 500]
+  nodes_per_sections: [20, 30, 30, 10, 10]
+  down_sampling: 1.0  # only happens on train dataset
+task_trainer:
+  epochs: 3000
+  optimizer_param:
+    name: adam
+    learning_rate: 0.001  # Learning rate for training the network
+    scheduler: multi_step
+    milestones:  [250, 500, 750, 1000, 1250, 1500]
+    ratio: 200
+    decay_per_step: 0.5
+  loss_param:
+    name: euclidean_distance_mse
+  metrics_param:
+    - mean_absolute_error
+  callback_param:
+    tensorboard:
+      profiler: False
+    model_checkpoint:
+      save_freq: 100
+      save_model_freq: 200
+    logs:
+      update_freq: 1
+      save_config: True
+      save_task_code: True
+    scheduling:
+      avoid_work_hour: False
+  dataset_param:
+    batch_size: 20
+    val_batch_size: 10
+    num_workers: 20
+    prefetch_factor: 1
+    val_prefetch_factor: 1
+  static_graph: False
+  init_model_weights: True
+task_train:
+  select_edge_num: 12
+  select_node_num: 300
+  input_layer:
+#    node_coord:
+#      unit_sizes: [3, 128]
+#      activation: rrelu
+#      init_func: xavier_normal
+    node_coord:
+      unit_sizes: [3, 128]
+      activation: rrelu
+      init_func: xavier_normal
+    node_features:
+      unit_sizes: [10, 128]
+      activation: rrelu
+      init_func: xavier_normal
+    theta_vals:
+      unit_sizes: [4, 128]
+      activation: rrelu
+      init_func: xavier_normal
+    shape_coeffs:
+      unit_sizes: [32, 128]
+      activation: rrelu
+      init_func: xavier_normal
+  edge_mlp_layer:
+    unit_sizes: [3, 128]
+    activation: rrelu
+  edge_laplace_mlp_layer:
+    unit_sizes: [8, 128]
+    activation: rrelu
+  message_passing_layer:
+    agg_method: MeanAggregator
+    arch: attention
+    agg_layer:
+      agg_dim: 2
+      keep_dim: False
+    # used for mlp
+#    message_update_layer:
+#      unit_sizes: [384, 1536, 512, 128]
+#      layer_norm: True
+#      activation: rrelu
+    # used for attention
+    message_update_layer:
+      d_model: 384
+      nhead: 4
+      dim_feedforward: 1536
+      dropout: 0.025
+    message_update_layer_mlp:
+      unit_sizes: [384, 128]
+      layer_norm: False
+      activation: rrelu
+  theta_input_mlp_layer:
+    unit_sizes: [256, 128, 128]
+    layer_norm: True
+    activation: rrelu
+  decoder_layer:
+    unit_sizes: [256, 128, 128, 1]
+    layer_norm: False
+    activation: rrelu
+    output_dim: 3
+  labels:
+    - displacement

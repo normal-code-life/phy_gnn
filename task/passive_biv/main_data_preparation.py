@@ -4,7 +4,7 @@ from typing import List
 
 import numpy as np
 
-from common.constant import HDF5, TEST_NAME, TRAIN_NAME, VALIDATION_NAME, TFrecord
+from common.constant import HDF5, TEST_NAME, TRAIN_NAME, VALIDATION_NAME
 from pkg.data_utils.dataset_generation import split_dataset_indices
 from pkg.train.datasets.base_datasets import import_data_config
 from task.passive_biv.data.datasets_preparation_hdf5 import PassiveBiVPreparationDataset
