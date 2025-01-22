@@ -5,7 +5,7 @@ import torch
 from torch import Tensor
 from torchvision import transforms
 
-from common.constant import MAX_VAL, MIN_VAL, MODEL_TRAIN, PERC_10_VAL, PERC_90_VAL, TRAIN_NAME
+from common.constant import MAX_VAL, MIN_VAL, MODEL_TRAIN, PERC_10_VAL, PERC_90_VAL
 from pkg.train.datasets.base_datasets_train import MultiHDF5Dataset
 from pkg.train.module.data_transform import ClampTensor, CovertToModelInputs, MaxMinNorm, SqueezeDataDim, ToTensor
 from task.passive_biv.data.datasets import FEHeartSageDataset

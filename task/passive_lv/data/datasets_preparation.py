@@ -5,23 +5,27 @@ import numpy as np
 import pandas as pd
 from numba.typed import List as Numba_List
 
-from common.constant import TRAIN_NAME
 from pkg.data_utils.edge_generation import generate_distance_based_edges_nb, generate_distance_based_edges_ny
 from pkg.train.datasets.base_datasets_preparation import AbstractDataPreparationDataset
-from pkg.utils.io import check_and_clean_path
 from task.passive_lv.data import logger
-from task.passive_lv.data.datasets import FEHeartSageDataset
+from task.passive_lv.data.datasets import FEPassiveLVHeartDataset
 
 
-class FEHeartSagePreparationDataset(AbstractDataPreparationDataset, FEHeartSageDataset):
+class FEPassiveLVHeartPreparationDataset(AbstractDataPreparationDataset, FEPassiveLVHeartDataset):
     def __init__(self, data_config: Dict, data_type: str) -> None:
-        super(FEHeartSagePreparationDataset, self).__init__(data_config, data_type)
+        super(FEPassiveLVHeartPreparationDataset, self).__init__(data_config, data_type)
+
+        logger.info(f"=== init FEPassiveLVHeartPreparationDataset {data_type} data config start ===")
 
         self.edge_indices_generate_method = data_config["edge_indices_generate_method"]
-        self.down_sampling: Optional[float] = (
-            data_config.get("down_sampling", None) if self.data_type == TRAIN_NAME else None
-        )
+        # self.down_sampling: Optional[float] = (
+        #     data_config.get("down_sampling", None) if self.data_type == TRAIN_NAME else None
+        # )
         self.select_nodes: Optional[np.ndarray] = None
+
+        # logger.info(f"edge_indices_generate_method is {self.edge_indices_generate_method}")
+
+        logger.info(f"=== init FEPassiveLVHeartPreparationDataset {data_type} data config done ===")
 
     def _data_generation(self):
         # fmt: off
@@ -43,65 +47,69 @@ class FEHeartSagePreparationDataset(AbstractDataPreparationDataset, FEHeartSageD
 
         self._prepare_node_coord_stats()
 
-    def _data_down_sampling_node_selection(self):
-        if self.down_sampling is None or self.down_sampling == 1.0:
-            return
-
-        data = np.load(self.displacement_original_path)
-        node_size = data.shape[1]
-
-        self.select_nodes = np.random.choice(node_size, size=int(node_size * self.down_sampling), replace=False)
-
-        logger.info(f"given the down sampling ratio {self.down_sampling}, we choice {len(self.select_nodes)} nodes")
+    # def _data_down_sampling_node_selection(self):
+    #     if self.down_sampling is None or self.down_sampling == 1.0:
+    #         return
+    #
+    #     data = np.load(self.displacement_original_path)
+    #     node_size = data.shape[1]
+    #
+    #     self.select_nodes = np.random.choice(node_size, size=int(node_size * self.down_sampling), replace=False)
+    #
+    #     logger.info(f"given the down sampling ratio {self.down_sampling}, we choice {len(self.select_nodes)} nodes")
 
     def _prepare_features(self) -> None:
+        logger.info("====== prepare node and displacement start ======")
+
         node_features = np.load(self.node_feature_original_path).astype(np.float32)
         node_coord = np.load(self.node_coord_original_path).astype(np.float32)
         displacement = np.load(self.displacement_original_path).astype(np.float32)
 
-        if self.down_sampling:
-            logger.info(f"given the down sampling ratio {self.down_sampling}")
-
-            num_samples, num_nodes, fea_dim = node_features.shape
-            _, _, coord_dim = node_coord.shape
-            _, _, displacement_dim = displacement.shape
-
-            down_sample_node = int(num_nodes * self.down_sampling)
-
-            new_node_features = np.empty((num_samples, down_sample_node, fea_dim), dtype=np.float32)
-            new_node_coord = np.empty((num_samples, down_sample_node, coord_dim), dtype=np.float32)
-            new_displacement = np.empty((num_samples, down_sample_node, displacement_dim), dtype=np.float32)
-
-            for i in range(num_samples):
-                select_nodes = np.random.choice(num_nodes, size=down_sample_node, replace=False)
-
-                new_node_features[i] = node_features[i, select_nodes, :]
-                new_node_coord[i] = node_coord[i, select_nodes, :]
-                new_displacement[i] = displacement[i, select_nodes, :]
-
-            node_features = new_node_features
-            node_coord = new_node_coord
-            displacement = new_displacement
+        # if self.down_sampling or self.down_sampling < 1.0:
+        #     logger.info(f"given the down sampling ratio {self.down_sampling}")
+        #
+        #     num_samples, num_nodes, fea_dim = node_features.shape
+        #     _, _, coord_dim = node_coord.shape
+        #     _, _, displacement_dim = displacement.shape
+        #
+        #     down_sample_node = int(num_nodes * self.down_sampling)
+        #
+        #     new_node_features = np.empty((num_samples, down_sample_node, fea_dim), dtype=np.float32)
+        #     new_node_coord = np.empty((num_samples, down_sample_node, coord_dim), dtype=np.float32)
+        #     new_displacement = np.empty((num_samples, down_sample_node, displacement_dim), dtype=np.float32)
+        #
+        #     for i in range(num_samples):
+        #         select_nodes = np.random.choice(num_nodes, size=down_sample_node, replace=False)
+        #
+        #         new_node_features[i] = node_features[i, select_nodes, :]
+        #         new_node_coord[i] = node_coord[i, select_nodes, :]
+        #         new_displacement[i] = displacement[i, select_nodes, :]
+        #
+        #     node_features = new_node_features
+        #     node_coord = new_node_coord
+        #     displacement = new_displacement
 
         # === save node features
         np.save(self.node_feature_path, node_features)
         np.save(self.node_coord_path, node_coord)
         np.save(self.displacement_path, displacement)
 
-        logger.info("====== prepare node and displacement DONE ======")
+        logger.info("====== prepare node and displacement done ======")
 
     def _prepare_global_features(
         self, fea_name: str, read_path: str, save_path: str, np_type: np.dtype, can_down_sampling: bool
     ) -> None:
+        logger.info(f"====== prepare {fea_name} start ======")
+
         features = np.load(read_path).astype(np_type)
 
-        if self.down_sampling and can_down_sampling:
-            features = features[:, self.select_nodes, :]
+        # if self.down_sampling and self.down_sampling < 1.0:
+        #     features = features[:, self.select_nodes, :]
 
         # === save node features
         np.save(save_path, features)
 
-        logger.info(f"====== prepare {fea_name} DONE ======")
+        logger.info(f"====== prepare {fea_name} done ======")
 
     def _prepare_edge(self):
         node_coords = np.load(f"{self.node_coord_path}").astype(np.float32)

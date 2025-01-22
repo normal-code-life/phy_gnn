@@ -1,7 +1,5 @@
 task_base:
-  exp_name: default
-#  overwrite_exp_folder: True
-  gpu: False
+  task_name: passive_lv
 task_data:
   task_data_name: lvData
   overwrite_data: False

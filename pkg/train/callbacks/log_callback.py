@@ -131,7 +131,7 @@ class LogCallback(CallBack):
             return
 
         if "metrics" not in kwargs:
-            raise ValueError(f"on_train_batch_end error, metrics not in the kwargs")
+            raise ValueError("on_train_batch_end error, metrics not in the kwargs")
 
         metrics = kwargs["metrics"]
 

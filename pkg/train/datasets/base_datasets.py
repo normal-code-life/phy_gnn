@@ -45,12 +45,12 @@ class BaseAbstractDataset(abc.ABC):
         kwargs : dict
             Additional keyword arguments.
         """
-        logger.info(f"====== init {data_type} data config ======")
-        logger.info(data_config)
+        logger.info(f"=== init BaseAbstractDataset {data_type} data config start ===")
+        logger.info(f"data_config is: {data_config}")
 
         # common config
         # === Hardware configuration
-        self.gpu = data_config["gpu"]
+        self.gpu = data_config.get("gpu", False)
         self.cuda_core = data_config.get("cuda_core", 0)
         self.platform = platform.system()
 
@@ -62,7 +62,7 @@ class BaseAbstractDataset(abc.ABC):
         self.data_type = data_type
 
         # === exp
-        self.exp_name = data_config["exp_name"]
+        self.exp_name = data_config.get("exp_name", "")
 
         # common path
         # === base path
@@ -76,17 +76,18 @@ class BaseAbstractDataset(abc.ABC):
         # === traditional model training dataset path (non-tfrecord version)
         self.stats_data_path = f"{self.base_data_path}/stats"
         self.dataset_path = f"{self.base_data_path}/datasets/{self.data_type}"
+        self.data_size_path = f"{self.stats_data_path}/{self.data_type}_data_size.npy"
 
         logger.info(f"base_data_path is {self.base_data_path}")
         logger.info(f"base_task_path is {self.base_task_path}")
         logger.info(f"stats_data_path is {self.stats_data_path}")
         logger.info(f"dataset_path is {self.dataset_path}")
-
-        self.data_size_path = f"{self.stats_data_path}/{self.data_type}_data_size.npy"
         logger.info(f"data_size_path is {self.data_size_path}")
 
         # hdf5 config
         self.dataset_h5_path = f"{self.dataset_path}" + "/data_{}.h5"
+
+        logger.info(f"dataset_h5_path is {self.dataset_h5_path}")
 
         # tfrecord config
         # === tfrecord model training dataset path (tfrecord version)
@@ -101,6 +102,8 @@ class BaseAbstractDataset(abc.ABC):
         self.context_description: Optional[Dict[str, str]] = None  # please overwrite this variable
 
         self.feature_description: Optional[Dict[str, str]] = None  # please overwrite this variable
+
+        logger.info(f"=== init BaseAbstractDataset {data_type} data config done ===")
 
 
 class BaseAbstractDataPreparationDataset(abc.ABC):
@@ -195,13 +198,13 @@ def import_data_config(task_name: str, model_name: str, dataset_name: str) -> Di
 
     task_base = base_config["task_base"]
     data_config["task_name"] = task_base.get("task_name", task_name)
-    data_config["exp_name"] = task_base.get("exp_name", "default")
+    # data_config["exp_name"] = task_base.get("exp_name", "default")
     data_config["model_name"] = task_base.get("model_name", model_name)
 
     data_config["repo_path"] = repo_root_path
     data_config["task_data_path"] = f"{repo_root_path}/pkg/data/{dataset_name}"
     data_config["task_path"] = f"{repo_root_path}/task/{task_name}/{model_name}"
-    data_config["gpu"] = base_config["task_base"].get("gpu", False)
-    data_config["exp_name"] = base_config["task_base"]["exp_name"]
+    # data_config["gpu"] = base_config["task_base"].get("gpu", False)
+    # data_config["exp_name"] = base_config["task_base"]["exp_name"]
 
     return data_config

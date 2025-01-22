@@ -15,16 +15,20 @@ class AbstractDataPreparationDataset(BaseAbstractDataPreparationDataset, BaseAbs
         self.overwrite_stats = data_config.get("overwrite_stats", False)
 
     def prepare_dataset_process(self):
+        logger.info("=== init AbstractDataPreparationDataset prepare_dataset_process start ===")
+
         if check_and_clean_path(self.dataset_path, self.overwrite_data):
             logger.info(f"data generation starts: {self.dataset_path}")
             self._data_generation()
         else:
-            logger.info(f"data already exists, no overwrite: {self.dataset_path}")
+            logger.info(f"data already exists, no need overwrite: {self.dataset_path}")
 
         if self.data_type == TRAIN_NAME and check_and_clean_path(self.stats_data_path, self.overwrite_stats):
             self._data_stats()
 
         self._data_stats_total_size()
+
+        logger.info("=== init AbstractDataPreparationDataset prepare_dataset_process done ===")
 
     @abc.abstractmethod
     def _data_generation(self):

@@ -1,5 +1,3 @@
-from typing import Dict
-
 from torch import nn
 
 from pkg.train.layer.mlp_layer import MLPLayerBase

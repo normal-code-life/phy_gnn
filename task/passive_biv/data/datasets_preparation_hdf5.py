@@ -4,7 +4,7 @@ import h5py
 import numpy as np
 from numba.typed import List as Numba_List
 
-from common.constant import DARWIN, TEST_NAME, TRAIN_NAME, VALIDATION_NAME
+from common.constant import DARWIN, TRAIN_NAME, VALIDATION_NAME
 from pkg.data_utils.edge_generation import generate_distance_based_edges_nb, generate_distance_based_edges_ny
 from pkg.data_utils.stats import stats_analysis
 from pkg.train.datasets.base_datasets_preparation import AbstractDataPreparationDataset

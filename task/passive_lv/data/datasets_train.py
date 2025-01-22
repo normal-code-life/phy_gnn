@@ -5,10 +5,10 @@ import torch
 
 from pkg.train.datasets.base_datasets_train import BaseDataset
 from task.passive_lv.data import logger
-from task.passive_lv.data.datasets import FEHeartSageDataset
+from task.passive_lv.data.datasets import FEPassiveLVHeartDataset
 
 
-class FEHeartSageTrainDataset(BaseDataset, FEHeartSageDataset):
+class FEHeartSageTrainDataset(BaseDataset, FEPassiveLVHeartDataset):
     def __init__(self, data_config: Dict, data_type: str) -> None:
         super().__init__(data_config, data_type)
 
