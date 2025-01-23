@@ -12,7 +12,7 @@ from pkg.utils.logs import init_logger
 from task.passive_lv.data.datasets_train import FEHeartSageTrainDataset
 from task.passive_lv.utils.module.mlp_layer_ln import MLPLayerLN
 
-logger = init_logger("FEHeartSage")
+logger = init_logger("FEPassiveLVHeartSage")
 
 torch.manual_seed(753)
 torch.set_printoptions(precision=8)

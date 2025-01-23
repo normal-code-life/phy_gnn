@@ -15,9 +15,13 @@ class FEPassiveLVHeartPreparationDataset(AbstractDataPreparationDataset, FEPassi
     def __init__(self, data_config: Dict, data_type: str) -> None:
         super(FEPassiveLVHeartPreparationDataset, self).__init__(data_config, data_type)
 
-        logger.info(f"=== init FEPassiveLVHeartPreparationDataset {data_type} data config start ===")
+        logger.info(f"=== Init FEPassiveLVHeartPreparationDataset {data_type} data config start ===")
 
         self.edge_indices_generate_method = data_config["edge_indices_generate_method"]
+        self.sections = data_config["sections"]
+        self.nodes_per_sections = data_config["nodes_per_sections"]
+        self.default_padding_value = data_config.get("default_padding_value", -1)
+
         # self.down_sampling: Optional[float] = (
         #     data_config.get("down_sampling", None) if self.data_type == TRAIN_NAME else None
         # )
@@ -25,7 +29,7 @@ class FEPassiveLVHeartPreparationDataset(AbstractDataPreparationDataset, FEPassi
 
         # logger.info(f"edge_indices_generate_method is {self.edge_indices_generate_method}")
 
-        logger.info(f"=== init FEPassiveLVHeartPreparationDataset {data_type} data config done ===")
+        logger.info(f"=== Init FEPassiveLVHeartPreparationDataset {data_type} data config done ===")
 
     def _data_generation(self):
         # fmt: off

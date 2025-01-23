@@ -26,7 +26,7 @@ if __name__ == "__main__":
 
     model_name = args[0].model_name
 
-    config = import_data_config("passive_lv", model_name, "lvData")
+    config = import_data_config("passive_lv", model_name)
 
     for data_type in [TRAIN_NAME, VALIDATION_NAME]:
         data_preprocess = FEPassiveLVHeartPreparationDataset(config, data_type)

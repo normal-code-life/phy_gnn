@@ -12,6 +12,8 @@ class FEHeartSageTrainDataset(BaseDataset, FEPassiveLVHeartDataset):
     def __init__(self, data_config: Dict, data_type: str) -> None:
         super().__init__(data_config, data_type)
 
+        self.n_shape_coeff = data_config.get("n_shape_coeff", 2)
+
         # node features (used real node features)
         # === fetch node features
         node_features = np.load(self.node_feature_path).astype(np.float32)
@@ -80,7 +82,7 @@ class FEHeartSageTrainDataset(BaseDataset, FEPassiveLVHeartDataset):
         displacement = self._displacement[index]
 
         # for version `fe_heart_sage_v3` we need to input extra `selected_node` and `selected_node_num`:
-        # considering it is only for demo, we will use a dummy node num
+        # using this strategy is only a transitional solution, it will be overwritten later on.
         selected_node_num = 300
 
         selected_node = (

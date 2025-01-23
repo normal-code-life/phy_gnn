@@ -45,7 +45,7 @@ class BaseAbstractDataset(abc.ABC):
         kwargs : dict
             Additional keyword arguments.
         """
-        logger.info(f"=== init BaseAbstractDataset {data_type} data config start ===")
+        logger.info(f"=== Init BaseAbstractDataset {data_type} data config start ===")
         logger.info(f"data_config is: {data_config}")
 
         # common config
@@ -103,7 +103,7 @@ class BaseAbstractDataset(abc.ABC):
 
         self.feature_description: Optional[Dict[str, str]] = None  # please overwrite this variable
 
-        logger.info(f"=== init BaseAbstractDataset {data_type} data config done ===")
+        logger.info(f"=== Init BaseAbstractDataset {data_type} data config done ===")
 
 
 class BaseAbstractDataPreparationDataset(abc.ABC):
@@ -186,7 +186,7 @@ class BaseAbstractTrainDataset(BaseAbstractDataset):
         raise NotImplementedError("Subclasses must implement __len__ method")
 
 
-def import_data_config(task_name: str, model_name: str, dataset_name: str) -> Dict:
+def import_data_config(task_name: str, model_name: str, dataset_name: str = "") -> Dict:
     # generate root path
     cur_path = os.path.abspath(sys.argv[0])
 
@@ -202,7 +202,7 @@ def import_data_config(task_name: str, model_name: str, dataset_name: str) -> Di
     data_config["model_name"] = task_base.get("model_name", model_name)
 
     data_config["repo_path"] = repo_root_path
-    data_config["task_data_path"] = f"{repo_root_path}/pkg/data/{dataset_name}"
+    data_config["task_data_path"] = f"{repo_root_path}/pkg/data/{task_name}"
     data_config["task_path"] = f"{repo_root_path}/task/{task_name}/{model_name}"
     # data_config["gpu"] = base_config["task_base"].get("gpu", False)
     # data_config["exp_name"] = base_config["task_base"]["exp_name"]

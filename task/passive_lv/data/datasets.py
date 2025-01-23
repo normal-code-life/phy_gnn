@@ -9,12 +9,6 @@ class FEPassiveLVHeartDataset(BaseAbstractDataset):
         super().__init__(data_config, data_type)
         logger.info(f"=== init FEPassiveLVHeartDataset {data_type} data config start ===")
 
-        self.default_padding_value = data_config.get("default_padding_value", -1)
-        self.n_shape_coeff = data_config.get("n_shape_coeff", 2)
-        self.sections = data_config["sections"]
-        self.nodes_per_sections = data_config["nodes_per_sections"]
-        self.overwrite_data = data_config.get("overwrite_data", True)
-
         # original base data path
         self.raw_data_path = f"{self.base_data_path}/rawData/{data_type}"
         self.processed_data_path = f"{self.base_data_path}/processedData/{data_type}"

@@ -4,7 +4,7 @@ from pkg.train.datasets.base_datasets import import_data_config
 from task.passive_lv.data.datasets_train import FEHeartSageTrainDataset
 
 if __name__ == "__main__":
-    data_config = import_data_config("passive_lv", "fe_heart_sage_v2", "lvData")
+    data_config = import_data_config("passive_lv", "fe_heart_sage_v2")
 
     train_data = FEHeartSageTrainDataset(data_config, "train")
 

@@ -32,7 +32,6 @@ class TrainerConfig(BaseConfig):
 
     def __init__(self) -> None:
         """Constructor to initialize a TrainerConfig object."""
-        logger.info("=== Init Trainer Config ===")
 
         # parse args
         args = self.parse_args()
@@ -74,9 +73,8 @@ class TrainerConfig(BaseConfig):
         self.task_data = self.config.get("task_data", {})
         self.task_data["repo_path"] = repo_path
         self.task_data["task_path"] = task_path
-        task_data_name = self.task_data.get("task_data_name", self.task_name)
         self.task_data["task_data_path"] = self.task_data.get(
-            "task_data_path", f"{repo_path}/pkg/data/{task_data_name}"
+            "task_data_path", f"{repo_path}/pkg/data/{task_name}"
         )
 
         self.task_data["task_name"] = task_name
@@ -137,7 +135,7 @@ class TrainerConfig(BaseConfig):
 
         self.task_base["logs_base_path"] = exp_logs_path
 
-        logger.info(f"log base path {exp_logs_path} setup done")
+        # logger.info(f"log base path {exp_logs_path} setup done")
 
     def get_config(self) -> Dict:
         return {
@@ -152,7 +150,7 @@ class BaseTrainer(abc.ABC):
     dataset_class: AbstractTrainDataset = AbstractTrainDataset
 
     def __init__(self, config: TrainerConfig):
-        logger.info("====== Init Trainer ====== ")
+        logger.info("=== Init BaseTrainer start ===")
 
         # === init config
         self.task_base: Dict = config.task_base
@@ -181,15 +179,14 @@ class BaseTrainer(abc.ABC):
         # === init debug
         self.debug: bool = self.task_trainer.get("debug", False)
 
+        logger.info("=== Init BaseTrainer done ===")
+
     # === dataset ===
     def create_dataset(self) -> (AbstractTrainDataset, AbstractTrainDataset):
-        # legacy issue: in the future, the dataset should only come from the task_trainer["dataset_param"]
-        task_data = {**self.task_data, **self.task_trainer["dataset_param"]}
-
-        train_dataset = self.dataset_class(task_data, TRAIN_NAME)
+        train_dataset = self.dataset_class(self.task_trainer["dataset_param"], TRAIN_NAME)
         logger.info(f"Number of train data points: {len(train_dataset)}")
 
-        validation_dataset = self.dataset_class(task_data, VALIDATION_NAME)
+        validation_dataset = self.dataset_class(self.task_trainer["dataset_param"], VALIDATION_NAME)
         logger.info(f"Number of validation_data data points: {len(validation_dataset)}")
 
         return train_dataset, validation_dataset
@@ -204,12 +201,12 @@ class BaseTrainer(abc.ABC):
 
         if self.gpu_num > 1:
             self.model = nn.DataParallel(
-                self.model, device_ids=[i + self.task_data["cuda_core"] for i in range(self.gpu_num)]
+                self.model, device_ids=[i + self.task_base["cuda_core"] for i in range(self.gpu_num)]
             )
 
         self.model = self.model.cuda()
         logger.info(f"cuda version: {torch.version.cuda}")
-        logger.info(f"default cuda device check: {self.task_data['cuda_core']}")
+        logger.info(f"default cuda device check: {self.task_base['cuda_core']}")
         logger.info(f"model device check: {next(self.model.parameters()).device}")
         logger.info(f"model device count: {torch.cuda.device_count()}")
 

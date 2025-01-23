@@ -10,8 +10,10 @@ from pkg.train.trainer.base_trainer import BaseTrainer, TrainerConfig
 from pkg.utils.logs import init_logger
 from task.passive_lv.data.datasets_train import FEHeartSageTrainDataset
 from task.passive_lv.utils.module.mlp_layer_ln import MLPLayerV2
+from pkg.train.datasets.base_datasets_train import AbstractTrainDataset
+from common.constant import MODEL_TRAIN, TRAIN_NAME, VALIDATION_NAME
 
-logger = init_logger("FEHeartSage")
+logger = init_logger("FEPassiveLVHeartSage")
 
 torch.manual_seed(753)
 torch.set_printoptions(precision=8)
@@ -23,7 +25,7 @@ class FEHeartSageV3Trainer(BaseTrainer):
     def __init__(self) -> None:
         config = TrainerConfig()
 
-        logger.info(f"{config.get_config()}")
+        logger.info(f"TrainerConfig: {config.get_config()}")
 
         super().__init__(config)
 
@@ -33,6 +35,18 @@ class FEHeartSageV3Trainer(BaseTrainer):
 
     def create_model(self) -> None:
         self.model = FEHeartSAGEModel(self.task_train)
+
+    def create_dataset(self) -> (AbstractTrainDataset, AbstractTrainDataset):
+        # legacy issue: in the future, the dataset should only come from the task_trainer["dataset_param"]
+        task_data = {**self.task_data, **self.task_trainer["dataset_param"]}
+
+        train_dataset = self.dataset_class(task_data, TRAIN_NAME)
+        logger.info(f"Number of train data points: {len(train_dataset)}")
+
+        validation_dataset = self.dataset_class(task_data, VALIDATION_NAME)
+        logger.info(f"Number of validation_data data points: {len(validation_dataset)}")
+
+        return train_dataset, validation_dataset
 
     def validation_step_check(self, epoch: int, is_last_epoch: bool) -> bool:
         if epoch <= 20 or epoch % 5 == 0 or is_last_epoch:
