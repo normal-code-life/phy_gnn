@@ -12,6 +12,8 @@ class FEHeartSageTrainDataset(BaseDataset, FEPassiveLVHeartDataset):
     def __init__(self, data_config: Dict, data_type: str) -> None:
         super().__init__(data_config, data_type)
 
+        self.device = "cuda" if self.gpu else "cpu"
+
         self.n_shape_coeff = data_config.get("n_shape_coeff", 2)
 
         # node features (used real node features)
@@ -64,13 +66,13 @@ class FEHeartSageTrainDataset(BaseDataset, FEPassiveLVHeartDataset):
         self._displacement = torch.from_numpy(self._displacement)
         self._shape_coeffs = torch.from_numpy(self._shape_coeffs)
 
-        # if self.gpu:
-        #     self._node_features = self._node_features.cuda()
-        #     self._node_coord = self._node_coord.cuda()
-        #     self._edges_indices = self._edges_indices.cuda()
-        #     self._theta_vals = self._theta_vals.cuda()
-        #     self._shape_coeffs = self._shape_coeffs.cuda()
-        #     self._displacement = self._displacement.cuda()
+        if self.gpu:
+            self._node_features = self._node_features.cuda()
+            self._node_coord = self._node_coord.cuda()
+            self._edges_indices = self._edges_indices.cuda()
+            self._theta_vals = self._theta_vals.cuda()
+            self._shape_coeffs = self._shape_coeffs.cuda()
+            self._displacement = self._displacement.cuda()
 
     def __getitem__(self, index) -> (Dict, torch.Tensor):
         node_features = self._node_features[index]
@@ -86,7 +88,7 @@ class FEHeartSageTrainDataset(BaseDataset, FEPassiveLVHeartDataset):
         selected_node_num = 300
 
         selected_node = (
-            torch.randint(0, node_coord.shape[1], size=(selected_node_num,), dtype=torch.int64, device="cpu")
+            torch.randint(0, node_coord.shape[1], size=(selected_node_num,), dtype=torch.int64, device=self.device)
             .unsqueeze(0)
             .expand(node_coord.shape[0], -1)
         )

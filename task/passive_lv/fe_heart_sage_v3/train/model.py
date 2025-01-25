@@ -4,14 +4,13 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 
+from common.constant import TRAIN_NAME
 from pkg.train.layer.pooling_layer import MeanAggregator, SUMAggregator  # noqa
 from pkg.train.model.base_model import BaseModule
-from pkg.train.trainer.base_trainer import BaseTrainer, TrainerConfig
+from pkg.train.trainer.base_trainer import BaseTrainer
 from pkg.utils.logs import init_logger
 from task.passive_lv.data.datasets_train import FEHeartSageTrainDataset
 from task.passive_lv.utils.module.mlp_layer_ln import MLPLayerV2
-from pkg.train.datasets.base_datasets_train import AbstractTrainDataset
-from common.constant import MODEL_TRAIN, TRAIN_NAME, VALIDATION_NAME
 
 logger = init_logger("FEPassiveLVHeartSage")
 
@@ -23,30 +22,28 @@ class FEHeartSageV3Trainer(BaseTrainer):
     dataset_class = FEHeartSageTrainDataset
 
     def __init__(self) -> None:
-        config = TrainerConfig()
-
-        logger.info(f"TrainerConfig: {config.get_config()}")
-
-        super().__init__(config)
+        super().__init__()
 
         self.selected_node_num = self.task_train["select_node_num"]
 
         self.device = "cuda" if self.gpu else "cpu"
 
+        # config relative to dataset
+        dataset_config = self.dataset_class(self.task_data, TRAIN_NAME)
+
+        self.displacement_mean = dataset_config.get_displacement_mean()
+        self.displacement_std = dataset_config.get_displacement_std()
+
     def create_model(self) -> None:
         self.model = FEHeartSAGEModel(self.task_train)
 
-    def create_dataset(self) -> (AbstractTrainDataset, AbstractTrainDataset):
-        # legacy issue: in the future, the dataset should only come from the task_trainer["dataset_param"]
-        task_data = {**self.task_data, **self.task_trainer["dataset_param"]}
+    def compute_validation_loss(self, predictions: Dict[str, Tensor], labels: Dict[str, Tensor]):
+        predictions["displacement"] = predictions["displacement"] * self.displacement_std + self.displacement_mean
+        return self.compute_loss(predictions, labels)
 
-        train_dataset = self.dataset_class(task_data, TRAIN_NAME)
-        logger.info(f"Number of train data points: {len(train_dataset)}")
-
-        validation_dataset = self.dataset_class(task_data, VALIDATION_NAME)
-        logger.info(f"Number of validation_data data points: {len(validation_dataset)}")
-
-        return train_dataset, validation_dataset
+    def compute_metrics(self, metrics_func: callable, predictions: Dict[str, Tensor], labels: Dict[str, Tensor]):
+        predictions["displacement"] = predictions["displacement"] * self.displacement_std + self.displacement_mean
+        return super().compute_metrics(metrics_func, predictions, labels)
 
     def validation_step_check(self, epoch: int, is_last_epoch: bool) -> bool:
         if epoch <= 20 or epoch % 5 == 0 or is_last_epoch:
@@ -247,6 +244,7 @@ class FEHeartSAGEModel(BaseModule):
 
         # ============ input fetch
         input_node_coord: Tensor = x["node_coord"]  # shape: (batch_size, node_num, coord_dim)
+
         input_node_coord_emb: Tensor = x_trans["node_coord_emb"]  # shape: (batch_size, node_num, coord_dim)
         input_node_fea_emb: Tensor = x_trans["node_features_emb"]  # shape: (batch_size, node_num, node_feature_dim
 

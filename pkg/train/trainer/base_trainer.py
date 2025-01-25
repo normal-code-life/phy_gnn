@@ -32,7 +32,6 @@ class TrainerConfig(BaseConfig):
 
     def __init__(self) -> None:
         """Constructor to initialize a TrainerConfig object."""
-
         # parse args
         args = self.parse_args()
         repo_path: str = args.repo_path
@@ -48,10 +47,10 @@ class TrainerConfig(BaseConfig):
 
         # === load config
         config_path = f"{task_path}/config/{config_name}.yaml"
-        self.config: Dict = load_yaml(config_path)
+        config: Dict = load_yaml(config_path)
 
         # === fill in task base info
-        self.task_base = self.config["task_base"]
+        self.task_base = config["task_base"]
         self.task_name = self.task_base["task_name"]
         self.exp_name = self.task_base["exp_name"]
 
@@ -70,12 +69,10 @@ class TrainerConfig(BaseConfig):
             torch.cuda.set_device(self.task_base["cuda_core"])
 
         # task dataset info
-        self.task_data = self.config.get("task_data", {})
+        self.task_data = config.get("task_data", {})
         self.task_data["repo_path"] = repo_path
         self.task_data["task_path"] = task_path
-        self.task_data["task_data_path"] = self.task_data.get(
-            "task_data_path", f"{repo_path}/pkg/data/{task_name}"
-        )
+        self.task_data["task_data_path"] = self.task_data.get("task_data_path", f"{repo_path}/pkg/data/{task_name}")
 
         self.task_data["task_name"] = task_name
         self.task_data["model_name"] = self.task_base["model_name"]
@@ -85,13 +82,14 @@ class TrainerConfig(BaseConfig):
         self.task_data["cuda_core"] = self.task_base["cuda_core"]
 
         # task trainer
-        self.task_trainer = self.config["task_trainer"]
+        self.task_trainer = config["task_trainer"]
         self.task_trainer["gpu"] = self.task_base["gpu"]
         self.task_trainer["gpu_num"] = self.task_base["gpu_num"]
 
         # task train
-        self.task_train = self.config["task_train"]
+        self.task_train = config["task_train"]
         self.task_train["gpu"] = self.task_base["gpu"]
+        self.task_train["gpu_num"] = self.task_base["gpu_num"]
 
     @staticmethod
     def parse_args() -> argparse.Namespace:
@@ -149,8 +147,12 @@ class TrainerConfig(BaseConfig):
 class BaseTrainer(abc.ABC):
     dataset_class: AbstractTrainDataset = AbstractTrainDataset
 
-    def __init__(self, config: TrainerConfig):
+    def __init__(self):
         logger.info("=== Init BaseTrainer start ===")
+
+        config = TrainerConfig()
+
+        logger.info(f"input BaseTrainer: {config.get_config()}")
 
         # === init config
         self.task_base: Dict = config.task_base
@@ -183,10 +185,13 @@ class BaseTrainer(abc.ABC):
 
     # === dataset ===
     def create_dataset(self) -> (AbstractTrainDataset, AbstractTrainDataset):
-        train_dataset = self.dataset_class(self.task_trainer["dataset_param"], TRAIN_NAME)
+        # deprecated: in the future, the dataset should only come from the task_trainer["dataset_param"]
+        task_data = {**self.task_data, **self.task_trainer["dataset_param"]}
+
+        train_dataset = self.dataset_class(task_data, TRAIN_NAME)
         logger.info(f"Number of train data points: {len(train_dataset)}")
 
-        validation_dataset = self.dataset_class(self.task_trainer["dataset_param"], VALIDATION_NAME)
+        validation_dataset = self.dataset_class(task_data, VALIDATION_NAME)
         logger.info(f"Number of validation_data data points: {len(validation_dataset)}")
 
         return train_dataset, validation_dataset
@@ -255,13 +260,13 @@ class BaseTrainer(abc.ABC):
         scheduler_method = optimizer_param.get("scheduler", "default")
 
         if scheduler_method == "multi_step":
-            ratio = optimizer_param.get("ratio", 1)
+            batch_per_epoch = optimizer_param.get("batch_per_epoch", 1)
             milestones = optimizer_param["milestones"]
             decay_per_step = optimizer_param.get("decay_per_step", 1)
 
             self.scheduler = torch.optim.lr_scheduler.MultiStepLR(
                 self.optimizer,
-                milestones=[i * ratio for i in milestones],
+                milestones=[i * batch_per_epoch for i in milestones],
                 gamma=decay_per_step,
             )
         else:
@@ -364,12 +369,11 @@ class BaseTrainer(abc.ABC):
 
         # ====== Params ======
         epoch = task_trainer["epochs"]
-        per_epoch_steps = task_trainer.get("per_epoch_steps", None)
         dataset_param = task_trainer["dataset_param"]
 
         # corner case test:
         # if infinite = True and per_epoch_steps = None, the model will stuck in train loops
-        if not per_epoch_steps and task_trainer.get("infinite", False):
+        if not task_trainer.get("per_epoch_steps", None) and task_trainer.get("infinite", False):
             raise ValueError("when infinite = True, please setup the per_epoch_steps")
 
         # ====== Generate dataset ======
@@ -445,7 +449,7 @@ class BaseTrainer(abc.ABC):
         for t in range(init_epoch + 1, epoch + 1):
             self.callback.on_epoch_begin(t)
 
-            train_metrics = self.train_step(self.model, train_data_loader, per_epoch_steps)
+            train_metrics = self.train_step(self.model, train_data_loader)
 
             val_metrics = self.validation_step(self.model, validation_data_loader, t, t == epoch)
 
@@ -460,7 +464,7 @@ class BaseTrainer(abc.ABC):
         dataset_param = task_trainer["dataset_param"]
 
         # ====== Generate dataset ======
-        test_dataset = self.dataset_class(self.task_data, VALIDATION_NAME)
+        test_dataset = self.dataset_class(dataset_param, VALIDATION_NAME)
         logger.info(f"Number of test data points: {len(test_dataset)}")
 
         # ====== Generate data loader ======
@@ -542,7 +546,11 @@ class BaseTrainer(abc.ABC):
 
         return self.to_device(inputs), self.to_device(labels)
 
-    def train_step(self, model: nn.Module, data_loader: DataLoader, per_epoch_steps: Optional[int]) -> Dict:
+    def train_step(self, model: nn.Module, data_loader: DataLoader) -> Dict:
+        task_trainer = self.task_trainer
+
+        per_epoch_steps: Optional[int] = task_trainer.get("per_epoch_steps", None)
+
         batch = 0
 
         metrics = {}

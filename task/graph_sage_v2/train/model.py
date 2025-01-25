@@ -3,15 +3,16 @@ from typing import Dict, Optional
 import torch
 import torch.nn as nn
 
-from common.constant import TRAIN_NAME
+from common.constant import TRAIN_NAME, VALIDATION_NAME
+from pkg.train.datasets.base_datasets_train import AbstractTrainDataset
 from pkg.train.layer.pooling_layer import MeanAggregator, SUMAggregator  # noqa
 from pkg.train.model.base_model import BaseModule
-from pkg.train.trainer.base_trainer import BaseTrainer, TrainerConfig
+from pkg.train.trainer.base_trainer import BaseTrainer
 from pkg.utils.logs import init_logger
 from task.graph_sage_v2.data.datasets import GraphSageTrainDataset
 from task.graph_sage_v2.train.mlp_layer_ln import MLPLayerLN
 
-logger = init_logger("GraphSage")
+logger = init_logger("FEPassiveLVHeartSage")
 
 torch.manual_seed(753)
 torch.set_printoptions(precision=8)
@@ -21,11 +22,10 @@ class GraphSAGETrainer(BaseTrainer):
     dataset_class = GraphSageTrainDataset
 
     def __init__(self) -> None:
-        config = TrainerConfig()
+        super().__init__()
 
-        logger.info(f"{config.get_config()}")
-
-        super().__init__(config)
+        # === init config
+        self.task_data: Dict = self.config.task_data
 
         # config relative to dataset
         dataset_config = self.dataset_class(self.task_data, TRAIN_NAME)
@@ -35,6 +35,18 @@ class GraphSAGETrainer(BaseTrainer):
 
     def create_model(self) -> None:
         self.model = GraphSAGEModel(self.task_train)
+
+    def create_dataset(self) -> (AbstractTrainDataset, AbstractTrainDataset):
+        # deprecated: in the future, the dataset should only come from the task_trainer["dataset_param"]
+        task_data = {**self.task_data, **self.task_trainer["dataset_param"]}
+
+        train_dataset = self.dataset_class(task_data, TRAIN_NAME)
+        logger.info(f"Number of train data points: {len(train_dataset)}")
+
+        validation_dataset = self.dataset_class(task_data, VALIDATION_NAME)
+        logger.info(f"Number of validation_data data points: {len(validation_dataset)}")
+
+        return train_dataset, validation_dataset
 
     def compute_validation_loss(self, predictions: torch.Tensor, labels: torch.Tensor):
         return self.compute_loss(predictions * self.displacement_std + self.displacement_mean, labels)

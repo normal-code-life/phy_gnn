@@ -6,7 +6,7 @@ import torch.nn as nn
 from common.constant import TRAIN_NAME
 from pkg.dnn_utils.method import segment_sum
 from pkg.train.model.base_model import BaseModule
-from pkg.train.trainer.base_trainer import BaseTrainer, TrainerConfig
+from pkg.train.trainer.base_trainer import BaseTrainer
 from pkg.utils.logs import init_logger
 from task.passive_lv.passive_lv_gnn_emul.train.datasets import LvDataset
 from task.passive_lv.passive_lv_gnn_emul.train.message_passing_layer import MessagePassingModule
@@ -22,15 +22,11 @@ class PassiveLvGNNEmulTrainer(BaseTrainer):
     dataset_class = LvDataset
 
     def __init__(self) -> None:
-        config = TrainerConfig()
-
-        logger.info(f"{config.get_config()}")
-
-        super().__init__(config)
+        super().__init__()
 
         self.task_train["init_weight_file_path"] = (
-            f"{config.task_base['task_path']}/train/{config.task_train['init_weight_file_path']}"
-            if "init_weight_file_path" in config.task_train
+            f"{self.task_base['task_path']}/train/{self.task_train['init_weight_file_path']}"
+            if "init_weight_file_path" in self.task_train
             else None
         )
 

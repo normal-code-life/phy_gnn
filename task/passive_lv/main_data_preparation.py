@@ -6,7 +6,7 @@ from typing import List
 import numpy as np
 
 from common.constant import TRAIN_NAME, VALIDATION_NAME
-from pkg.train.datasets.base_datasets import import_data_config
+from pkg.train.datasets.utils import import_data_config
 from pkg.utils.monitor import monitor_cpu_usage
 from task.passive_lv.data.datasets_preparation import FEPassiveLVHeartPreparationDataset
 

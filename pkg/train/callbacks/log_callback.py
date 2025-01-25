@@ -139,18 +139,16 @@ class LogCallback(CallBack):
         time_2_fw = metrics.get("time_2_fw", 0)
         time_2_bw = metrics.get("time_2_bw", 0)
         time_per_step = metrics.get("time_per_step", 0)
-        sample_size = metrics.get("sample_size", 0)
         lr = metrics.get("lr", -1)
 
         self.logger.info(
             f"time info per step: {batch}, "
-            f"sample size: {sample_size}, "
             f"step_time_start:{time.time() - self.start_time}, "
             f"time_2_device: {time_2_device}, "
             f"time_2_fw:{time_2_fw}, "
             f"time_2_bw: {time_2_bw}, "
             f"time_per_step: {time_per_step}, "
-            f"lr: {lr}, "
+            f"lr: {lr}"
         )
 
         # Format the log message

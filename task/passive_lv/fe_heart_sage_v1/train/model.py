@@ -7,7 +7,7 @@ from torch import Tensor
 from common.constant import TRAIN_NAME
 from pkg.train.layer.pooling_layer import MeanAggregator, SUMAggregator  # noqa
 from pkg.train.model.base_model import BaseModule
-from pkg.train.trainer.base_trainer import BaseTrainer, TrainerConfig
+from pkg.train.trainer.base_trainer import BaseTrainer
 from pkg.utils.logs import init_logger
 from task.passive_lv.data.datasets_train import FEHeartSageTrainDataset
 from task.passive_lv.utils.module.mlp_layer_ln import MLPLayerLN
@@ -22,11 +22,7 @@ class FEHeartSAGETrainer(BaseTrainer):
     dataset_class = FEHeartSageTrainDataset
 
     def __init__(self) -> None:
-        config = TrainerConfig()
-
-        logger.info(f"{config.get_config()}")
-
-        super().__init__(config)
+        super().__init__()
 
         # config relative to dataset
         dataset_config = self.dataset_class(self.task_data, TRAIN_NAME)
