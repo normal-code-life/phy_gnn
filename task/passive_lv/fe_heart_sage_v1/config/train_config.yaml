@@ -4,7 +4,7 @@ task_base:
   exp_name: rec_fe_heart_sage_v1_1
   overwrite_exp_folder: False
   gpu: True
-  cuda_core: "cuda:0"
+  cuda_core: 1
   gpu_num: 1
 task_data:
   task_data_name: lvData
