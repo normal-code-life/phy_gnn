@@ -1,10 +1,11 @@
 """export from keras."""
 import abc
-from typing import List, Optional, Dict
+from typing import Dict, List, Optional
 
 from torch import nn
+from torch.optim import Optimizer
 
-from pkg.utils.logging import init_logger
+from pkg.utils.logs import init_logger
 
 logger = init_logger("CALLBACK")
 
@@ -12,18 +13,25 @@ logger = init_logger("CALLBACK")
 class CallBack(abc.ABC):
     model: nn.Module
 
+    optimizer: Optimizer
+
+    use_gpu: bool
+
     def __init__(self, task_base_param: Dict, logs_param: Dict):
         self.params: Dict = dict()
 
-        if "log_dir" not in logs_param:
-            self.log_dir = task_base_param["logs_base_path"]
-        else:
-            self.log_dir = logs_param["log_dir"]
+        self.task_dir = task_base_param["task_path"]
 
+        self.log_dir = task_base_param["logs_base_path"]
 
-
-    def set_model(self, model: nn.Module):
+    def set_model(self, model: nn.Module) -> None:
         self.model = model
+
+    def set_optimizer(self, optimizer: Optimizer) -> None:
+        self.optimizer = optimizer
+
+    def set_gpu_info(self, use_gpu: bool):
+        self.use_gpu = use_gpu
 
     def on_batch_begin(self, batch, **kwargs):
         """A backwards compatibility alias for `on_train_batch_begin`."""
@@ -147,7 +155,7 @@ class CallBack(abc.ABC):
         """
         return
 
-    def on_validation_begin(self, **kwargs):
+    def on_evaluation_begin(self, **kwargs):
         """Called at the beginning of evaluation or validation.
 
         Subclasses should override for any actions to run.
@@ -158,7 +166,7 @@ class CallBack(abc.ABC):
         """
         return
 
-    def on_validation_end(self, **kwargs):
+    def on_evaluation_end(self, **kwargs):
         """Called at the end of evaluation or validation.
 
         Subclasses should override for any actions to run.
@@ -174,14 +182,26 @@ class CallBack(abc.ABC):
 class CallbackList(object):
     """Container abstracting a list of callbacks."""
 
-    def __init__(self, callbacks: Optional[List[CallBack]] = None, model: nn.Module = None):
+    def __init__(self, callbacks: Optional[List[CallBack]], model: nn.Module, optimizer: Optimizer, use_gpu: bool):
         self.callbacks = callbacks
 
         self.set_model(model)
 
-    def set_model(self, model):
+        self.set_optimizer(optimizer)
+
+        self.set_gpu_info(use_gpu)
+
+    def set_model(self, model: nn.Module):
         for callback in self.callbacks:
             callback.set_model(model)
+
+    def set_optimizer(self, optimizer: Optimizer):
+        for callback in self.callbacks:
+            callback.set_optimizer(optimizer)
+
+    def set_gpu_info(self, use_gpu: bool):
+        for callback in self.callbacks:
+            callback.set_gpu_info(use_gpu)
 
     def append(self, callback):
         self.callbacks.append(callback)
@@ -254,15 +274,15 @@ class CallbackList(object):
         for callback in self.callbacks:
             callback.on_train_end(**kwargs)
 
-    def on_validation_begin(self, **kwargs):
-        """Calls the `on_validation_begin` methods of its callbacks."""
+    def on_evaluation_begin(self, **kwargs):
+        """Calls the `on_evaluation_begin` methods of its callbacks."""
         for callback in self.callbacks:
-            callback.on_validation_begin(**kwargs)
+            callback.on_evaluation_begin(**kwargs)
 
-    def on_validation_end(self, **kwargs):
-        """Calls the `on_validation_end` methods of its callbacks."""
+    def on_evaluation_end(self, **kwargs):
+        """Calls the `on_evaluation_end` methods of its callbacks."""
         for callback in self.callbacks:
-            callback.on_validation_end(**kwargs)
+            callback.on_evaluation_end(**kwargs)
 
     def __iter__(self):
         return iter(self.callbacks)

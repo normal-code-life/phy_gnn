@@ -1,0 +1,75 @@
+task_base:
+  task_name: passive_lv
+  model_name: fe_heart_sage_v1
+  exp_name: fe_heart_sage_v1
+  overwrite_exp_folder: False
+  gpu: True
+  cuda_core: 1
+  gpu_num: 1
+task_data:
+#  task_data_name: lvData
+#  overwrite_data: True
+#  edge_indices_generate_method: 4
+  n_shape_coeff: 32  # Number of shape coefficients to input to the emulator
+#  sections: [0, 20, 50, 100, 250, 500]
+#  nodes_per_sections: [20, 30, 30, 10, 10]
+#  down_sampling: 1.0  # only happens on train dataset
+task_trainer:
+  epochs: 3000
+  optimizer_param:
+    name: adam
+    learning_rate: 0.00005  # Learning rate for training the network
+  loss_param:
+    name: euclidean_distance_mse
+  metrics_param:
+    - mean_absolute_error
+    # - explained_va/riance
+  callback_param:
+    tensorboard:
+#      log_dir: "./"
+      profiler : False
+    model_checkpoint:
+      save_freq: 500
+    logs:
+      update_freq: 1
+      save_task_code: True
+  dataset_param:
+    batch_size: 1
+    val_batch_size: 150
+    train_shuffle: True
+  static_graph: False
+task_train:
+  select_edge_num: 12
+  node_input_mlp_layer:
+    unit_sizes: [13, 128, 128, 40]
+    layer_norm: True
+    activation: tanh
+  edge_input_mlp_layer:
+    unit_sizes: [29, 128, 128, 40]
+    layer_norm: True
+    activation: tanh
+  message_passing_layer:
+    agg_method: MeanAggregator
+    message_layer_num: 5
+    agg_layer:
+      agg_dim: 2
+      keep_dim: False
+    node_mlp_layer:
+      unit_sizes: [80, 128, 128, 40]
+      layer_norm: True
+      activation: tanh
+    edge_mlp_layer:
+      unit_sizes: [89, 128, 128, 40]
+      layer_norm: True
+      activation: tanh
+  theta_input_mlp_layer:
+    unit_sizes: [4, 128, 128, 40]
+    layer_norm: True
+    activation: tanh
+  decoder_layer:
+    unit_sizes: [112, 128, 128, 1]
+    layer_norm: False
+    activation: tanh
+    output_dim: 3
+  labels:
+    - displacement

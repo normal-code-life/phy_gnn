@@ -1,0 +1,78 @@
+task_base:
+  task_name: passive_biv
+  model_name: fe_heart_sage_v3
+  exp_name: rec_old_3
+  overwrite_exp_folder: True
+  gpu: True
+  cuda_core: 0
+  gpu_num: 2
+task_trainer:
+  epochs: 10
+  per_epoch_steps: 40
+  optimizer_param:
+    name: adam
+    learning_rate: 0.00001  # Learning rate for training the network
+  loss_param:
+    name: euclidean_distance_mse
+  metrics_param:
+    - mean_absolute_error
+  callback_param:
+    tensorboard:
+      profiler: True
+      active: 3
+      wait: 2
+    model_checkpoint:
+      save_freq: 100
+      save_model_freq: 200
+    logs:
+      update_freq: 1
+      save_config: True
+      save_task_code: True
+      debug: True
+    scheduling:
+      avoid_work_hour: True
+  dataset_param:
+    batch_size: 1
+    val_batch_size: 1
+    num_workers: 1
+    val_num_workers: 1
+#    prefetch_factor: 1
+#    val_prefetch_factor: 1
+    shuffle_queue_size: 1
+    infinite: False # whether to use infinite dataset
+    persistent_workers: False
+    pin_memory: True
+  static_graph: False
+  init_model_weights: False
+task_train:
+  select_edge_num: 12
+  select_node_num: 300
+  node_input_mlp_layer:
+    unit_sizes: [14, 128, 128, 40]
+    layer_norm: True
+    activation: tanh
+  message_passing_layer:
+    agg_method: MeanAggregator
+    message_layer_num: 1
+    agg_layer:
+      agg_dim: 2
+      keep_dim: False
+    node_mlp_layer:
+      unit_sizes: [120, 128, 128, 40]
+      layer_norm: True
+      activation: tanh
+    edge_mlp_layer:
+      unit_sizes: [9, 128, 128, 40]
+      layer_norm: True
+      activation: tanh
+  theta_input_mlp_layer:
+    unit_sizes: [66, 128, 128, 40]
+    layer_norm: True
+    activation: tanh
+  decoder_layer:
+    unit_sizes: [14, 128, 128, 1]
+    layer_norm: False
+    activation: tanh
+    output_dim: 3
+  labels:
+    - displacement

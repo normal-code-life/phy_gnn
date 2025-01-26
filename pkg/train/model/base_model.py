@@ -3,7 +3,7 @@ from typing import Dict
 from torch import nn
 
 from pkg.train.config.base_config import BaseConfig
-from pkg.utils.logging import init_logger
+from pkg.utils.logs import init_logger
 
 logger = init_logger("BASE_MODEL")
 

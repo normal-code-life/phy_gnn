@@ -4,14 +4,14 @@
 
 create a new conda environment
 ```bash
-conda create --name gnn python=3.8.18
+conda create --name phy_gnn python=3.8.18
 ```
 
 basic conda environment command
 ```bash
 conda info --envs  # check conda environment
-conda activate xxx # activate xxx conda environment
-conda deactivate # deactivate xxx conda environment
+conda activate phy_gnn # activate phy_gnn conda environment
+conda deactivate # deactivate phy_gnn conda environment
 ```
 
 if it is your first time setup the python dependency, please run the following command to install the dependency
@@ -28,5 +28,5 @@ conda list --export --no-pip | awk -F= '{print $1"=="$2}' > requirements.txt
 you need to install both 'tensorboard' and 'tensorboardX' package. And please use the following command to check
 your model
 ```bash
-tensorboard --logdir=tmp/passive_lv_gnn_emul/1/logs/ 
+tensorboard --logdir=tmp/passive_biv/1/logs/ 
 ```

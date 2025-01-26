@@ -1,24 +1,28 @@
 import abc
 import argparse
 import os
+import time
 from typing import Dict, List, Optional, Union
-import torchmetrics
+
 import torch
-from torch import nn
+import torchmetrics
+from torch import Tensor, nn
 from torch.utils.data import DataLoader
 
-from common.constant import TRAIN_NAME, VALIDATION_NAME
+from common.constant import MODEL_TRAIN, TRAIN_NAME, VALIDATION_NAME
 from pkg.train.callbacks.base_callback import CallbackList
-from pkg.train.callbacks.model_checkpoint_callback import ModelCheckpointCallback
-from pkg.train.callbacks.tensorboard_callback import TensorBoardCallback
 from pkg.train.callbacks.log_callback import LogCallback
+from pkg.train.callbacks.model_checkpoint_callback import ModelCheckpointCallback
+from pkg.train.callbacks.scheduling_callback import SchedulingCallback
+from pkg.train.callbacks.tensorboard_callback import TensorBoardCallback
 from pkg.train.config.base_config import BaseConfig
-from pkg.train.datasets.base_datasets import BaseDataset
-from pkg.train.model.base_model import BaseModule
+from pkg.train.datasets.base_datasets_train import AbstractTrainDataset, BaseDataset
+from pkg.train.module.learning_rate_scheduler import DefaultLRScheduler
 from pkg.train.module.loss import EuclideanDistanceMSE
 from pkg.utils.io import load_yaml
-from pkg.utils.logging import init_logger
-from pkg.utils.model_summary import summary
+from pkg.utils.logs import init_logger
+# from pkg.utils.model_debug import debug_model
+from pkg.utils.model_summary import summary_model
 
 logger = init_logger("BASE_TRAINER")
 
@@ -28,48 +32,64 @@ class TrainerConfig(BaseConfig):
 
     def __init__(self) -> None:
         """Constructor to initialize a TrainerConfig object."""
-        logger.info("=== Init Trainer Config ===")
-
         # parse args
         args = self.parse_args()
         repo_path: str = args.repo_path
         task_name: str = args.task_name
+        task_type: str = args.task_type
+        model_name: str = args.model_name
         config_name: str = args.config_name
 
         # task base info
+        # === task path setup
         task_path = f"{repo_path}/task/{task_name}"
-        config_path = f"{task_path}/config/{config_name}.yaml"
-        self.config: Dict = load_yaml(config_path)
+        task_path = task_path if model_name is None else f"{task_path}/{model_name}"
 
-        self.task_base = self.config["task_base"]
+        # === load config
+        config_path = f"{task_path}/config/{config_name}.yaml"
+        config: Dict = load_yaml(config_path)
+
+        # === fill in task base info
+        self.task_base = config["task_base"]
         self.task_name = self.task_base["task_name"]
         self.exp_name = self.task_base["exp_name"]
 
         self.task_base["repo_path"] = repo_path
         self.task_base["task_path"] = task_path
         self.task_base["config_path"] = config_path
-        self.task_base["logs_base_path"] = f"{repo_path}/tmp/{task_name}/{self.exp_name}"
 
+        self._create_logs_path(task_type)
+
+        # === setup gpu
         self.task_base["gpu"] = self.task_base["gpu"] and torch.cuda.is_available()
+        self.task_base["gpu_num"] = self.task_base.get("gpu_num", 1)
+        self.task_base["cuda_core"] = self.task_base.get("cuda_core", 0)
 
-        self._create_logs_path()
+        if self.task_base["gpu"]:
+            torch.cuda.set_device(self.task_base["cuda_core"])
 
         # task dataset info
-        self.task_data = self.config.get("task_data", {})
-        task_data_name = self.task_data.get("task_data_name", self.task_name)
-        self.task_data["task_data_path"] = self.task_data.get(
-            "task_data_path", f"{repo_path}/pkg/data/{task_data_name}"
-        )
+        self.task_data = config.get("task_data", {})
+        self.task_data["repo_path"] = repo_path
+        self.task_data["task_path"] = task_path
+        self.task_data["task_data_path"] = self.task_data.get("task_data_path", f"{repo_path}/pkg/data/{task_name}")
+
+        self.task_data["task_name"] = task_name
+        self.task_data["model_name"] = self.task_base["model_name"]
+        self.task_data["exp_name"] = self.task_base["exp_name"]
+
         self.task_data["gpu"] = self.task_base["gpu"]
+        self.task_data["cuda_core"] = self.task_base["cuda_core"]
 
         # task trainer
-        self.task_trainer = self.config["task_trainer"]
+        self.task_trainer = config["task_trainer"]
         self.task_trainer["gpu"] = self.task_base["gpu"]
+        self.task_trainer["gpu_num"] = self.task_base["gpu_num"]
 
         # task train
-        self.task_train = self.config["task_train"]
-
-        logger.info(f"Data path: {self.task_data['task_data_path']}")
+        self.task_train = config["task_train"]
+        self.task_train["gpu"] = self.task_base["gpu"]
+        self.task_train["gpu_num"] = self.task_base["gpu_num"]
 
     @staticmethod
     def parse_args() -> argparse.Namespace:
@@ -77,14 +97,25 @@ class TrainerConfig(BaseConfig):
 
         parser.add_argument("--repo_path", type=str, help="current repo path")
         parser.add_argument("--task_name", type=str, help="task job name")
+        parser.add_argument("--task_type", default="model_evaluation", type=str, help="define task type")
+        parser.add_argument("--model_name", type=str, default="", help="model job name")
         parser.add_argument("--config_name", default="train_config", type=str, help="config file name")
 
         args = parser.parse_args()
 
         return args
 
-    def _create_logs_path(self) -> None:
-        log_path = f"{self.task_base['repo_path']}/tmp"
+    def _create_logs_path(self, task_type: str) -> None:
+        # only model train task job will create/remove logs path
+        if task_type != MODEL_TRAIN:
+            return
+
+        log_path = self.task_base.get("log_dir", "")
+        if log_path == "":
+            log_path = f"{self.task_base['repo_path']}/log"
+        else:
+            log_path = f"{log_path}/log"
+
         if not os.path.exists(log_path):
             os.makedirs(log_path)
 
@@ -100,7 +131,9 @@ class TrainerConfig(BaseConfig):
                 f"the current {exp_logs_path} directory can't be overwrite, please choice a new exp folder name"
             )
 
-        logger.info(f"{exp_logs_path} setup done")
+        self.task_base["logs_base_path"] = exp_logs_path
+
+        # logger.info(f"log base path {exp_logs_path} setup done")
 
     def get_config(self) -> Dict:
         return {
@@ -112,10 +145,14 @@ class TrainerConfig(BaseConfig):
 
 
 class BaseTrainer(abc.ABC):
-    dataset_class: BaseDataset = BaseDataset
+    dataset_class: AbstractTrainDataset = AbstractTrainDataset
 
-    def __init__(self, config: TrainerConfig):
-        logger.info("====== Init Trainer ====== ")
+    def __init__(self):
+        logger.info("=== Init BaseTrainer start ===")
+
+        config = TrainerConfig()
+
+        logger.info(f"input BaseTrainer: {config.get_config()}")
 
         # === init config
         self.task_base: Dict = config.task_base
@@ -124,20 +161,32 @@ class BaseTrainer(abc.ABC):
         self.task_train: Dict = config.task_train
 
         # === init tuning param
+        self.model: Optional[nn.Module] = None
         self.loss: Optional[nn.Module] = None
         self.optimizer: Optional[torch.optim.Optimizer] = None
+        self.scheduler: Optional[torch.optim.lr_scheduler.LRScheduler] = None
         self.metrics: Dict[str, callable] = {}
 
         # === init callback
         self.callback: Optional[CallbackList] = None
 
+        # === init labels
+        self.labels: Optional[List[str]] = self.task_train.get("labels", None)
+
         # === init others
-        self.gpu: Union[bool, int] = self.task_trainer.get("gpu", False)
+        self.gpu: bool = self.task_trainer["gpu"]
+        self.gpu_num: int = self.task_trainer["gpu_num"]
         self.static_graph: bool = self.task_trainer.get("static_graph", False)
 
+        # === init debug
+        self.debug: bool = self.task_trainer.get("debug", False)
+
+        logger.info("=== Init BaseTrainer done ===")
+
     # === dataset ===
-    def create_dataset(self) -> (BaseDataset, BaseDataset):
-        task_data = self.task_data
+    def create_dataset(self) -> (AbstractTrainDataset, AbstractTrainDataset):
+        # deprecated: in the future, the dataset should only come from the task_trainer["dataset_param"]
+        task_data = {**self.task_data, **self.task_trainer["dataset_param"]}
 
         train_dataset = self.dataset_class(task_data, TRAIN_NAME)
         logger.info(f"Number of train data points: {len(train_dataset)}")
@@ -148,25 +197,46 @@ class BaseTrainer(abc.ABC):
         return train_dataset, validation_dataset
 
     # === model ===
-    def create_model(self) -> BaseModule:
+    def create_model(self) -> None:
         raise NotImplementedError("please implement create_model func")
 
-    def print_model(self, model: nn.Module, inputs: List[List]):
-        model_summary = self.task_trainer.get(
-            "model_summary",
-            {
-                "show_input": False,
-                "show_hierarchical": False,
-                "print_summary": True,
-                "max_depth": 999,
-                "show_parent_layers": True,
-            },
-        )
+    def model_to_cuda(self) -> None:
+        if not self.gpu:
+            return
+
+        if self.gpu_num > 1:
+            self.model = nn.DataParallel(
+                self.model, device_ids=[i + self.task_base["cuda_core"] for i in range(self.gpu_num)]
+            )
+
+        self.model = self.model.cuda()
+        logger.info(f"cuda version: {torch.version.cuda}")
+        logger.info(f"default cuda device check: {self.task_base['cuda_core']}")
+        logger.info(f"model device check: {next(self.model.parameters()).device}")
+        logger.info(f"model device count: {torch.cuda.device_count()}")
+
+    def print_model(self, model: nn.Module, inputs: Dict):
+        default_summary_info = {
+            "show_input": False,
+            "show_hierarchical": False,
+            "print_summary": True,
+            "max_depth": 999,
+            "show_parent_layers": True,
+        }
+
+        model_summary = self.task_trainer.get("model_summary", default_summary_info)
 
         logger.info("=== Print Model Structure ===")
         logger.info(model)
 
-        summary(
+        if self.gpu:
+            inputs = {key: inputs[key].cuda() for key in inputs}
+
+        if self.gpu_num >= 2:
+            logger.info("when gpu num is over 2, we do not support model summary function")
+            return
+
+        summary_model(
             model,
             inputs,
             show_input=model_summary["show_input"],
@@ -176,13 +246,33 @@ class BaseTrainer(abc.ABC):
             show_parent_layers=model_summary["show_parent_layers"],
         )
 
-    def create_optimize(self, model: nn.Module) -> None:
+    def create_optimize(self) -> None:
         optimizer_param = self.task_trainer["optimizer_param"]
 
         if optimizer_param["name"] == "adam":
-            self.optimizer = torch.optim.Adam(model.parameters(), lr=optimizer_param["learning_rate"])
+            self.optimizer = torch.optim.Adam(self.model.parameters(), lr=optimizer_param["learning_rate"])
         else:
             raise ValueError(f"optimizer name do not set properly, please check: {optimizer_param['optimizer']}")
+
+    def create_lr(self) -> None:
+        optimizer_param = self.task_trainer["optimizer_param"]
+
+        scheduler_method = optimizer_param.get("scheduler", "default")
+
+        if scheduler_method == "multi_step":
+            batch_per_epoch = optimizer_param.get("batch_per_epoch", 1)
+            milestones = optimizer_param["milestones"]
+            decay_per_step = optimizer_param.get("decay_per_step", 1)
+
+            self.scheduler = torch.optim.lr_scheduler.MultiStepLR(
+                self.optimizer,
+                milestones=[i * batch_per_epoch for i in milestones],
+                gamma=decay_per_step,
+            )
+        else:
+            decay_per_step = optimizer_param.get("decay_per_step", 1)
+
+            self.scheduler = DefaultLRScheduler(self.optimizer, gamma=decay_per_step)
 
     def create_loss(self) -> None:
         loss_param = self.task_trainer["loss_param"]
@@ -204,22 +294,74 @@ class BaseTrainer(abc.ABC):
             else:
                 raise ValueError(f"metrics name do not set properly, please check: {p}")
 
-    def create_callback(self, model: nn.Module) -> None:
+    def create_callback(self) -> None:
         callback_param = self.task_trainer["callback_param"]
+        callback_list = []
 
         tensorboard_param = callback_param.get("tensorboard", {})
         tensorboard = TensorBoardCallback(self.task_base, tensorboard_param)
+        if len(tensorboard_param) > 0:
+            callback_list.append(tensorboard)
 
         checkpoint_param = callback_param.get("model_checkpoint", {})
         model_checkpoint = ModelCheckpointCallback(self.task_base, checkpoint_param)
+        if len(checkpoint_param) > 0:
+            callback_list.append(model_checkpoint)
 
         logs_param = callback_param.get("logs", {})
-        log_checkpoint = LogCallback(self.task_base, logs_param)
+        log_record = LogCallback(self.task_base, logs_param)
+        if len(logs_param) > 0:
+            callback_list.append(log_record)
+
+        scheduling_param = callback_param.get("scheduling", {"avoid_work_hour": False})
+        scheduling = SchedulingCallback(self.task_base, scheduling_param)
+        if scheduling_param["avoid_work_hour"]:
+            callback_list.append(scheduling)
 
         self.callback = CallbackList(
-            callbacks=[tensorboard, model_checkpoint, log_checkpoint],
-            model=model,
+            callbacks=callback_list, model=self.model, optimizer=self.optimizer, use_gpu=self.gpu
         )
+
+    def create_evaluation_callback(self) -> None:
+        callback_param = self.task_trainer["callback_param"]
+        callback_list = []
+
+        logs_param = callback_param.get("logs", {})
+        log_record = LogCallback(self.task_base, logs_param)
+        if len(logs_param) > 0:
+            callback_list.append(log_record)
+
+        scheduling_param = callback_param.get("scheduling", {})
+        scheduling = SchedulingCallback(self.task_base, scheduling_param)
+        if len(scheduling_param) > 0:
+            callback_list.append(scheduling)
+
+        self.callback = CallbackList(
+            callbacks=callback_list, model=self.model, optimizer=self.optimizer, use_gpu=self.gpu
+        )
+
+    def init_model_weights(self) -> int:
+        init_model_weights = self.task_trainer.get("init_model_weights", False)
+
+        if not init_model_weights:
+            return 0
+
+        ckpt_path = f"{self.task_base['logs_base_path']}/checkpoint/ckpt.pth"
+
+        if not os.path.exists(ckpt_path):
+            return 0
+
+        checkpoint = torch.load(ckpt_path)
+
+        self.model.load_state_dict(checkpoint["model_state_dict"])
+
+        self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+
+        epoch = checkpoint["epoch"]
+
+        logger.info(f"model init previous checkpoint at epoch={epoch} done")
+
+        return epoch
 
     # === train ===
     def train(self):
@@ -229,86 +371,218 @@ class BaseTrainer(abc.ABC):
         epoch = task_trainer["epochs"]
         dataset_param = task_trainer["dataset_param"]
 
+        # corner case test:
+        # if infinite = True and per_epoch_steps = None, the model will stuck in train loops
+        if not task_trainer.get("per_epoch_steps", None) and task_trainer.get("infinite", False):
+            raise ValueError("when infinite = True, please setup the per_epoch_steps")
+
         # ====== Generate dataset ======
         train_dataset, validation_dataset = self.create_dataset()
 
-        # ====== Generate dataloder ======
-        train_data_loader = DataLoader(
-            dataset=train_dataset,
-            batch_size=dataset_param.get("batch_size", 1),
-            shuffle=dataset_param.get("train_shuffle", True),
-            # num_workers=dataset_param.get("num_workers", 0),
-            # prefetch_factor=dataset_param.get("prefetch_factor", None)
-        )
-        validation_data_loader = DataLoader(
-            dataset=validation_dataset,
-            batch_size=dataset_param.get("batch_size", 1),
-            shuffle=dataset_param.get("test_shuffle", False),
-            # num_workers=dataset_param.get("num_workers", 0),
-            # prefetch_factor=dataset_param.get("prefetch_factor", None)
-        )
+        # ====== Generate data loader ======
+        if isinstance(train_dataset, BaseDataset):
+            train_data_loader = DataLoader(
+                dataset=train_dataset,
+                batch_size=dataset_param.get("batch_size", 1),
+                shuffle=dataset_param.get("train_shuffle", True),
+                # num_workers=dataset_param.get("num_workers", 0),
+                # prefetch_factor=dataset_param.get("prefetch_factor", None)
+            )
+            validation_data_loader = DataLoader(
+                dataset=validation_dataset,
+                batch_size=dataset_param.get("val_batch_size", len(validation_dataset)),
+                shuffle=dataset_param.get("test_shuffle", False),
+                # num_workers=dataset_param.get("num_workers", 0),
+                # prefetch_factor=dataset_param.get("prefetch_factor", None)
+            )
+        else:
+            train_data_loader = DataLoader(
+                dataset=train_dataset,
+                batch_size=dataset_param.get("batch_size", 1),
+                num_workers=dataset_param.get("val_num_workers", dataset_param.get("num_workers", 0)),
+                prefetch_factor=dataset_param.get("prefetch_factor", None),
+                pin_memory=dataset_param.get("pin_memory", False),
+                persistent_workers=dataset_param.get("persistent_workers", False),
+            )
+
+            validation_data_loader = DataLoader(
+                dataset=validation_dataset,
+                batch_size=dataset_param.get("val_batch_size", 1),
+                num_workers=dataset_param.get("val_num_workers", dataset_param.get("num_workers", 0)),
+                prefetch_factor=dataset_param.get("val_prefetch_factor", None),
+                pin_memory=dataset_param.get("pin_memory", False),
+                persistent_workers=dataset_param.get("persistent_workers", False),
+            )
 
         # ====== Create model ======
-        model = self.create_model()
+        self.create_model()
 
-        if self.gpu:
-            model = model.cuda()
-            logger.info(f"cuda version: {torch.version.cuda}")
-            logger.info(f"model device check: {next(model.parameters()).device}")
+        self.model_to_cuda()
 
-        self.print_model(model, train_dataset.get_head_inputs())
+        self.print_model(self.model, train_dataset.get_head_inputs(dataset_param.get("batch_size", 1)))
 
         if self.static_graph:
-            model = torch.jit.trace(model, train_dataset.get_head_inputs())
+            self.model = torch.jit.trace(self.model, train_dataset.get_head_inputs(1))
 
         # ====== Init optimizer ======
-        self.create_optimize(model)
+        self.create_optimize()
 
-        # ====== Init loss & metrics ======
+        # ====== Init learning rate ======
+        self.create_lr()
+
+        # ====== Init loss ======
         self.create_loss()
+
+        # ====== Init metrics ======
         self.create_metrics()
 
+        # ====== Init Model Weight ======
+        init_epoch = self.init_model_weights()
+
+        # self.model = debug_model(self.model, self.task_base["logs_base_path"])
+
         # ====== Init callback ======
-        self.create_callback(model)
+        self.create_callback()
 
         self.callback.on_train_begin()
 
-        for t in range(epoch):
+        for t in range(init_epoch + 1, epoch + 1):
             self.callback.on_epoch_begin(t)
 
-            train_metrics = self.train_step(model, train_data_loader)
+            train_metrics = self.train_step(self.model, train_data_loader)
 
-            val_metrics = self.validation_step(model, validation_data_loader)
+            val_metrics = self.validation_step(self.model, validation_data_loader, t, t == epoch)
 
             self.callback.on_epoch_end(t, train_metrics=train_metrics, val_metrics=val_metrics)
 
         self.callback.on_train_end(epoch=epoch)
 
-    def compute_loss(self, predictions: torch.Tensor, labels: torch.Tensor):
-        return self.loss(predictions, labels)
-
-    def compute_metrics(self, metrics_func: callable, predictions: torch.Tensor, labels: torch.Tensor):
-        return metrics_func(predictions, labels)
-
-    def train_step(self, model: nn.Module, dataloder: DataLoader) -> Dict:
+    def evaluation(self):
         task_trainer = self.task_trainer
 
-        data_size = 0
+        # ====== Params ======
+        dataset_param = task_trainer["dataset_param"]
+
+        # ====== Generate dataset ======
+        test_dataset = self.dataset_class(dataset_param, VALIDATION_NAME)
+        logger.info(f"Number of test data points: {len(test_dataset)}")
+
+        # ====== Generate data loader ======
+        test_data_loader = DataLoader(
+            dataset=test_dataset,
+            batch_size=dataset_param.get("batch_size", 1),
+            num_workers=dataset_param.get("num_workers", 0),
+            prefetch_factor=dataset_param.get("prefetch_factor", None),
+        )
+
+        # ====== Create model ======
+        self.create_model()
+
+        if self.gpu:
+            model = self.model.cuda()
+            logger.info(f"cuda version: {torch.version.cuda}")
+            logger.info(f"model device check: {next(model.parameters()).device}")
+
+        self.print_model(self.model, test_dataset.get_head_inputs(dataset_param.get("batch_size", 1)))
+
+        if self.static_graph:
+            self.model = torch.jit.trace(self.model, test_dataset.get_head_inputs(1))
+
+        # ====== Init optimizer ======
+        self.create_optimize()
+
+        # ====== Init loss & metrics ======
+        self.create_loss()
+        self.create_metrics()
+
+        # ====== Init Model Weight ======
+        epoch = self.init_model_weights()
+
+        # ====== Init callback ======
+        self.create_evaluation_callback()
+
+        self.callback.on_evaluation_begin()
+
+        val_metrics = self.validation_step(self.model, test_data_loader, epoch, True)
+
+        self.callback.on_evaluation_end(epoch=epoch, val_metrics=val_metrics)
+
+    def compute_loss(self, predictions: Dict[str, Tensor], labels: Dict[str, Tensor]) -> Dict[str, Tensor]:
+        losses = dict()
+
+        for label_name in self.labels:
+            prediction = predictions[label_name]
+            label = labels[label_name]
+
+            losses[label_name] = self.loss(prediction, label)
+
+        return losses
+
+    def compute_metrics(
+        self, metrics_func: callable, predictions: Dict[str, Tensor], labels: Dict[str, Tensor]
+    ) -> Union[Dict[str, Tensor], Tensor]:
+        metrics = dict()
+
+        for label_name in self.labels:
+            prediction = predictions[label_name]
+            label = labels[label_name]
+
+            metrics[label_name] = metrics_func(prediction, label)
+
+        return metrics
+
+    def to_device(self, data: Dict[str, torch.Tensor]) -> Union[Dict[str, torch.Tensor], torch.Tensor]:
+        if self.gpu:
+            if isinstance(data, torch.Tensor):
+                return data.cuda(non_blocking=True)
+            return {key: value.cuda(non_blocking=True) for key, value in data.items()}
+        else:
+            return data
+
+    def post_transform_data(
+        self, data: (Union[Dict[str, Tensor], Tensor], Union[Dict[str, Tensor], Tensor])
+    ) -> (Union[Dict[str, Tensor], Tensor], Union[Dict[str, Tensor], Tensor]):
+        inputs, labels = data
+
+        return self.to_device(inputs), self.to_device(labels)
+
+    def train_step(self, model: nn.Module, data_loader: DataLoader) -> Dict:
+        task_trainer = self.task_trainer
+
+        per_epoch_steps: Optional[int] = task_trainer.get("per_epoch_steps", None)
+
+        batch = 0
+
         metrics = {}
 
         model.train()
 
-        for batch, data in enumerate(dataloder):
+        for _, data in enumerate(data_loader):
+            if batch == per_epoch_steps:
+                break
+
+            step_time_start = time.time()
+
             # Forward pass: compute predicted y by passing x to the model.
             # note: by default, we assume batch size = 1
-            train_inputs, train_labels = data
+            train_inputs, train_labels = self.post_transform_data(data)
+
+            time_2_device = time.time()
 
             # Compute and print loss.
-            outputs = model(train_inputs)
+            outputs = model(train_inputs)  # noqa
+
             loss = self.compute_loss(outputs, train_labels)
 
-            metrics["train_loss"] = metrics["train_loss"] + loss.item() if "train_loss" in metrics else loss.item()
-            data_size += train_labels.shape[0]
+            if isinstance(loss, torch.Tensor):
+                metrics["train_loss"] = metrics["train_loss"] + loss.item() if "train_loss" in metrics else loss.item()
+            elif isinstance(loss, Dict):
+                for name, loss in loss.items():
+                    metrics[f"{name}_train_loss"] = (
+                        metrics[f"{name}_train_loss"] + loss.item() if f"{name}_train_loss" in metrics else loss.item()
+                    )
+
+            time_2_fw = time.time()
 
             # Before the backward pass, use the optimizer object to zero all the
             # gradients for the variables it will update (which are the learnable
@@ -323,49 +597,91 @@ class BaseTrainer(abc.ABC):
             # Calling the step function on an Optimizer makes an update to its parameters
             self.optimizer.step()
 
-            # Compute metrics
-            # for p in self.metrics:
-            #     results = self.compute_metrics(self.metrics[p], outputs, train_labels).detach().numpy()
-            #     metrics[f"train_{p}"] = metrics[p] + results if p in metrics else results
+            self.scheduler.step()
 
-        # for p in self.metrics:
-        #     metrics[f"train_{p}"] = metrics[f"train_{p}"] / data_size
+            time_2_bw = time.time()
 
-        metrics = {"train_loss": metrics[f"train_loss"] / data_size}
+            metrics.update(
+                **{
+                    "time_2_device": time_2_device - step_time_start,
+                    "time_2_fw": time_2_fw - time_2_device,
+                    "time_2_bw": time_2_bw - time_2_fw,
+                    "time_per_step": time_2_bw - step_time_start,
+                    "lr": self.scheduler.get_last_lr()[0],
+                }
+            )
+
+            self.callback.on_train_batch_end(batch, metrics=metrics)
+
+            batch += 1
+
+        for p in metrics:
+            if "loss" in p or "error" in p:
+                metrics[p] = metrics[p] / batch
 
         return metrics
 
-    def compute_validation_loss(self, predictions, labels):
+    def compute_validation_loss(self, predictions: Dict[str, Tensor], labels: Dict[str, Tensor]) -> Dict[str, Tensor]:
         return self.compute_loss(predictions, labels)
 
-    def validation_step(self, model: nn.Module, dataloder: DataLoader) -> Dict:
+    def validation_step_check(self, epoch: int, is_last_epoch: bool) -> bool:
+        return True
+
+    def post_transform_val_data(
+        self, data: (Union[Dict[str, Tensor], Tensor], Union[Dict[str, Tensor], Tensor])
+    ) -> (Union[Dict[str, Tensor], Tensor], Union[Dict[str, Tensor], Tensor]):
+        inputs, labels = data
+
+        return self.to_device(inputs), self.to_device(labels)
+
+    def validation_step(self, model: nn.Module, data_loader: DataLoader, epoch: int, is_last_epoch: bool) -> Dict:
+        if not self.validation_step_check(epoch, is_last_epoch):
+            return dict()
+
         # Set the model to evaluation mode, disabling dropout and using population
         # statistics for batch normalization.
-        task_trainer = self.task_trainer
-
-        data_size = 0
+        total_batch = 0
         metrics = {}
 
         model.eval()
 
         with torch.no_grad():
-            for batch, val_data in enumerate(dataloder):
-                val_inputs, val_labels = val_data
+            for _, val_data in enumerate(data_loader):
+                total_batch += 1
+
+                val_inputs, val_labels = self.post_transform_val_data(val_data)  # noqa
 
                 outputs = model(val_inputs)
 
                 loss = self.compute_validation_loss(outputs, val_labels)
 
-                metrics["val_loss"] = metrics["val_loss"] + loss.item() if "val_loss" in metrics else loss.item()
+                if isinstance(loss, torch.Tensor):  # v1, deprecated
+                    metrics["val_loss"] = metrics["val_loss"] + loss.item() if "val_loss" in metrics else loss.item()
 
-                # Compute metrics
-                for p in self.metrics:
-                    results = self.compute_metrics(self.metrics[p], outputs, val_labels)
-                    metrics[f"val_{p}"] = metrics[f"val_{p}"] + results.item() if p in metrics else results.item()
+                    # Compute metrics
+                    for p in self.metrics:
+                        results: Tensor = self.compute_metrics(self.metrics[p], outputs, val_labels)
+                        metrics[f"val_{p}"] = (
+                            metrics[f"val_{p}"] + results.item() if f"val_{p}" in metrics else results.item()
+                        )
 
-                data_size += val_labels.shape[0]
+                elif isinstance(loss, Dict):
+                    for name, loss in loss.items():
+                        metrics[f"{name}_val_loss"] = (
+                            metrics[f"{name}_val_loss"] + loss.item() if f"{name}_val_loss" in metrics else loss.item()
+                        )
 
-        for p in metrics:
-            metrics[p] = metrics[p] / data_size
+                    # Compute metrics
+                    for p in self.metrics:
+                        results: Dict[str, Tensor] = self.compute_metrics(self.metrics[p], outputs, val_labels)
+                        for name, r in results.items():
+                            metrics[f"val_{name}_{p}"] = (
+                                metrics[f"val_{name}_{p}"] + r.item() if f"val_{name}_{p}" in metrics else r.item()
+                            )
+
+                # print(batch_cnt, loss, metrics)
+
+            for p in metrics:
+                metrics[p] = metrics[p] / total_batch
 
         return metrics

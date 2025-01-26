@@ -8,4 +8,5 @@ exclude =
     old,
     build,
     dist,
-    test  # 排除所有以 "test_" 开头的文件
+    test_case,
+    log

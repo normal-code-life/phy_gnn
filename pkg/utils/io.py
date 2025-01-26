@@ -1,7 +1,12 @@
 import os
+import shutil
 from typing import Dict
 
 import yaml
+
+from pkg.utils.logs import init_logger
+
+logger = init_logger("IO")
 
 
 def get_cur_abs_dir(path) -> str:
@@ -26,3 +31,22 @@ def load_yaml(path: str) -> Dict:
         config = yaml.safe_load(f)
 
     return config
+
+
+def check_and_clean_path(path: str, overwrite: bool) -> bool:
+    if os.path.exists(path):
+        size = len(os.listdir(path))
+        logger.info(f"directory of {path} size: {size}")
+        if size > 0:
+            if overwrite:
+                shutil.rmtree(path)
+                os.makedirs(path)
+                logger.info("clean directory file to 0")
+                return True
+            else:
+                return False
+        else:
+            return True
+    else:
+        os.makedirs(path)
+        return True

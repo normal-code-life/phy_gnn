@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 
 
-def summary(
+def summary_model(
     model,
     *inputs,
     batch_size=-1,
@@ -130,7 +130,11 @@ def summary(
     model_training = model.training
 
     model.eval()
-    model(*inputs)
+
+    try:
+        model(*inputs)
+    except RuntimeError as e:
+        print("got error and stop print model arch: ", type(e), e)
 
     if model_training:
         model.train()
