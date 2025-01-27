@@ -50,7 +50,6 @@ class FEHeartSAGEModel(BaseModule):
 
         # hyper-parameter config
         self.select_edge_num = config["select_edge_num"]
-        self.default_padding_value = config.get("default_padding_value", -1)
 
         # mlp layer config
         self.node_input_mlp_layer_config = config["node_input_mlp_layer"]
