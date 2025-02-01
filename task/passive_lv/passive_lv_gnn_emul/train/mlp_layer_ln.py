@@ -6,6 +6,16 @@ from pkg.train.module.activation import get_activation
 
 class MLPLayerLN(MLPLayerBase):
     def _init_graph(self) -> None:
+        """Initializes the MLP graph structure with fully connected layers, activations and layer normalization.
+
+        This method builds the MLP by:
+        1. Creating fully connected layers between each pair of consecutive unit sizes
+        2. Adding activation functions after each layer except the last one
+        3. Adding layer normalization at the end if layer_norm is True
+
+        The layer names follow the pattern: {layer_name}_l{layer_number} for FC layers
+        and {layer_name}_ln for the layer norm.
+        """
         for i in range(len(self.unit_sizes) - 1):
             cur_layer_name = f"{self.layer_name}_l{i + 1}"
 

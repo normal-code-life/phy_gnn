@@ -7,13 +7,43 @@ import torch
 from pkg.train.datasets.base_datasets_train import BaseDataset
 from pkg.utils.logs import init_logger
 
-logger = init_logger("LV_Dataset")
+logger = init_logger("LVDataset")
 
 
 class LvDataset(BaseDataset):
-    """Data loader for graph-formatted input-output data with common, fixed topology."""
+    """Data loader for graph-formatted input-output data with common, fixed topology.
+
+    This class handles loading and processing of Left Ventricle (LV) mesh data for graph neural networks.
+    It manages node features, edge features, displacement data, and various other mesh-related attributes.
+
+    Attributes:
+        _senders (np.ndarray): Source nodes in the graph topology
+        _receivers (np.ndarray): Target nodes in the graph topology
+        _nodes (torch.Tensor): Node features for the mesh
+        _edges (torch.Tensor): Edge features for the mesh
+        _displacement (torch.Tensor): Displacement between end and start diastole
+        _displacement_mean (np.ndarray): Mean of displacement values from training data
+        _displacement_std (np.ndarray): Standard deviation of displacement values
+        _real_node_coords (np.ndarray): Coordinates of LV geometry in reference configuration
+        _real_node_indices (np.ndarray): Boolean mask for real nodes
+        _data_size (int): Total number of samples in the dataset
+        _n_total_nodes (int): Total number of nodes in the mesh
+        _shape_coeffs (torch.Tensor): Shape coefficients for the mesh
+        _theta_vals (torch.Tensor): Global material stiffness parameters
+        _theta_mean (np.ndarray): Mean of global parameters from training data
+        _theta_std (np.ndarray): Standard deviation of global parameters
+    """
 
     def __init__(self, data_config: Dict, data_type: str) -> None:
+        """Initialize the LV dataset with configuration and data type.
+
+        Args:
+            data_config (Dict): Configuration dictionary containing paths and parameters
+            data_type (str): Type of dataset (train/val/test)
+
+        Raises:
+            NotADirectoryError: If the specified base data path doesn't exist
+        """
         super().__init__(data_config, data_type)
 
         base_data_path = f"{data_config['task_data_path']}"
@@ -88,13 +118,6 @@ class LvDataset(BaseDataset):
         self._theta_mean = np.load(f"{stats_data_path}/global-features-mean.npy").astype(np.float32)
         self._theta_std = np.load(f"{stats_data_path}/global-features-std.npy").astype(np.float32)
 
-        # if self.gpu:
-        #     self._nodes = self._nodes.cuda()
-        #     self._edges = self._edges.cuda()
-        #     self._shape_coeffs = self._shape_coeffs.cuda()
-        #     self._theta_vals = self._theta_vals.cuda()
-        #     self._displacement = self._displacement.cuda()
-
     def __len__(self):
         return self._data_size
 
@@ -116,29 +139,67 @@ class LvDataset(BaseDataset):
         return sample, labels
 
     def get_senders(self) -> torch.tensor:
+        """Get the sender nodes of the graph topology.
+
+        Returns:
+            torch.tensor: Array of sender node indices, moved to GPU if self.gpu is True
+        """
         _senders = torch.from_numpy(self._senders)
         return _senders if not self.gpu else _senders.cuda()
 
     def get_receivers(self) -> torch.tensor:
+        """Get the receiver nodes of the graph topology.
+
+        Returns:
+            torch.tensor: Array of receiver node indices, moved to GPU if self.gpu is True
+        """
         _receivers = torch.from_numpy(self._receivers)
         return _receivers if not self.gpu else _receivers.cuda()
 
     def get_n_total_nodes(self) -> int:
+        """Get the total number of nodes in the mesh.
+
+        Returns:
+            int: Total number of nodes
+        """
         return self._n_total_nodes
 
     def get_real_node_indices(self) -> Sequence[torch.tensor]:
+        """Get boolean mask for real nodes in the mesh.
+
+        Returns:
+            Sequence[torch.tensor]: Boolean mask indicating real nodes, moved to GPU if self.gpu is True
+        """
         _real_node_indices = torch.from_numpy(self._real_node_indices)
         return _real_node_indices if not self.gpu else _real_node_indices.cuda()
 
     def get_displacement_mean(self) -> torch.tensor:
+        """Get the mean displacement values from training data.
+
+        Returns:
+            torch.tensor: Mean displacement values, moved to GPU if self.gpu is True
+        """
         _displacement_mean = torch.from_numpy(self._displacement_mean)
         return self._displacement_mean if not self.gpu else _displacement_mean.cuda()
 
     def get_displacement_std(self) -> torch.tensor:
+        """Get the standard deviation of displacement values from training data.
+
+        Returns:
+            torch.tensor: Standard deviation of displacement values, moved to GPU if self.gpu is True
+        """
         _displacement_std = torch.from_numpy(self._displacement_std)
         return _displacement_std if not self.gpu else _displacement_std.cuda()
 
     def get_head_inputs(self, batch_size) -> Dict:
+        """Get input dictionary for the first batch_size samples.
+
+        Args:
+            batch_size (int): Number of samples to include in the batch
+
+        Returns:
+            Dict: Dictionary containing input features for the specified batch size
+        """
         inputs, _ = self.__getitem__(np.arange(0, batch_size))
 
         return inputs
