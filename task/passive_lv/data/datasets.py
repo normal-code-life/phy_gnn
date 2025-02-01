@@ -5,7 +5,19 @@ from task.passive_lv.data import logger
 
 
 class FEPassiveLVHeartDataset(BaseAbstractDataset):
+    """Base class for FE Passive Left Ventricle Heart datasets.
+    
+    This class provides a common interface for accessing raw and processed data for the FE Passive LV Heart dataset.
+    """
+
     def __init__(self, data_config: Dict, data_type: str) -> None:
+        """Initialize the FE Passive LV Heart dataset.
+
+        Args:
+            data_config (Dict): Configuration dictionary containing dataset parameters
+                              like paths and settings
+            data_type (str): Type of dataset - one of 'train', 'val', or 'test'
+        """
         super().__init__(data_config, data_type)
         logger.info(f"=== init FEPassiveLVHeartDataset {data_type} data config start ===")
 

@@ -118,6 +118,13 @@ class LvDataset(BaseDataset):
         self._theta_mean = np.load(f"{stats_data_path}/global-features-mean.npy").astype(np.float32)
         self._theta_std = np.load(f"{stats_data_path}/global-features-std.npy").astype(np.float32)
 
+        if self.gpu:
+            self._nodes = self._nodes.cuda()
+            self._edges = self._edges.cuda()
+            self._shape_coeffs = self._shape_coeffs.cuda()
+            self._theta_vals = self._theta_vals.cuda()
+            self._displacement = self._displacement.cuda()
+
     def __len__(self):
         return self._data_size
 

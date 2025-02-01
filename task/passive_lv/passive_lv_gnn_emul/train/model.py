@@ -32,6 +32,9 @@ class PassiveLvGNNEmulTrainer(BaseTrainer):
         n_total_nodes (int): Total number of nodes in the mesh
         displacement_mean (torch.Tensor): Mean displacement values for normalization
         displacement_std (torch.Tensor): Standard deviation of displacements for normalization
+
+    note: this model has exactly followed the model arch by https://github.com/dodaltuin/passive-lv-gnn-emul
+    we re-write the arch from jax to pytorch and assign model weight based on jax version as baseline
     """
     dataset_class = LvDataset
 

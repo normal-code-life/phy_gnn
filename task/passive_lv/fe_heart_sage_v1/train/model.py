@@ -33,6 +33,12 @@ class FEHeartSAGETrainer(BaseTrainer):
     def create_model(self) -> None:
         self.model = FEHeartSAGEModel(self.task_train)
 
+    def validation_step_check(self, epoch: int, is_last_epoch: bool) -> bool:
+        if epoch <= 20 or epoch % 5 == 0 or is_last_epoch:
+            return True
+        else:
+            return False
+
     def compute_validation_loss(self, predictions: Dict[str, Tensor], labels: Dict[str, Tensor]):
         predictions["displacement"] = predictions["displacement"] * self.displacement_std + self.displacement_mean
         return self.compute_loss(predictions, labels)

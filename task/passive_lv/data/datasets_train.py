@@ -9,7 +9,20 @@ from task.passive_lv.data.datasets import FEPassiveLVHeartDataset
 
 
 class FEHeartSageTrainDataset(BaseDataset, FEPassiveLVHeartDataset):
+    """Dataset class for training a graph neural network on finite element passive left ventricle heart data.
+    
+    This class handles loading and preprocessing of node features, coordinates, edge indices,
+    shape coefficients, and displacement data for training. It inherits from BaseDataset and 
+    FEPassiveLVHeartDataset to provide dataset functionality.
+    """
+
     def __init__(self, data_config: Dict, data_type: str) -> None:
+        """Initialize the training dataset.
+
+        Args:
+            data_config (Dict): Configuration dictionary containing dataset parameters
+            data_type (str): Type of dataset (train/val/test)
+        """
         super().__init__(data_config, data_type)
 
         self.device = "cuda" if self.gpu else "cpu"
@@ -20,9 +33,6 @@ class FEHeartSageTrainDataset(BaseDataset, FEPassiveLVHeartDataset):
         # === fetch node features
         node_features = np.load(self.node_feature_path).astype(np.float32)
         node_coords = np.load(self.node_coord_path).astype(np.float32)
-
-        # === distance calculation
-        # node_distance = np.expand_dims(np.sqrt((node_coords ** 2).sum(axis=2)), axis=2)
 
         # === max min calculation
         self.coord_max_norm_val = np.load(self.node_coord_max_path)
@@ -93,14 +103,6 @@ class FEHeartSageTrainDataset(BaseDataset, FEPassiveLVHeartDataset):
             .expand(node_coord.shape[0], -1)
         )
 
-        # if self.gpu:
-        #     node_features = node_features.cuda()
-        #     node_coord = node_coord.cuda()
-        #     edges_indices = edges_indices.cuda()
-        #     theta_vals = theta_vals.cuda()
-        #     shape_coeffs = shape_coeffs.cuda()
-        #     displacement = displacement.cuda()
-
         sample = {
             "node_features": node_features,
             "node_coord": node_coord,
@@ -115,16 +117,32 @@ class FEHeartSageTrainDataset(BaseDataset, FEPassiveLVHeartDataset):
         return sample, labels
 
     def get_displacement_mean(self) -> torch.tensor:
+        """Get the mean displacement value for normalization.
+
+        Returns:
+            torch.tensor: Mean displacement value, moved to GPU if using CUDA
+        """
         _displacement_mean = torch.from_numpy(self._displacement_mean)
         return self._displacement_mean if not self.gpu else _displacement_mean.cuda()
 
     def get_displacement_std(self) -> torch.tensor:
+        """Get the standard deviation of displacement values for normalization.
+
+        Returns:
+            torch.tensor: Standard deviation of displacement values, moved to GPU if using CUDA
+        """
         _displacement_std = torch.from_numpy(self._displacement_std)
         return _displacement_std if not self.gpu else _displacement_std.cuda()
 
     def coord_normalization_max_min(self, array: np.ndarray) -> np.ndarray:
-        # max_val = np.expand_dims(self.coord_max_norm_val, axis=(0, 1))
-        # min_val = np.expand_dims(self.coord_min_norm_val, axis=(0, 1))
+        """Normalize coordinate values using min-max normalization.
+
+        Args:
+            array (np.ndarray): Array of coordinate values to normalize
+
+        Returns:
+            np.ndarray: Normalized coordinate values between 0 and 1
+        """
 
         max_val = max(self.coord_max_norm_val)
         min_val = min(self.coord_min_norm_val)

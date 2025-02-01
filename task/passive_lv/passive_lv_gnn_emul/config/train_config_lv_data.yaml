@@ -1,7 +1,7 @@
 task_base:
   task_name: passive_lv_gnn_emul
   model_name: passive_lv_gnn_emul
-  exp_name: passive_lv_gnn_emul
+  exp_name: gnn_emul
   overwrite_exp_folder: False
   gpu: True
   cuda_core: 3
