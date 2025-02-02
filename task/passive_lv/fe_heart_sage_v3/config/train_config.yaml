@@ -4,7 +4,7 @@ task_base:
   exp_name: fe_heart_sage_v3
   overwrite_exp_folder: True
   gpu: True
-  cuda_core: 2
+  cuda_core: 1
   gpu_num: 1
 task_data:
   n_shape_coeff: 32  # Number of shape coefficients to input to the emulator
@@ -13,10 +13,10 @@ task_trainer:
   optimizer_param:
     name: adam
     learning_rate: 0.0001  # Learning rate for training the network
-      #scheduler: multi_step
-      #milestones:  [250, 500, 750]
-      #batch_per_epoch: 2250  # total_size/batch_size
-      #decay_per_step: 0.5
+    scheduler: multi_step
+    milestones:  [250, 500, 750]
+    batch_per_epoch: 2250  # total_size/batch_size
+    decay_per_step: 0.5
   loss_param:
     name: euclidean_distance_mse
   metrics_param:
@@ -67,25 +67,25 @@ task_train:
     activation: rrelu
   message_passing_layer:
     agg_method: MeanAggregator
-    arch: mlp
+    arch: attention
     agg_layer:
       agg_dim: 2
       keep_dim: False
     # used for mlp
-    message_update_layer:
-      unit_sizes: [192, 128, 64]
-      layer_norm: True
-      activation: rrelu
-    # used for attention
 #    message_update_layer:
-#      d_model: 192
-#      nhead: 4
-#      dim_feedforward: 768
-#      dropout: 0.025
-#    message_update_layer_mlp:
-#      unit_sizes: [192, 64]
-#      layer_norm: False
+#      unit_sizes: [192, 128, 64]
+#      layer_norm: True
 #      activation: rrelu
+    # used for attention
+    message_update_layer:
+      d_model: 192
+      nhead: 4
+      dim_feedforward: 768
+      dropout: 0.025
+    message_update_layer_mlp:
+      unit_sizes: [192, 64]
+      layer_norm: False
+      activation: rrelu
   theta_input_mlp_layer:
     unit_sizes: [128, 64, 64]
     layer_norm: True
