@@ -10,9 +10,9 @@ from task.passive_lv.data.datasets import FEPassiveLVHeartDataset
 
 class FEHeartSageTrainDataset(BaseDataset, FEPassiveLVHeartDataset):
     """Dataset class for training a graph neural network on finite element passive left ventricle heart data.
-    
+
     This class handles loading and preprocessing of node features, coordinates, edge indices,
-    shape coefficients, and displacement data for training. It inherits from BaseDataset and 
+    shape coefficients, and displacement data for training. It inherits from BaseDataset and
     FEPassiveLVHeartDataset to provide dataset functionality.
     """
 

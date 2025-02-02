@@ -36,6 +36,7 @@ class PassiveLvGNNEmulTrainer(BaseTrainer):
     note: this model has exactly followed the model arch by https://github.com/dodaltuin/passive-lv-gnn-emul
     we re-write the arch from jax to pytorch and assign model weight based on jax version as baseline
     """
+
     dataset_class = LvDataset
 
     def __init__(self) -> None:
@@ -218,8 +219,8 @@ class PassiveLvGNNEmulModel(BaseModule):
             globals_array = torch.tile(z_theta, (z_local.shape[0], 1))  # shape: (real node, emb)
         else:
             # stack z_global with z_theta if z_global is inputted
-            global_embedding = (
-                torch.hstack((z_theta, input_z_global))
+            global_embedding = torch.hstack(
+                (z_theta, input_z_global)
             )  # shape: (batch_size, emb) + (batch_size, fea) => (batch_size, emb)
             globals_array = torch.tile(global_embedding, (z_local.shape[0], 1))  # shape: (real node, emb)
 

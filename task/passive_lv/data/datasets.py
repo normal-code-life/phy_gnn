@@ -6,7 +6,7 @@ from task.passive_lv.data import logger
 
 class FEPassiveLVHeartDataset(BaseAbstractDataset):
     """Base class for FE Passive Left Ventricle Heart datasets.
-    
+
     This class provides a common interface for accessing raw and processed data for the FE Passive LV Heart dataset.
     """
 

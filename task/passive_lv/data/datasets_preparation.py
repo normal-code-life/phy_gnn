@@ -13,7 +13,7 @@ from task.passive_lv.data.datasets import FEPassiveLVHeartDataset
 
 class FEPassiveLVHeartPreparationDataset(AbstractDataPreparationDataset, FEPassiveLVHeartDataset):
     """Dataset class for preparing Finite Element Passive Left Ventricle Heart data.
-    
+
     This class handles data preparation tasks like loading raw data, preprocessing features,
     generating edge indices, and computing statistics for the dataset.
     """
@@ -65,7 +65,7 @@ class FEPassiveLVHeartPreparationDataset(AbstractDataPreparationDataset, FEPassi
 
     def _prepare_features(self) -> None:
         """Prepare and save node features, coordinates and displacement data.
-        
+
         Loads raw data, processes it and saves in the required format.
         """
         logger.info("====== prepare node and displacement start ======")
@@ -80,9 +80,7 @@ class FEPassiveLVHeartPreparationDataset(AbstractDataPreparationDataset, FEPassi
 
         logger.info("====== prepare node and displacement done ======")
 
-    def _prepare_global_features(
-        self, fea_name: str, read_path: str, save_path: str, np_type: np.dtype
-    ) -> None:
+    def _prepare_global_features(self, fea_name: str, read_path: str, save_path: str, np_type: np.dtype) -> None:
         """Prepare and save global features.
 
         Args:
@@ -100,7 +98,7 @@ class FEPassiveLVHeartPreparationDataset(AbstractDataPreparationDataset, FEPassi
 
     def _prepare_edge(self):
         """Prepare and save edge indices based on specified method.
-        
+
         Supports multiple edge generation methods including topology-based and distance-based approaches.
         """
         node_coords = np.load(f"{self.node_coord_path}").astype(np.float32)
@@ -232,7 +230,7 @@ class FEPassiveLVHeartPreparationDataset(AbstractDataPreparationDataset, FEPassi
 
     def _prepare_node_coord_stats(self):
         """Calculate and save node coordinate statistics.
-        
+
         Computes and saves max and min values for normalization.
         """
         node_coords = np.load(self.node_coord_path).astype(np.float32)

@@ -26,13 +26,14 @@ task_trainer:
     logs:
       update_freq: 1
       save_task_code: True
+    scheduling:
+      avoid_work_hour: True
   dataset_param:
     batch_size: 1
     val_batch_size: 150
     train_shuffle: True
   static_graph: False
-  scheduling:
-    avoid_work_hour: True
+  init_model_weights: False
 task_train:
   select_edge_num: 12
   node_input_mlp_layer:

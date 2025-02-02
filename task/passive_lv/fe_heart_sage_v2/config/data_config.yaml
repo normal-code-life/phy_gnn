@@ -1,6 +1,3 @@
-# mainly used to recoard the project basic info, including but not limited to
-# task name, model name etc
-#
 task_base:
   task_name: passive_lv
 task_data:
