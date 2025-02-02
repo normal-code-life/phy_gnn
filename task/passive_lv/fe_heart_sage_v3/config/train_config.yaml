@@ -4,7 +4,7 @@ task_base:
   exp_name: fe_heart_sage_v3
   overwrite_exp_folder: True
   gpu: True
-  cuda_core: 0
+  cuda_core: 2
   gpu_num: 1
 task_data:
   n_shape_coeff: 32  # Number of shape coefficients to input to the emulator
@@ -12,11 +12,11 @@ task_trainer:
   epochs: 3000
   optimizer_param:
     name: adam
-    learning_rate: 0.001  # Learning rate for training the network
-    scheduler: multi_step
-    milestones:  [250, 500, 750]
-    batch_per_epoch: 225  # total_size/batch_size
-    decay_per_step: 0.5
+    learning_rate: 0.0001  # Learning rate for training the network
+      #scheduler: multi_step
+      #milestones:  [250, 500, 750]
+      #batch_per_epoch: 2250  # total_size/batch_size
+      #decay_per_step: 0.5
   loss_param:
     name: euclidean_distance_mse
   metrics_param:
@@ -35,8 +35,8 @@ task_trainer:
     scheduling:
       avoid_work_hour: False
   dataset_param:
-    batch_size: 10
-    val_batch_size: 2
+    batch_size: 1
+    val_batch_size: 5
   static_graph: False
   init_model_weights: True
 task_train:

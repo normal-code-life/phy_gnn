@@ -236,15 +236,17 @@ class BaseTrainer(abc.ABC):
             logger.info("when gpu num is over 2, we do not support model summary function")
             return
 
-        summary_model(
+        str_summary = summary_model(
             model,
             inputs,
             show_input=model_summary["show_input"],
             show_hierarchical=model_summary["show_hierarchical"],
-            print_summary=model_summary["print_summary"],
+            # print_summary=model_summary["print_summary"],
             max_depth=model_summary["max_depth"],
             show_parent_layers=model_summary["show_parent_layers"],
         )
+
+        logger.info(str_summary)
 
     def create_optimize(self) -> None:
         optimizer_param = self.task_trainer["optimizer_param"]
