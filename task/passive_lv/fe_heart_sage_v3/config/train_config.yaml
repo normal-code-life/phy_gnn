@@ -1,7 +1,7 @@
 task_base:
   task_name: passive_lv
   model_name: fe_heart_sage_v3
-  exp_name: fe_heart_sage_v3
+  exp_name: fe_heart_sage_v3_att
   overwrite_exp_folder: True
   gpu: True
   cuda_core: 1
@@ -14,13 +14,13 @@ task_trainer:
     name: adam
     learning_rate: 0.0001  # Learning rate for training the network
     scheduler: multi_step
-    milestones:  [250, 500, 750]
+    milestones:  [25, 50, 100]
     batch_per_epoch: 2250  # total_size/batch_size
     decay_per_step: 0.5
   loss_param:
     name: euclidean_distance_mse
-  metrics_param:
-    - mean_absolute_error
+#  metrics_param:
+#    - mean_absolute_error
   callback_param:
     tensorboard:
       profiler: False
@@ -41,7 +41,7 @@ task_trainer:
   init_model_weights: True
 task_train:
   select_edge_num: 12
-  select_node_num: 300
+  select_node_num: 500
   input_layer:
     node_coord:
       unit_sizes: [3, 64]
