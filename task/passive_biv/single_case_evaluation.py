@@ -9,7 +9,7 @@ from torchvision import transforms
 
 from common.constant import DARWIN, MAX_VAL, MIN_VAL, PERC_10_VAL, PERC_90_VAL
 from pkg.data_utils.edge_generation import generate_distance_based_edges_nb, generate_distance_based_edges_ny
-from pkg.train.datasets.base_datasets import import_data_config
+from pkg.train.datasets.utils import import_data_config
 from pkg.train.module.data_transform import CovertToModelInputs, MaxMinNorm, ToTensor, UnSqueezeDataDim
 from pkg.utils.logs import init_logger
 from task.passive_biv.data.datasets import FEHeartSageDataset
@@ -186,18 +186,17 @@ class CovertToModelInputsRandom(CovertToModelInputs):
     ) -> Tuple[Dict[str, Tensor], Union[Tensor, Dict[str, Tensor]]]:
         inputs, labels = super().__call__(sample)
 
-        _, node_num, _ = inputs["edges_indices"].shape
+        batch_size, node_num, _ = inputs["edges_indices"].shape
 
-        selected_node = torch.randint(0, node_num, size=(self.selected_node_num,), dtype=torch.int64)
+        selected_node = torch.arange(node_num, device="cpu").unsqueeze(0).expand(batch_size, -1)
 
-        inputs["selected_node"] = selected_node.unsqueeze(0)
-        labels["selected_node"] = selected_node.unsqueeze(0)
+        inputs["selected_node"] = selected_node
 
         return inputs, labels
 
 
 if __name__ == "__main__":
-    config = import_data_config("passive_biv", "fe_heart_sage_v3", "passive_biv")
+    config = import_data_config("passive_biv", "fe_heart_sage_v4", "passive_biv")
 
     evaluation = FEHeartSageV2Evaluation(config, "eval", 2)
 

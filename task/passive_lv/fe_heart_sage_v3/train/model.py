@@ -121,7 +121,6 @@ class FEHeartSAGEModel(BaseModule):
         # mlp layer config
         self.input_layer_config = config["input_layer"]
         self.edge_mlp_layer_config = config["edge_mlp_layer"]
-        self.edge_laplace_mlp_layer_config = config["edge_laplace_mlp_layer"]
         self.theta_input_mlp_layer_config = config["theta_input_mlp_layer"]
         self.decoder_layer_config = config["decoder_layer"]
 
@@ -164,8 +163,6 @@ class FEHeartSAGEModel(BaseModule):
             self.input_layer.append(MLPLayerV2(layer_config, prefix_name=layer_name))
 
         self.edge_mlp_layer = MLPLayerV2(self.edge_mlp_layer_config, prefix_name="edge_input")
-
-        self.edge_laplace_mlp_layer = MLPLayerV2(self.edge_laplace_mlp_layer_config, prefix_name="edge_laplace_input")
 
         if self.message_passing_layer_config["arch"] == "attention":
             self.message_update_layer = nn.TransformerEncoderLayer(
