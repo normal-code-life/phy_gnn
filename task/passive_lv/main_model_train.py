@@ -1,10 +1,14 @@
 import argparse
 from typing import List
 
+import numpy as np
+
 from task.passive_lv.fe_heart_sage_v1.train.model import FEHeartSAGETrainer
 from task.passive_lv.fe_heart_sage_v2.train.model import FEHeartSageV2Trainer
 from task.passive_lv.fe_heart_sage_v3.train.model import FEHeartSageV3Trainer
 from task.passive_lv.passive_lv_gnn_emul.train.model import PassiveLvGNNEmulTrainer
+
+np.random.seed(753)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Model Selection")

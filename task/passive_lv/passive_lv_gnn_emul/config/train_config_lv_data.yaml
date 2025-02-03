@@ -1,13 +1,12 @@
 task_base:
   task_name: passive_lv_gnn_emul
   model_name: passive_lv_gnn_emul
-  exp_name: rec_lv_passive_lv_gnn_emul
+  exp_name: gnn_emul
   overwrite_exp_folder: False
   gpu: True
   cuda_core: 3
   gpu_num: 1
 task_data:
-  task_data_name: lvData
   n_shape_coeff: 32  # Number of shape coefficients to input to the emulator
 task_trainer:
   model_name: PassiveLvGNNEmul
@@ -19,7 +18,6 @@ task_trainer:
     name: euclidean_distance_mse
   metrics_param:
     - mean_absolute_error
-    # - explained_va/riance
   callback_param:
     tensorboard:
       profiler: False

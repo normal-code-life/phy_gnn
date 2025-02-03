@@ -19,6 +19,24 @@ torch.set_printoptions(precision=8)
 
 
 class PassiveLvGNNEmulTrainer(BaseTrainer):
+    """Trainer class for the Passive Left Ventricle Graph Neural Network Emulator.
+
+    This class handles the training process for a graph neural network that emulates the passive mechanical
+    behavior of the left ventricle. It manages data loading, model creation, loss computation, and validation.
+
+    Attributes:
+        dataset_class (class): The dataset class to use for loading LV mesh data
+        senders (torch.Tensor): Source nodes indices for edges in the mesh
+        receivers (torch.Tensor): Target nodes indices for edges in the mesh
+        real_node_indices (torch.Tensor): Indices of real (non-padding) nodes
+        n_total_nodes (int): Total number of nodes in the mesh
+        displacement_mean (torch.Tensor): Mean displacement values for normalization
+        displacement_std (torch.Tensor): Standard deviation of displacements for normalization
+
+    note: this model has exactly followed the model arch by https://github.com/dodaltuin/passive-lv-gnn-emul
+    we re-write the arch from jax to pytorch and assign model weight based on jax version as baseline
+    """
+
     dataset_class = LvDataset
 
     def __init__(self) -> None:
@@ -62,6 +80,22 @@ class PassiveLvGNNEmulTrainer(BaseTrainer):
 
 
 class PassiveLvGNNEmulModel(BaseModule):
+    """Graph Neural Network model for emulating passive left ventricle mechanics.
+
+    This model implements an encoder-processor-decoder architecture using message passing
+    neural networks to predict displacement fields in the left ventricle mesh.
+
+    Attributes:
+        node_input_mlp_layer (dict): Configuration for node encoder MLP
+        edge_input_mlp_layer (dict): Configuration for edge encoder MLP
+        theta_input_mlp_layer (dict): Configuration for parameter encoder MLP
+        message_passing_layer_config (dict): Configuration for message passing layers
+        decoder_layer_config (dict): Configuration for decoder MLPs
+        receivers (torch.Tensor): Target nodes for each edge
+        n_total_nodes (int): Total number of nodes in the mesh
+        real_node_indices (torch.Tensor): Indices of real (non-padding) nodes
+    """
+
     def __init__(
         self,
         config: Dict,
@@ -72,6 +106,15 @@ class PassiveLvGNNEmulModel(BaseModule):
         *args,
         **kwargs,
     ) -> None:
+        """Initialize the GNN model with the given configuration and mesh topology.
+
+        Args:
+            config (Dict): Model configuration dictionary
+            senders (Sequence[int]): Source nodes for each edge
+            receivers (torch.tensor): Target nodes for each edge
+            real_node_indices (Sequence[int]): Indices of real nodes
+            n_total_nodes (int): Total number of nodes in the mesh
+        """
         super().__init__(config, *args, **kwargs)
 
         # mlp layer config
@@ -120,6 +163,11 @@ class PassiveLvGNNEmulModel(BaseModule):
         return {**base_config, **mlp_config}
 
     def _init_graph(self):
+        """Initialize all neural network components of the model.
+
+        Creates encoder MLPs for nodes, edges, and parameters, decoder MLPs for each output
+        dimension, and the message passing layers.
+        """
         # 3 encoder mlp
         self.node_encode_mlp_layer = MLPLayerLN(self.node_input_mlp_layer, prefix_name="node_encode")
         self.edge_encode_mlp_layer = MLPLayerLN(self.edge_input_mlp_layer, prefix_name="edge_encode")
@@ -141,49 +189,51 @@ class PassiveLvGNNEmulModel(BaseModule):
 
     def forward(self, x):
         # ====== Input data (squeeze to align to previous project)
-        input_node = x["nodes"].squeeze(dim=0)  # shape: (1, 126, 1) => (126, 1)
-        input_edge = x["edges"].squeeze(dim=0)  # shape: (1, 440, 3) => (440, 3)
-        input_theta = x["theta_vals"]  # shape: (1, 2)
-        input_z_global = x["shape_coeffs"]  # shape: (1, 2)
+        input_node = x["nodes"].squeeze(dim=0)  # shape: (batch_size, node, 1) => (node, 1)
+        input_edge = x["edges"].squeeze(dim=0)  # shape: (batch_size, edge, 3) => (edge, 3)
+        input_theta = x["theta_vals"]  # shape: (batch_size, fea)
+        input_z_global = x["shape_coeffs"]  # shape: (batch_size, fea)
 
         # ====== Encoder:
         # encode vertices and edges
-        node = self.node_encode_mlp_layer(input_node)  # shape: (126, 40)
-        edge = self.edge_encode_mlp_layer(input_edge)  # shape: (440, 40)
+        node = self.node_encode_mlp_layer(input_node)  # shape: (node, emb)
+        edge = self.edge_encode_mlp_layer(input_edge)  # shape: (edge, emb)
 
         # perform K rounds of message passing
-        node, edge = self.message_passing_layer(node, edge)  # shape: (126, 40), (440, 40)
+        node, edge = self.message_passing_layer(node, edge)  # shape: (node, emb), (edge, emb)
 
         # aggregate incoming messages to each node
-        incoming_message = segment_sum(edge, self.receivers, self.n_total_nodes)  # shape: (126, 40)
+        incoming_message = segment_sum(edge, self.receivers, self.n_total_nodes)  # shape: (node, emb)
 
         # final local learned representation is a concatenation of vector embedding and incoming messages
-        z_local = torch.concat((node, incoming_message), dim=-1)  # shape: (126, 80)
+        z_local = torch.concat((node, incoming_message), dim=-1)  # shape: (node, emb)
 
         # only need local representation for real nodes
-        z_local = z_local[self.real_node_indices,]  # shape: (96, 80)
+        z_local = z_local[self.real_node_indices,]  # shape: (real node, emb)
 
         # encode global parameters theta
-        z_theta = self.theta_encode_mlp_layer(input_theta)  # shape: (1, 2) => (1, 40)
+        z_theta = self.theta_encode_mlp_layer(input_theta)  # shape: (batch_size, fea) => (batch_size, emb)
 
         # tile global values (z_theta and optionally z_global) to each individual real node
         if input_z_global is None:
-            globals_array = torch.tile(z_theta, (z_local.shape[0], 1))  # shape: (96, 40)
+            globals_array = torch.tile(z_theta, (z_local.shape[0], 1))  # shape: (real node, emb)
         else:
             # stack z_global with z_theta if z_global is inputted
-            global_embedding = torch.hstack((z_theta, input_z_global))  # shape: (1, 40) + (1, 2) => (1, 42)
-            globals_array = torch.tile(global_embedding, (z_local.shape[0], 1))  # shape: (96, 42)
+            global_embedding = torch.hstack(
+                (z_theta, input_z_global)
+            )  # shape: (batch_size, emb) + (batch_size, fea) => (batch_size, emb)
+            globals_array = torch.tile(global_embedding, (z_local.shape[0], 1))  # shape: (real node, emb)
 
         # final learned representation is (z_theta, z_local) or (z_theta, z_global, z_local)
-        final_representation = torch.hstack((globals_array, z_local))  # shape: (96, 122)
+        final_representation = torch.hstack((globals_array, z_local))  # shape: (real node, emb)
 
         # ====== Decoder:
         # make prediction for forward displacement using different decoder mlp for each dimension
         individual_mlp_predictions = [
             decode_mlp(final_representation) for decode_mlp in self.decoder_layer
-        ]  # shape: (96, 1), (96, 1)
+        ]  # shape: (real node, pred), (real node, pred)
 
         # concatenate the predictions of each individual decoder mlp
-        Upred = torch.hstack(individual_mlp_predictions)  # shape: (96, 2)
+        Upred = torch.hstack(individual_mlp_predictions)  # shape: (real node, pred)
 
         return Upred

@@ -12,7 +12,19 @@ from task.passive_lv.data.datasets import FEPassiveLVHeartDataset
 
 
 class FEPassiveLVHeartPreparationDataset(AbstractDataPreparationDataset, FEPassiveLVHeartDataset):
+    """Dataset class for preparing Finite Element Passive Left Ventricle Heart data.
+
+    This class handles data preparation tasks like loading raw data, preprocessing features,
+    generating edge indices, and computing statistics for the dataset.
+    """
+
     def __init__(self, data_config: Dict, data_type: str) -> None:
+        """Initialize the dataset with configuration parameters.
+
+        Args:
+            data_config: Dictionary containing dataset configuration parameters
+            data_type: String indicating the type of dataset (train/val/test)
+        """
         super(FEPassiveLVHeartPreparationDataset, self).__init__(data_config, data_type)
 
         logger.info(f"=== Init FEPassiveLVHeartPreparationDataset {data_type} data config start ===")
@@ -36,9 +48,9 @@ class FEPassiveLVHeartPreparationDataset(AbstractDataPreparationDataset, FEPassi
 
         self._prepare_features()
 
-        self._prepare_global_features("global_feature", self.theta_original_path, self.theta_path, np.float32, False)  # noqa
+        self._prepare_global_features("global_feature", self.theta_original_path, self.theta_path, np.float32)  # noqa
 
-        self._prepare_global_features("shape_coeff", self.shape_coeff_original_path, self.shape_coeff_path, np.float32, False)  # noqa
+        self._prepare_global_features("shape_coeff", self.shape_coeff_original_path, self.shape_coeff_path, np.float32)  # noqa
 
         self._prepare_edge()
 
@@ -51,71 +63,44 @@ class FEPassiveLVHeartPreparationDataset(AbstractDataPreparationDataset, FEPassi
 
         self._prepare_node_coord_stats()
 
-    # def _data_down_sampling_node_selection(self):
-    #     if self.down_sampling is None or self.down_sampling == 1.0:
-    #         return
-    #
-    #     data = np.load(self.displacement_original_path)
-    #     node_size = data.shape[1]
-    #
-    #     self.select_nodes = np.random.choice(node_size, size=int(node_size * self.down_sampling), replace=False)
-    #
-    #     logger.info(f"given the down sampling ratio {self.down_sampling}, we choice {len(self.select_nodes)} nodes")
-
     def _prepare_features(self) -> None:
+        """Prepare and save node features, coordinates and displacement data.
+
+        Loads raw data, processes it and saves in the required format.
+        """
         logger.info("====== prepare node and displacement start ======")
 
         node_features = np.load(self.node_feature_original_path).astype(np.float32)
         node_coord = np.load(self.node_coord_original_path).astype(np.float32)
         displacement = np.load(self.displacement_original_path).astype(np.float32)
 
-        # if self.down_sampling or self.down_sampling < 1.0:
-        #     logger.info(f"given the down sampling ratio {self.down_sampling}")
-        #
-        #     num_samples, num_nodes, fea_dim = node_features.shape
-        #     _, _, coord_dim = node_coord.shape
-        #     _, _, displacement_dim = displacement.shape
-        #
-        #     down_sample_node = int(num_nodes * self.down_sampling)
-        #
-        #     new_node_features = np.empty((num_samples, down_sample_node, fea_dim), dtype=np.float32)
-        #     new_node_coord = np.empty((num_samples, down_sample_node, coord_dim), dtype=np.float32)
-        #     new_displacement = np.empty((num_samples, down_sample_node, displacement_dim), dtype=np.float32)
-        #
-        #     for i in range(num_samples):
-        #         select_nodes = np.random.choice(num_nodes, size=down_sample_node, replace=False)
-        #
-        #         new_node_features[i] = node_features[i, select_nodes, :]
-        #         new_node_coord[i] = node_coord[i, select_nodes, :]
-        #         new_displacement[i] = displacement[i, select_nodes, :]
-        #
-        #     node_features = new_node_features
-        #     node_coord = new_node_coord
-        #     displacement = new_displacement
-
-        # === save node features
         np.save(self.node_feature_path, node_features)
         np.save(self.node_coord_path, node_coord)
         np.save(self.displacement_path, displacement)
 
         logger.info("====== prepare node and displacement done ======")
 
-    def _prepare_global_features(
-        self, fea_name: str, read_path: str, save_path: str, np_type: np.dtype, can_down_sampling: bool
-    ) -> None:
+    def _prepare_global_features(self, fea_name: str, read_path: str, save_path: str, np_type: np.dtype) -> None:
+        """Prepare and save global features.
+
+        Args:
+            fea_name: Name of the feature
+            read_path: Path to read raw data from
+            save_path: Path to save processed data to
+            np_type: Numpy dtype for the data
+        """
         logger.info(f"====== prepare {fea_name} start ======")
 
         features = np.load(read_path).astype(np_type)
-
-        # if self.down_sampling and self.down_sampling < 1.0:
-        #     features = features[:, self.select_nodes, :]
-
-        # === save node features
         np.save(save_path, features)
 
         logger.info(f"====== prepare {fea_name} done ======")
 
     def _prepare_edge(self):
+        """Prepare and save edge indices based on specified method.
+
+        Supports multiple edge generation methods including topology-based and distance-based approaches.
+        """
         node_coords = np.load(f"{self.node_coord_path}").astype(np.float32)
 
         # edge features
@@ -161,6 +146,14 @@ class FEPassiveLVHeartPreparationDataset(AbstractDataPreparationDataset, FEPassi
         logger.info("====== prepare_edge DONE ======")
 
     def _calculate_edge_from_topology(self, data_path: str):
+        """Calculate edge indices from topology data.
+
+        Args:
+            data_path: Path to topology data files
+
+        Returns:
+            Array of edge indices based on mesh topology
+        """
         from itertools import zip_longest
 
         node_layer_labels = np.load(f"{data_path}/node-layer-labels.npy")
@@ -177,10 +170,17 @@ class FEPassiveLVHeartPreparationDataset(AbstractDataPreparationDataset, FEPassi
         )
         edge = df_edge.groupby("sender")["receiver"].apply(lambda x: sorted(list(set(x))))
 
-        # Use groupby and apply a lambda function that converts data into a set.
         return np.array(list(map(list, zip_longest(*edge, fillvalue=self.default_padding_value)))).T
 
     def _calculate_node_neighbour_distance_nb(self, node_coord: np.ndarray) -> np.ndarray:
+        """Calculate edge indices based on node distances using Numba implementation.
+
+        Args:
+            node_coord: Node coordinates array
+
+        Returns:
+            Array of edge indices based on node distances
+        """
         num_samples = node_coord.shape[0]
         num_nodes = node_coord.shape[1]
 
@@ -204,8 +204,15 @@ class FEPassiveLVHeartPreparationDataset(AbstractDataPreparationDataset, FEPassi
 
         return sorted_indices_by_dist
 
-    # some issue with IOS OPM, will continue to use numpy to generate the neighbours
     def _calculate_node_neighbour_distance_ny(self, node_coord: np.ndarray) -> np.ndarray:
+        """Calculate edge indices based on node distances using NumPy implementation.
+
+        Args:
+            node_coord: Node coordinates array
+
+        Returns:
+            Array of edge indices based on node distances
+        """
         num_samples = node_coord.shape[0]
         num_nodes = node_coord.shape[1]
 
@@ -222,6 +229,10 @@ class FEPassiveLVHeartPreparationDataset(AbstractDataPreparationDataset, FEPassi
         return sorted_indices_by_dist
 
     def _prepare_node_coord_stats(self):
+        """Calculate and save node coordinate statistics.
+
+        Computes and saves max and min values for normalization.
+        """
         node_coords = np.load(self.node_coord_path).astype(np.float32)
 
         coord_max_norm_val = np.max(node_coords, axis=(0, 1))
@@ -236,6 +247,7 @@ class FEPassiveLVHeartPreparationDataset(AbstractDataPreparationDataset, FEPassi
         )
 
     def _check_stats(self):
+        """Perform statistical analysis on node coordinates."""
         from pkg.data_utils.stats import stats_analysis
 
         node_coords = np.load(self.node_coord_original_path).astype(np.float32)
@@ -243,6 +255,7 @@ class FEPassiveLVHeartPreparationDataset(AbstractDataPreparationDataset, FEPassi
         stats_analysis("node_coord", node_coords, 2, "", logger, False)  # noqa
 
     def _data_stats_total_size(self):
+        """Calculate and save total dataset size."""
         data_size = np.load(self.displacement_path).astype(np.float32).shape[0]
 
         np.save(self.data_size_path, data_size)

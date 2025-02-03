@@ -184,4 +184,3 @@ class BaseAbstractTrainDataset(BaseAbstractDataset):
         int : The number of items in the dataset.
         """
         raise NotImplementedError("Subclasses must implement __len__ method")
-

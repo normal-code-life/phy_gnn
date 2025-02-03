@@ -31,7 +31,7 @@ class FEHeartSageV2Trainer(BaseTrainer):
         self.displacement_std = dataset_config.get_displacement_std()
 
     def create_model(self) -> None:
-        self.model = FEHeartSageV2Model(self.task_train)
+        self.model = FEHeartSageModel(self.task_train)
 
     def validation_step_check(self, epoch: int, is_last_epoch: bool) -> bool:
         if epoch <= 20 or epoch % 5 == 0 or is_last_epoch:
@@ -48,7 +48,7 @@ class FEHeartSageV2Trainer(BaseTrainer):
         return super().compute_metrics(metrics_func, predictions, labels)
 
 
-class FEHeartSageV2Model(BaseModule):
+class FEHeartSageModel(BaseModule):
     """https://github.com/raunakkmr/GraphSAGE."""
 
     def __init__(self, config: Dict, *args, **kwargs) -> None:
@@ -56,7 +56,6 @@ class FEHeartSageV2Model(BaseModule):
 
         # hyper-parameter config
         self.neighbour_layers = config["neighbour_layers"]
-        self.default_padding_value = config.get("default_padding_value", -1)
 
         # mlp layer config
         self.node_input_mlp_layer_config = config["node_input_mlp_layer"]

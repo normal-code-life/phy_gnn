@@ -10,9 +10,8 @@ if __name__ == "__main__":
     repo_root_path = io.get_repo_path(cur_path)
     data_config = {
         "repo_path": repo_root_path,
-        "task_data_path": f"{repo_root_path}/pkg/data/lvData",
+        "task_data_path": f"{repo_root_path}/pkg/data/passive_lv",
         "task_path": f"{repo_root_path}/task/passive_lv/passive_lv_gnn_emul",
-        "sub_data_name": "beam_data",
         "gpu": False,
         "model_name": "passive_lv_gnn_emul",
         "task_name": "model_train",

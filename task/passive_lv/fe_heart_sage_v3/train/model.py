@@ -19,9 +19,16 @@ torch.set_printoptions(precision=8)
 
 
 class FEHeartSageV3Trainer(BaseTrainer):
+    """Trainer class for FEHeartSAGE model.
+
+    Handles training and validation of the FEHeartSAGE model, including data preprocessing,
+    node sampling, and metric computation.
+    """
+
     dataset_class = FEHeartSageTrainDataset
 
     def __init__(self) -> None:
+        """Initialize the trainer with dataset configuration and device setup."""
         super().__init__()
 
         self.selected_node_num = self.task_train["select_node_num"]
@@ -84,9 +91,27 @@ class FEHeartSageV3Trainer(BaseTrainer):
 
 
 class FEHeartSAGEModel(BaseModule):
-    """https://github.com/raunakkmr/GraphSAGE."""
+    """Graph Neural Network model.
+
+    This model is designed to predict displacement in finite element meshes of the left ventricle
+    by learning node embeddings in graphs.
+    It performs message passing between nodes to aggregate neighborhood information and make predictions.
+    The model consists of:
+    - Input encoders for nodes, edges and global features
+    - Message passing layers with attention or MLP architectures
+    - Aggregation functions to combine neighbor messages
+    - A decoder to make final displacement predictions
+    """
 
     def __init__(self, config: Dict, *args, **kwargs) -> None:
+        """Initialize the FEHeartSAGE model.
+
+        Args:
+            config: Configuration dictionary containing model hyperparameters and
+                   architecture specifications
+            *args: Variable length argument list
+            **kwargs: Arbitrary keyword arguments
+        """
         super().__init__(config, *args, **kwargs)
 
         # hyper-parameter config
@@ -123,6 +148,16 @@ class FEHeartSAGEModel(BaseModule):
         return {**base_config, **mlp_config}
 
     def _init_graph(self):
+        """Initialize the graph neural network components.
+
+        Sets up the following model components:
+        - Input layers for feature preprocessing
+        - Edge and edge Laplacian MLPs
+        - Message passing layers (attention or MLP based)
+        - Message aggregation pooling
+        - Global parameter encoder
+        - Decoder MLPs
+        """
         # Input layer
         self.input_layer: nn.ModuleList = nn.ModuleList()
         for layer_name, layer_config in self.input_layer_config.items():
@@ -169,6 +204,16 @@ class FEHeartSAGEModel(BaseModule):
 
     @staticmethod
     def _random_select_edge(indices: Tensor, device: str, selected_edge_num: int) -> Tensor:
+        """Randomly select edges for each node.
+
+        Args:
+            indices: Edge indices tensor
+            device: Device to place tensors on
+            selected_edge_num: Number of edges to select per node
+
+        Returns:
+            Tensor of selected edge indices
+        """
         batch_size, node_num, seq_num = indices.shape
 
         select_batch = torch.arange(batch_size, device=device)
@@ -189,6 +234,15 @@ class FEHeartSAGEModel(BaseModule):
 
     @staticmethod
     def _generate_edge_emb(node_emb: Tensor, input_edge_indices: Tensor) -> Tensor:
+        """Generate edge embeddings from node embeddings and edge indices.
+
+        Args:
+            node_emb: Node embedding tensor
+            input_edge_indices: Edge indices tensor
+
+        Returns:
+            Edge embedding tensor
+        """
         emb_dim: int = node_emb.shape[-1]  # feature for each of the node
         seq: int = input_edge_indices.shape[-1]  # neighbours seq for each of the center node
 
@@ -210,6 +264,15 @@ class FEHeartSAGEModel(BaseModule):
 
     @staticmethod
     def _generate_edge_coord(input_node_coord: Tensor, input_edge_indices: Tensor) -> torch.Tensor:
+        """Generate edge coordinate features from node coordinates and edge indices.
+
+        Args:
+            input_node_coord: Node coordinate tensor
+            input_edge_indices: Edge indices tensor
+
+        Returns:
+            Edge coordinate tensor
+        """
         coord_dim: int = input_node_coord.shape[-1]  # coord for each of the node
         seq: int = input_edge_indices.shape[-1]  # neighbours seq for each of the center node
 
