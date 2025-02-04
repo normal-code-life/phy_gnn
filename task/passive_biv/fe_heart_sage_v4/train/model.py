@@ -21,11 +21,7 @@ class FEHeartSageV4Trainer(BaseTrainer):
     dataset_class = FEHeartSageTrainDataset
 
     def __init__(self) -> None:
-        config = TrainerConfig()
-
-        logger.info(f"{config.get_config()}")
-
-        super().__init__(config)
+        super().__init__()
 
         self.selected_node_num = self.task_train["select_node_num"]
 

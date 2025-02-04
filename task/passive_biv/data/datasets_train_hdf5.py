@@ -7,7 +7,7 @@ from torchvision import transforms
 
 from common.constant import MAX_VAL, MIN_VAL, MODEL_TRAIN, PERC_10_VAL, PERC_90_VAL
 from pkg.train.datasets.base_datasets_train import MultiHDF5Dataset
-from pkg.train.module.data_transform import ClampTensor, CovertToModelInputs, MaxMinNorm, SqueezeDataDim, ToTensor
+from pkg.train.module.data_transform import ClampTensor, CovertToModelInputs, MaxMinNorm, SqueezeDataDim, ToTensor, NormalNorm
 from task.passive_biv.data.datasets import FEHeartSageDataset
 
 
@@ -31,14 +31,14 @@ class FEHeartSageTrainDataset(MultiHDF5Dataset, FEHeartSageDataset):
         }
         transform_list.append(ToTensor(hdf5_to_tensor_config))
 
-        climp_config = {
-            "displacement": {
-                MAX_VAL: 2.688125,
-                MIN_VAL: -2.8395823,
-            }
-        }
-
-        transform_list.append(ClampTensor(climp_config))
+        # climp_config = {
+        #     "displacement": {
+        #         MAX_VAL: 2.688125,
+        #         MIN_VAL: -2.8395823,
+        #     }
+        # }
+        #
+        # transform_list.append(ClampTensor(climp_config))
 
         norm_config = {
             "node_coord": self.node_coord_stats_path,
@@ -53,12 +53,12 @@ class FEHeartSageTrainDataset(MultiHDF5Dataset, FEHeartSageDataset):
         norm_config = {
             "displacement": self.displacement_stats_path,
             "stress": self.stress_stats_path,
-            "replace_by_perc": {
-                MIN_VAL: PERC_10_VAL,
-                MAX_VAL: PERC_90_VAL,
-            },
+            # "replace_by_perc": {
+            #     MIN_VAL: PERC_10_VAL,
+            #     MAX_VAL: PERC_90_VAL,
+            # },
         }
-        transform_list.append(MaxMinNorm(norm_config, True))
+        transform_list.append(NormalNorm(norm_config))
 
         # convert data dim
         convert_data_dim_config = {"mat_param": -1, "pressure": -1, "shape_coeffs": -1}

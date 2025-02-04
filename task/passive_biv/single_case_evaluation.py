@@ -7,10 +7,10 @@ from numba.typed import List as Numba_List
 from torch import Tensor, nn
 from torchvision import transforms
 
-from common.constant import DARWIN, MAX_VAL, MIN_VAL, PERC_10_VAL, PERC_90_VAL
+from common.constant import DARWIN, MAX_VAL, MIN_VAL, PERC_10_VAL, PERC_90_VAL, MEAN_VAL, STD_VAL
 from pkg.data_utils.edge_generation import generate_distance_based_edges_nb, generate_distance_based_edges_ny
 from pkg.train.datasets.utils import import_data_config
-from pkg.train.module.data_transform import CovertToModelInputs, MaxMinNorm, ToTensor, UnSqueezeDataDim
+from pkg.train.module.data_transform import CovertToModelInputs, MaxMinNorm, ToTensor, UnSqueezeDataDim, NormalNorm, ClampTensor
 from pkg.utils.logs import init_logger
 from task.passive_biv.data.datasets import FEHeartSageDataset
 
@@ -42,7 +42,7 @@ class FEHeartSageV2Evaluation(FEHeartSageDataset):
 
         transform = self._init_transform()
 
-        inputs, _ = transform(data)
+        inputs, labels = transform(data)
 
         model = self._load_model()
 
@@ -51,10 +51,20 @@ class FEHeartSageV2Evaluation(FEHeartSageDataset):
 
             stats = np.load(self.displacement_stats_path)
 
-            max_val = torch.tensor(stats[MAX_VAL], device="cuda")
-            min_val = torch.tensor(stats[MIN_VAL], device="cuda")
+            # max_val = torch.tensor(stats[MAX_VAL], device="cuda")
+            # min_val = torch.tensor(stats[MIN_VAL], device="cuda")
+            #
+            # output = output["displacement"].squeeze(0) * (max_val - min_val) + min_val
+
+            max_val = torch.tensor(stats[PERC_90_VAL], device="cpu")
+            min_val = torch.tensor(stats[PERC_10_VAL], device="cpu")
 
             output = output["displacement"].squeeze(0) * (max_val - min_val) + min_val
+
+            # mean_val = torch.tensor(stats[MEAN_VAL], device="cpu")
+            # std_val = torch.tensor(stats[STD_VAL], device="cpu")
+            #
+            # output = output["displacement"].squeeze(0) * std_val + mean_val
 
             df = pd.DataFrame(output.to("cpu").squeeze(0).numpy())
             df.to_csv(self.output_path, index=False)
@@ -123,7 +133,16 @@ class FEHeartSageV2Evaluation(FEHeartSageDataset):
         }
         transform_list.append(ToTensor(hdf5_to_tensor_config))
 
-        norm_config = {
+        climp_config = {
+            "displacement": {
+                MAX_VAL: 2.688125,
+                MIN_VAL: -2.8395823,
+            }
+        }
+
+        transform_list.append(ClampTensor(climp_config))
+
+        max_min_norm_config = {
             "node_coord": self.node_coord_stats_path,
             "fiber_and_sheet": self.fiber_and_sheet_stats_path,
             "shape_coeffs": self.shape_coeff_stats_path,
@@ -131,17 +150,17 @@ class FEHeartSageV2Evaluation(FEHeartSageDataset):
             "pressure": self.pressure_stats_path,
         }
 
-        transform_list.append(MaxMinNorm(norm_config, True, True))
+        transform_list.append(MaxMinNorm(max_min_norm_config, True, True))
 
-        norm_config = {
-            "displacement": self.displacement_stats_path,
-            "stress": self.stress_stats_path,
-            "replace_by_perc": {
-                MIN_VAL: PERC_10_VAL,
-                MAX_VAL: PERC_90_VAL,
-            },
-        }
-        transform_list.append(MaxMinNorm(norm_config, True))
+        # norm_config = {
+        #     "displacement": self.displacement_stats_path,
+        #     "stress": self.stress_stats_path,
+        #     "replace_by_perc": {
+        #         MIN_VAL: PERC_10_VAL,
+        #         MAX_VAL: PERC_90_VAL,
+        #     },
+        # }
+        # transform_list.append(MaxMinNorm(norm_config, True))
 
         unsqueeze_data_dim_config = {
             "node_coord": 0,
@@ -171,6 +190,16 @@ class FEHeartSageV2Evaluation(FEHeartSageDataset):
             map_location=torch.device("cpu"),
         )
 
+        model = model.to("cpu")
+
+        for param in model.parameters():
+            param.data = param.data.to("cpu")
+            if param.grad is not None:
+                param.grad.data = param.grad.data.to("cpu")
+
+        if hasattr(model, 'device'):
+            model.device = "cpu"
+
         model.eval()
 
         return model
@@ -198,6 +227,6 @@ class CovertToModelInputsRandom(CovertToModelInputs):
 if __name__ == "__main__":
     config = import_data_config("passive_biv", "fe_heart_sage_v4", "passive_biv")
 
-    evaluation = FEHeartSageV2Evaluation(config, "eval", 2)
+    evaluation = FEHeartSageV2Evaluation(config, "eval", 11)
 
     evaluation.single_graph_evaluation()
