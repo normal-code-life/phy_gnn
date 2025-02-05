@@ -2,7 +2,7 @@ task_base:
   task_name: passive_lv
 task_data:
   overwrite_data: False
-  overwrite_stats: true
+  overwrite_stats: True
   edge_indices_generate_method: 4
   sections: [0, 20, 50, 100, 250, 500]
   nodes_per_sections: [20, 30, 30, 10, 10]

@@ -53,7 +53,7 @@ Common training parameters:
 ### Step 1: Data Preparation
 First, run the data preparation script to process and format the raw data:
 ```bash
-python main_data_preparation.py \
+sh phy_gnn/task/passive_lv/start_data_preparation.sh \
     --task_name <task_name> \
     --model_name <model_name> \
     --config_name <config_name>

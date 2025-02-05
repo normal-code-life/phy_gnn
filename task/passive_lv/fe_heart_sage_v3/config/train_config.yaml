@@ -1,11 +1,11 @@
 task_base:
   task_name: passive_lv
   model_name: fe_heart_sage_v3
-  exp_name: fe_heart_sage_v3_att
+  exp_name: fe_heart_sage_v3_att_2
   overwrite_exp_folder: True
   gpu: True
-  cuda_core: 1
-  gpu_num: 1
+  cuda_core: 0
+  gpu_num: 2
 task_data:
   n_shape_coeff: 32  # Number of shape coefficients to input to the emulator
 task_trainer:
@@ -33,9 +33,9 @@ task_trainer:
       save_task_code: True
       debug: False
     scheduling:
-      avoid_work_hour: False
+      avoid_work_hour: True
   dataset_param:
-    batch_size: 1
+    batch_size: 20
     val_batch_size: 5
   static_graph: False
   init_model_weights: True
