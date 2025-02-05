@@ -15,9 +15,10 @@ from pkg.train.module.data_transform import CovertToModelInputs, MaxMinNorm, ToT
 from pkg.train.trainer.base_trainer import TrainerConfig
 from pkg.utils import io
 from pkg.utils.logs import init_logger
+from pkg.utils.model_summary import summary_model
 from task.passive_biv.data.datasets import FEHeartSageDataset
 
-logger = init_logger("single_case_eval")
+logger = init_logger("SINGLE_CASE_EVAL")
 
 
 class FEHeartSageV2Evaluation(FEHeartSageDataset):
@@ -65,6 +66,21 @@ class FEHeartSageV2Evaluation(FEHeartSageDataset):
         inputs, _ = transform(data)
 
         model = self._load_model()
+
+        logger.info("=== Print Model Structure ===")
+        logger.info(model)
+
+        str_summary = summary_model(
+            model,
+            inputs,
+            show_input=True,
+            show_hierarchical=True,
+            # print_summary=model_summary["print_summary"],
+            max_depth=999,
+            show_parent_layers=True,
+        )
+
+        logger.info(str_summary)
 
         with torch.no_grad():
             output = model(inputs)
@@ -220,6 +236,20 @@ class FEHeartSageV2Evaluation(FEHeartSageDataset):
 
         return model
 
+    @staticmethod
+    def total_params_count(model: nn.Module) -> None:
+        logger.info(f"print model arch: {model}")
+
+        total_params = sum(p.numel() for p in model.parameters())
+        trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+        print(f"\n{'=' * 50}")
+        print(f"Model Architecture:")
+        print(model)
+        print(f"\nTotal Parameters: {total_params:,}")
+        print(f"Trainable Parameters: {trainable_params:,}")
+        print(f"{'=' * 50}\n")
+
 
 class CovertToModelInputsWithSelectedNode(CovertToModelInputs):
     """Convert inputs with selected nodes for model processing."""
@@ -282,6 +312,6 @@ if __name__ == "__main__":
     config.task_data["sections"] = [0, 20, 100, 250, 500, 1000]
     config.task_data["nodes_per_sections"] = [20, 30, 30, 10, 10]
 
-    evaluation = FEHeartSageV2Evaluation(config.task_data, "eval", 76)
+    evaluation = FEHeartSageV2Evaluation(config.task_data, "eval", 3)
 
     evaluation.single_graph_evaluation()

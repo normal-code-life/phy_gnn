@@ -49,9 +49,16 @@ class TrainerConfig(BaseConfig):
         config_path = f"{task_path}/config/{config_name}.yaml"
         config: Dict = load_yaml(config_path)
 
+        if task_name != config["task_base"]["task_name"]:
+            raise ValueError("task_name in task_base should match with the input model_name")
+
+        if model_name != config["task_base"]["model_name"]:
+            raise ValueError("model_name in task_base should match with the input model_name")
+
         # === fill in task base info
         self.task_base = config["task_base"]
         self.task_name = self.task_base["task_name"]
+        self.model_name = self.task_base["exp_name"]
         self.exp_name = self.task_base["exp_name"]
 
         self.task_base["repo_path"] = repo_path

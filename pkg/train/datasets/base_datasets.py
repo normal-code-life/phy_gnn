@@ -1,11 +1,9 @@
 import abc
 import os
 import platform
-import sys
 from typing import Dict, Optional
 
 from pkg.train.datasets import logger
-from pkg.utils.io import get_repo_path, load_yaml
 
 
 class BaseAbstractDataset(abc.ABC):

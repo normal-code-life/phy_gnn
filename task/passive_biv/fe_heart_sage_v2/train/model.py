@@ -24,7 +24,7 @@ class FEHeartSageV2Trainer(BaseTrainer):
 
         logger.info(f"{config.get_config()}")
 
-        super().__init__(config)
+        super().__init__()
 
     def create_model(self) -> None:
         self.model = FEHeartSageV2Model(self.task_train)

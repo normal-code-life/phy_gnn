@@ -160,6 +160,7 @@ def summary_model(
 
     # Table header
     lines = list()
+    lines.append("=== Print Model Detail Architecture ===")
     lines.append("-" * _len_line)
     _fmt_args = ("Parent Layers",) if show_parent_layers else ()
     _fmt_args += ("Layer (type)", f'{"Input" if show_input else "Output"} Shape', "Param #", "Tr. Param #")
@@ -190,12 +191,26 @@ def summary_model(
     lines.append("Non-trainable params: {0:,}".format(total_params - trainable_params))
     if batch_size != -1:
         lines.append("Batch size: {0:,}".format(batch_size))
+    lines.append("-" * 30)
+    lines.append(
+        "Note: Given the model design, the 'Model Detail Architecture' may not truly reflect the real model structure,"
+        "and the total or trainable params may not be accurate. "
+        "For the real model param size calculation, please check following below"
+    )
     lines.append("-" * _len_line)
 
     # if show_hierarchical:
     #     h_summary, _ = hierarchical_summary(model, print_summary=False)
     #     lines.append('\n')
     #     lines.append(h_summary)
+
+    total_params = sum(p.numel() for p in model.parameters())
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+    lines.append("Real Model Parameters Size:")
+    lines.append(f"Total Parameters: {total_params:,}")
+    lines.append(f"Trainable Parameters: {trainable_params:,}")
+    lines.append(f"{'=' * _len_line}")
 
     str_summary = "\n".join(lines)
     if print_summary:

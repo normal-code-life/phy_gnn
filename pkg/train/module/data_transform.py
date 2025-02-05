@@ -124,16 +124,10 @@ class MaxMinNorm(Norm):
     """Normalize a tensor with max and min."""
 
     def __init__(self, config: Dict, global_scaling: bool = True, coarse_dim: bool = False) -> None:
-        replace_by_perc: Optional[Dict[str, str]] = config.pop("replace_by_perc", None)
-
         super().__init__(config, global_scaling, coarse_dim)
 
         self.max_val_name = MAX_VAL
         self.min_val_name = MIN_VAL
-
-        if replace_by_perc is not None:
-            self.max_val_name = replace_by_perc[MAX_VAL]
-            self.min_val_name = replace_by_perc[MIN_VAL]
 
     def __call__(
         self, sample: Tuple[Dict[str, Tensor], Dict[str, Tensor]]
