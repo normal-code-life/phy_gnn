@@ -38,18 +38,22 @@ class FEHeartSageV3Trainer(BaseTrainer):
         # config relative to dataset
         dataset_config = self.dataset_class(self.task_data, TRAIN_NAME)
 
-        self.displacement_mean = dataset_config.get_displacement_mean()
-        self.displacement_std = dataset_config.get_displacement_std()
+        self.displacement_max = dataset_config.get_displacement_max()
+        self.displacement_min = dataset_config.get_displacement_min()
 
     def create_model(self) -> None:
         self.model = FEHeartSAGEModel(self.task_train)
 
     def compute_validation_loss(self, predictions: Dict[str, Tensor], labels: Dict[str, Tensor]):
-        predictions["displacement"] = predictions["displacement"] * self.displacement_std + self.displacement_mean
+        predictions["displacement"] = (
+            predictions["displacement"] * (self.displacement_max - self.displacement_min) + self.displacement_min
+        )
         return self.compute_loss(predictions, labels)
 
     def compute_metrics(self, metrics_func: callable, predictions: Dict[str, Tensor], labels: Dict[str, Tensor]):
-        predictions["displacement"] = predictions["displacement"] * self.displacement_std + self.displacement_mean
+        predictions["displacement"] = (
+            predictions["displacement"] * (self.displacement_max - self.displacement_min) + self.displacement_min
+        )
         return super().compute_metrics(metrics_func, predictions, labels)
 
     def validation_step_check(self, epoch: int, is_last_epoch: bool) -> bool:

@@ -12,7 +12,7 @@ from task.passive_lv.passive_lv_gnn_emul.train.datasets import LvDataset
 from task.passive_lv.passive_lv_gnn_emul.train.message_passing_layer import MessagePassingModule
 from task.passive_lv.passive_lv_gnn_emul.train.mlp_layer_ln import MLPLayerLN
 
-logger = init_logger("PassiveLvGNNEmul")
+logger = init_logger("PLV_GNN_EMUL")
 
 torch.manual_seed(753)
 torch.set_printoptions(precision=8)
@@ -46,7 +46,7 @@ class PassiveLvGNNEmulTrainer(BaseTrainer):
             f"{self.task_base['task_path']}/train/{self.task_train['init_weight_file_path']}"
             if "init_weight_file_path" in self.task_train
             else None
-        )
+        )  # assigned random weight from project https://github.com/dodaltuin/passive-lv-gnn-emul
 
         # config relative to dataset
         dataset_config = self.dataset_class(self.task_data, TRAIN_NAME)

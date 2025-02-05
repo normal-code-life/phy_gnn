@@ -19,7 +19,7 @@ class FEPassiveLVHeartDataset(BaseAbstractDataset):
             data_type (str): Type of dataset - one of 'train', 'val', or 'test'
         """
         super().__init__(data_config, data_type)
-        logger.info(f"=== init FEPassiveLVHeartDataset {data_type} data config start ===")
+        logger.info(f"=== Init FEPassiveLVHeartDataset {data_type} data config start ===")
 
         # original base data path
         self.raw_data_path = f"{self.base_data_path}/rawData/{data_type}"
@@ -34,6 +34,7 @@ class FEPassiveLVHeartDataset(BaseAbstractDataset):
         self.node_feature_original_path = f"{self.raw_data_path}/real-node-features.npy"
         self.node_coord_original_path = f"{self.processed_data_path}/real-node-coords.npy"
         self.theta_original_path = f"{self.processed_data_path}/global-features.npy"
+        self.displacement_raw_original_path = f"{self.raw_data_path}/real-node-displacement.npy"
         self.displacement_original_path = f"{self.processed_data_path}/real-node-displacement.npy"
         self.shape_coeff_original_path = f"{self.processed_data_path}/shape-coeffs.npy"
 
@@ -44,6 +45,7 @@ class FEPassiveLVHeartDataset(BaseAbstractDataset):
         self.node_coord_path = f"{self.dataset_path}/node_coords.npy"
         self.edge_file_path = f"{self.dataset_path}/node_neighbours_{self.data_type}.npy"
         self.theta_path = f"{self.dataset_path}/global_features.npy"
+        self.raw_displacement_path = f"{self.dataset_path}/raw_node_displacement.npy"
         self.displacement_path = f"{self.dataset_path}/node_displacement.npy"
         self.shape_coeff_path = f"{self.dataset_path}/shape_coeffs.npy"
 
@@ -58,8 +60,10 @@ class FEPassiveLVHeartDataset(BaseAbstractDataset):
         # stats path
         self.node_coord_max_path = f"{self.stats_data_path}/node_coords_max.npy"
         self.node_coord_min_path = f"{self.stats_data_path}/node_coords_min.npy"
+        self.displacement_max_path = f"{self.stats_data_path}/real-node-displacement-max.npy"
+        self.displacement_min_path = f"{self.stats_data_path}/real-node-displacement-min.npy"
 
         self.displacement_mean_path = f"{self.base_data_path}/normalisationStatistics/real-node-displacement-mean.npy"
         self.displacement_std_path = f"{self.base_data_path}/normalisationStatistics/real-node-displacement-std.npy"
 
-        logger.info(f"=== init FEPassiveLVHeartDataset {data_type} data config done ===")
+        logger.info(f"=== Init FEPassiveLVHeartDataset {data_type} data config done ===")

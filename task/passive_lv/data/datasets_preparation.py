@@ -63,6 +63,8 @@ class FEPassiveLVHeartPreparationDataset(AbstractDataPreparationDataset, FEPassi
 
         self._prepare_node_coord_stats()
 
+        self._prepare_node_displacement_stats()
+
     def _prepare_features(self) -> None:
         """Prepare and save node features, coordinates and displacement data.
 
@@ -73,14 +75,17 @@ class FEPassiveLVHeartPreparationDataset(AbstractDataPreparationDataset, FEPassi
         node_features = np.load(self.node_feature_original_path).astype(np.float32)
         node_coord = np.load(self.node_coord_original_path).astype(np.float32)
         displacement = np.load(self.displacement_original_path).astype(np.float32)
+        raw_displacement = np.load(self.displacement_raw_original_path).astype(np.float32)
 
         np.save(self.node_feature_path, node_features)
         np.save(self.node_coord_path, node_coord)
+        np.save(self.raw_displacement_path, raw_displacement)
         np.save(self.displacement_path, displacement)
 
         logger.info("====== prepare node and displacement done ======")
 
-    def _prepare_global_features(self, fea_name: str, read_path: str, save_path: str, np_type: np.dtype) -> None:
+    @staticmethod
+    def _prepare_global_features(fea_name: str, read_path: str, save_path: str, np_type: np.dtype) -> None:
         """Prepare and save global features.
 
         Args:
@@ -244,6 +249,24 @@ class FEPassiveLVHeartPreparationDataset(AbstractDataPreparationDataset, FEPassi
         logger.info(
             f"{self.data_type} prepare_node_stats preset max_norm and min_norm is "
             f"{coord_max_norm_val} {coord_min_norm_val} "
+        )
+
+    def _prepare_node_displacement_stats(self):
+        """Calculate and save node coordinate statistics.
+
+        Computes and saves max and min values for normalization.
+        """
+        node_displacement = np.load(self.displacement_original_path).astype(np.float32)
+
+        displacement_max_norm_val = np.max(node_displacement, axis=(0, 1))
+        displacement_min_norm_val = np.min(node_displacement, axis=(0, 1))
+
+        np.save(self.displacement_max_path, displacement_max_norm_val)
+        np.save(self.displacement_min_path, displacement_min_norm_val)
+
+        logger.info(
+            f"{self.data_type} prepare_displacement_stats preset max_norm and min_norm is "
+            f"{displacement_max_norm_val} {displacement_min_norm_val} "
         )
 
     def _check_stats(self):

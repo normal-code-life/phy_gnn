@@ -1,6 +1,6 @@
 from torch.utils.data import DataLoader
 
-from pkg.train.datasets.base_datasets import import_data_config
+from pkg.train.datasets.utils import import_data_config
 from task.passive_lv.data.datasets_train import FEHeartSageTrainDataset
 
 if __name__ == "__main__":

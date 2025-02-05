@@ -8,6 +8,10 @@ from task.passive_lv.data import logger
 from task.passive_lv.data.datasets import FEPassiveLVHeartDataset
 
 
+normal_norm = "normal_norm"
+max_min_norm = "max_min_norm"
+
+
 class FEHeartSageTrainDataset(BaseDataset, FEPassiveLVHeartDataset):
     """Dataset class for training a graph neural network on finite element passive left ventricle heart data.
 
@@ -27,6 +31,10 @@ class FEHeartSageTrainDataset(BaseDataset, FEPassiveLVHeartDataset):
 
         self.device = "cuda" if self.gpu else "cpu"
 
+        self.displacement_norm_type = data_config.get("displacement_norm_type", normal_norm)
+        if self.displacement_norm_type != normal_norm and self.displacement_norm_type != max_min_norm:
+            raise ValueError("please assign the right value for displacement_norm_type")
+
         self.n_shape_coeff = data_config.get("n_shape_coeff", 2)
 
         # node features (used real node features)
@@ -35,8 +43,8 @@ class FEHeartSageTrainDataset(BaseDataset, FEPassiveLVHeartDataset):
         node_coords = np.load(self.node_coord_path).astype(np.float32)
 
         # === max min calculation
-        self.coord_max_norm_val = np.load(self.node_coord_max_path)
-        self.coord_min_norm_val = np.load(self.node_coord_min_path)
+        self._coord_max = np.load(self.node_coord_max_path)
+        self._coord_min = np.load(self.node_coord_min_path)
 
         self._node_features = node_features
         self._node_coord = self.coord_normalization_max_min(node_coords)
@@ -50,11 +58,17 @@ class FEHeartSageTrainDataset(BaseDataset, FEPassiveLVHeartDataset):
         self._theta_vals = np.load(self.theta_path).astype(np.float32)
 
         # labels
-        self._displacement = np.load(self.displacement_path).astype(np.float32)
-
         # summary statistics for displacement values calculated on training data
         self._displacement_mean = np.load(self.displacement_mean_path).astype(np.float32)
         self._displacement_std = np.load(self.displacement_std_path).astype(np.float32)
+        self._displacement_max = np.load(self.displacement_max_path).astype(np.float32)
+        self._displacement_min = np.load(self.displacement_min_path).astype(np.float32)
+
+        if self.displacement_norm_type == normal_norm:
+            self._displacement = np.load(self.displacement_path).astype(np.float32)
+        elif self.displacement_norm_type == max_min_norm:
+            displacement = np.load(self.raw_displacement_path).astype(np.float32)
+            self._displacement = self.displacement_normalization_max_min(displacement)
 
         if self.n_shape_coeff > 0:
             # load shape coefficients
@@ -116,6 +130,24 @@ class FEHeartSageTrainDataset(BaseDataset, FEPassiveLVHeartDataset):
 
         return sample, labels
 
+    def get_displacement_max(self) -> torch.tensor:
+        """Get the mean displacement value for normalization.
+
+        Returns:
+            torch.tensor: Mean displacement value, moved to GPU if using CUDA
+        """
+        _displacement_max = torch.from_numpy(self._displacement_max)
+        return _displacement_max if not self.gpu else _displacement_max.cuda()
+
+    def get_displacement_min(self) -> torch.tensor:
+        """Get the standard deviation of displacement values for normalization.
+
+        Returns:
+            torch.tensor: Standard deviation of displacement values, moved to GPU if using CUDA
+        """
+        _displacement_min = torch.from_numpy(self._displacement_min)
+        return _displacement_min if not self.gpu else _displacement_min.cuda()
+
     def get_displacement_mean(self) -> torch.tensor:
         """Get the mean displacement value for normalization.
 
@@ -143,8 +175,21 @@ class FEHeartSageTrainDataset(BaseDataset, FEPassiveLVHeartDataset):
         Returns:
             np.ndarray: Normalized coordinate values between 0 and 1
         """
+        max_val = max(self._coord_max)
+        min_val = min(self._coord_min)
 
-        max_val = max(self.coord_max_norm_val)
-        min_val = min(self.coord_min_norm_val)
+        return (array - min_val) / (max_val - min_val)
+
+    def displacement_normalization_max_min(self, array: np.ndarray) -> np.ndarray:
+        """Normalize coordinate values using min-max normalization.
+
+        Args:
+            array (np.ndarray): Array of coordinate values to normalize
+
+        Returns:
+            np.ndarray: Normalized coordinate values between 0 and 1
+        """
+        max_val = max(self._displacement_max)
+        min_val = min(self._displacement_min)
 
         return (array - min_val) / (max_val - min_val)

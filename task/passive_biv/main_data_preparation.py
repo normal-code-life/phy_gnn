@@ -24,7 +24,7 @@ if __name__ == "__main__":
 
     model_name = args[0].model_name
 
-    data_config = import_data_config("passive_biv", model_name, "passive_biv")
+    data_config = import_data_config("passive_biv", model_name)
 
     data_config["sample_path"] = f"{data_config['task_data_path']}/record_inputs"
 
