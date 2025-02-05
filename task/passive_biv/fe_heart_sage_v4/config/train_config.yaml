@@ -10,10 +10,10 @@ task_trainer:
   epochs: 3000
   optimizer_param:
     name: adam
-    learning_rate: 0.001  # Learning rate for training the network
+    learning_rate: 0.0005  # Learning rate for training the network
     scheduler: multi_step
     milestones:  [250, 500, 750, 1000, 1250, 1500]
-    ratio: 200
+#    batch_per_epoch: 200
     decay_per_step: 0.5
   loss_param:
     name: euclidean_distance_mse
@@ -33,7 +33,7 @@ task_trainer:
       avoid_work_hour: False
   dataset_param:
     batch_size: 20
-    val_batch_size: 10
+    val_batch_size: 4
     num_workers: 20
     prefetch_factor: 1
     val_prefetch_factor: 1
@@ -75,25 +75,25 @@ task_train:
     activation: rrelu
   message_passing_layer:
     agg_method: MeanAggregator
-    arch: attention
+    arch: mlp
     agg_layer:
       agg_dim: 2
       keep_dim: False
     # used for mlp
-#    message_update_layer:
-#      unit_sizes: [384, 1536, 512, 128]
-#      layer_norm: True
-#      activation: rrelu
-    # used for attention
     message_update_layer:
-      d_model: 384
-      nhead: 4
-      dim_feedforward: 1536
-      dropout: 0.025
-    message_update_layer_mlp:
-      unit_sizes: [384, 128]
-      layer_norm: False
+      unit_sizes: [384, 256, 128, 128]
+      layer_norm: True
       activation: rrelu
+    # used for attention
+#    message_update_layer:
+#      d_model: 384
+#      nhead: 4
+#      dim_feedforward: 1536
+#      dropout: 0.025
+#    message_update_layer_mlp:
+#      unit_sizes: [384, 128]
+#      layer_norm: False
+#      activation: rrelu
   theta_input_mlp_layer:
     unit_sizes: [384, 256, 128, 128]
     layer_norm: True
