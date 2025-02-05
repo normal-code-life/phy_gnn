@@ -1,14 +1,15 @@
-from typing import Dict
+from typing import Dict, Union
 
 import torch
 import torch.nn as nn
+from torch import Tensor
 
 from pkg.train.layer.pooling_layer import MeanAggregator, SUMAggregator  # noqa
 from pkg.train.model.base_model import BaseModule
-from pkg.train.trainer.base_trainer import BaseTrainer, TrainerConfig
+from pkg.train.trainer.base_trainer import BaseTrainer
 from pkg.utils.logs import init_logger
 from task.passive_biv.data.datasets_train_hdf5 import FEHeartSageTrainDataset
-from task.passive_biv.utils.module.mlp_layer_ln import MLPLayer
+from task.passive_biv.utils.module.mlp_layer_ln import MLPLayerV2
 
 logger = init_logger("FEPassiveBivHeartSage")
 
@@ -20,11 +21,11 @@ class FEHeartSageV3Trainer(BaseTrainer):
     dataset_class = FEHeartSageTrainDataset
 
     def __init__(self) -> None:
-        config = TrainerConfig()
+        super().__init__()
 
-        logger.info(f"{config.get_config()}")
+        self.selected_node_num = self.task_train["select_node_num"]
 
-        super().__init__(config)
+        self.device = "cuda" if self.gpu else "cpu"
 
     def create_model(self) -> None:
         self.model = FEHeartSAGEModel(self.task_train)
@@ -35,25 +36,36 @@ class FEHeartSageV3Trainer(BaseTrainer):
         else:
             return False
 
-    def compute_loss(
-        self, predictions: Dict[str, torch.Tensor], labels: Dict[str, torch.Tensor]
-    ) -> Dict[str, torch.Tensor]:
-        losses = dict()
+    def post_transform_data(
+        self, data: (Union[Dict[str, Tensor], Tensor], Union[Dict[str, Tensor], Tensor])
+    ) -> (Union[Dict[str, Tensor], Tensor], Union[Dict[str, Tensor], Tensor]):
+        inputs, labels = super().post_transform_data(data)
+
+        batch_size, node_num, _ = inputs["edges_indices"].shape
+
+        selected_node = torch.randint(
+            0, node_num, size=(self.selected_node_num,), dtype=torch.int64, device=self.device
+        )
+
+        inputs["selected_node"] = selected_node.unsqueeze(0).expand(batch_size, -1)
 
         for label_name in self.labels:
-            prediction = predictions[label_name]
-            label = labels[label_name]
+            labels[label_name] = labels[label_name][:, selected_node, :]
 
-            _, node_num, _ = prediction.shape
-            _, label_node_num, _ = label.shape
+        return inputs, labels
 
-            if node_num != label_node_num:
-                selected_node = labels["selected_node"][0, :]
-                label = torch.index_select(label, 1, selected_node)
+    def post_transform_val_data(
+        self, data: (Union[Dict[str, Tensor], Tensor], Union[Dict[str, Tensor], Tensor])
+    ) -> (Union[Dict[str, Tensor], Tensor], Union[Dict[str, Tensor], Tensor]):
+        inputs, labels = super().post_transform_val_data(data)
 
-            losses[label_name] = self.loss(prediction, label)
+        batch_size, node_num, _ = inputs["edges_indices"].shape
 
-        return losses
+        selected_node = torch.arange(node_num, device=self.device).unsqueeze(0).expand(batch_size, -1)
+
+        inputs["selected_node"] = selected_node
+
+        return inputs, labels
 
 
 class FEHeartSAGEModel(BaseModule):
@@ -63,21 +75,21 @@ class FEHeartSAGEModel(BaseModule):
         super().__init__(config, *args, **kwargs)
 
         # hyper-parameter config
-        self.select_node_num = config["select_node_num"]
         self.select_edge_num = config["select_edge_num"]
         self.default_padding_value = config.get("default_padding_value", -1)
 
         # mlp layer config
-        self.node_input_mlp_layer_config = config["node_input_mlp_layer"]
+        self.input_layer_config = config["input_layer"]
+        self.edge_mlp_layer_config = config["edge_mlp_layer"]
+        self.edge_laplace_mlp_layer_config = config["edge_laplace_mlp_layer"]
         self.theta_input_mlp_layer_config = config["theta_input_mlp_layer"]
         self.decoder_layer_config = config["decoder_layer"]
 
         # message config
         self.message_passing_layer_config = config["message_passing_layer"]
-        self.message_layer_num = self.message_passing_layer_config["message_layer_num"]
 
-        self.node_update_fn = nn.ModuleList()
-        self.edge_update_fn = nn.ModuleList()
+        self.gpu = config.get("gpu", False)
+        self.device = "cuda" if self.gpu else "cpu"
 
         self._init_graph()
 
@@ -89,46 +101,79 @@ class FEHeartSAGEModel(BaseModule):
             "theta_input_mlp_layer": self.theta_input_mlp_layer_config,
             "message_config": self.message_layer_config,
             "decoder_layer_config": self.decoder_layer_config,
+            "gpu": self.gpu,
+            "device": self.device,
         }
 
         return {**base_config, **mlp_config}
 
     def _init_graph(self):
-        # 2 encoder mlp
-        self.node_encode_mlp_layer = MLPLayer(self.node_input_mlp_layer_config, prefix_name="node_encode")
+        # Input layer
+        self.input_layer: nn.ModuleList = nn.ModuleList()
+        for layer_name, layer_config in self.input_layer_config.items():
+            self.input_layer.append(MLPLayerV2(layer_config, prefix_name=layer_name))
+
+        self.edge_mlp_layer = MLPLayerV2(self.edge_mlp_layer_config, prefix_name="edge_input")
+
+        self.edge_laplace_mlp_layer = MLPLayerV2(self.edge_laplace_mlp_layer_config, prefix_name="edge_laplace_input")
+
+        if self.message_passing_layer_config["arch"] == "attention":
+            self.message_update_layer = nn.TransformerEncoderLayer(
+                d_model=self.message_passing_layer_config["message_update_layer"].get("d_model", 128),
+                nhead=self.message_passing_layer_config["message_update_layer"].get("nhead", 4),
+                dim_feedforward=self.message_passing_layer_config["message_update_layer"].get("dim_feedforward", 512),
+                dropout=self.message_passing_layer_config["message_update_layer"].get("dropout", 0.1),
+                # device=self.device,
+                batch_first=True,
+            )
+            self.message_update_layer_mlp = MLPLayerV2(
+                self.message_passing_layer_config["message_update_layer_mlp"], prefix_name="message"
+            )
+        elif self.message_passing_layer_config["arch"] == "mlp":
+            self.message_update_layer = MLPLayerV2(
+                self.message_passing_layer_config["message_update_layer"], prefix_name="message"
+            )
+        else:
+            raise ValueError(f"please define the arch properly, current is {self.message_passing_layer_config['arch']}")
 
         # aggregator pooling
         agg_method = self.message_passing_layer_config["agg_method"]
         self.message_agg_pooling = globals()[agg_method](self.message_passing_layer_config["agg_layer"])
 
-        for i in range(self.message_layer_num):
-            self.node_update_fn.append(
-                MLPLayer(self.message_passing_layer_config["node_mlp_layer"], prefix_name=f"message_node_{i}")
-            )
-            self.edge_update_fn.append(
-                MLPLayer(self.message_passing_layer_config["edge_mlp_layer"], prefix_name=f"message_edge_{i}")
-            )
-
         # theta mlp
-        self.theta_encode_mlp_layer = MLPLayer(self.theta_input_mlp_layer_config, prefix_name="theta_encode")
+        self.theta_encode_mlp_layer = MLPLayerV2(self.theta_input_mlp_layer_config, prefix_name="theta_encode")
 
         # decoder MLPs
         decoder_layer_config = self.decoder_layer_config
         self.decoder_layer = nn.ModuleList(
             [
-                MLPLayer(decoder_layer_config, prefix_name=f"decode_{i}")
+                MLPLayerV2(decoder_layer_config, prefix_name=f"decode_{i}")
                 for i in range(decoder_layer_config["output_dim"])
             ]
         )
 
-    def _node_preprocess(self, x: Dict[str, torch.Tensor]) -> torch.Tensor:
-        # input_node_coord: torch.Tensor = x["node_coord"]  # shape: (batch_size, node_num, coord_dim)
-        input_laplace_coord: torch.Tensor = x["laplace_coord"]  # shape: (batch_size, node_num, coord_dim)
-        input_node_fea: torch.Tensor = x["fiber_and_sheet"]  # shape: (batch_size, node_num, node_feature_dim)
+    @staticmethod
+    def _random_select_edge(indices: Tensor, device: str, selected_edge_num: int) -> Tensor:
+        batch_size, node_num, seq_num = indices.shape
 
-        return torch.concat([input_laplace_coord, input_node_fea], dim=-1)
+        select_batch = torch.arange(batch_size, device=device)
 
-    def _edge_emb(self, node_emb: torch.Tensor, input_edge_indices: torch.Tensor) -> torch.Tensor:
+        select_indices = torch.randint(
+            0,
+            seq_num,
+            (batch_size, node_num, selected_edge_num),
+            dtype=torch.int64,
+            device=device,
+        )  # TODO: train/test setup different edge num
+
+        selected_node = torch.arange(node_num, device=device)
+
+        return indices[
+            select_batch[:, None, None], selected_node[None, :, None], select_indices
+        ]  # shape: (batch_size, selected_node_num, seq)
+
+    @staticmethod
+    def _generate_edge_emb(node_emb: Tensor, input_edge_indices: Tensor) -> Tensor:
         emb_dim: int = node_emb.shape[-1]  # feature for each of the node
         seq: int = input_edge_indices.shape[-1]  # neighbours seq for each of the center node
 
@@ -136,21 +181,20 @@ class FEHeartSAGEModel(BaseModule):
         # shape: (batch_size, node_num, emb) =>
         # (batch_size, node_num, 1, emb) =>
         # (batch_size, node_num, seq, emb)
-        node_emb_expanded: torch.Tensor = node_emb.unsqueeze(2).expand(-1, -1, seq, -1)
+        node_emb_expanded: Tensor = node_emb.unsqueeze(2).expand(-1, -1, seq, -1)
 
         # parse seq data
         # === expand indices to match feature shape
         # shape: (batch_size, node_num, seq) =>
         # (batch_size, node_num, seq, 1) =>
         # (batch_size, node_num, seq, emb)
-        edge_seq_indices: torch.Tensor = input_edge_indices.unsqueeze(-1).expand(-1, -1, -1, emb_dim)
+        edge_seq_indices: Tensor = input_edge_indices.unsqueeze(-1).expand(-1, -1, -1, emb_dim)
 
         # === gather feature/coord
         return torch.gather(node_emb_expanded, 1, edge_seq_indices)
 
-    def _edge_coord(
-        self, input_node_coord: torch.Tensor, input_edge_indices: torch.Tensor, selected_node: torch.Tensor
-    ) -> torch.Tensor:
+    @staticmethod
+    def _generate_edge_coord(input_node_coord: Tensor, input_edge_indices: Tensor) -> torch.Tensor:
         coord_dim: int = input_node_coord.shape[-1]  # coord for each of the node
         seq: int = input_edge_indices.shape[-1]  # neighbours seq for each of the center node
 
@@ -158,100 +202,105 @@ class FEHeartSAGEModel(BaseModule):
         # shape: (batch_size, node_num, node_coord_dim) =>
         # (batch_size, node_num, 1, node_coord_dim) =>
         # (batch_size, node_num, seq, node_coord_dim)
-        node_coord_expanded: torch.Tensor = input_node_coord.unsqueeze(2).expand(-1, -1, seq, -1)
+        node_coord_expanded: Tensor = input_node_coord.unsqueeze(2).expand(-1, -1, seq, -1)
 
         # parse seq data
         # === expand indices to match feature shape
         # shape: (batch_size, node_num, seq) =>
         # (batch_size, node_num, seq, 1) =>
         # (batch_size, node_num, seq, node_coord_dim)
-        indices_coord_expanded: torch.Tensor = input_edge_indices.unsqueeze(-1).expand(-1, -1, -1, coord_dim)
+        indices_coord_expanded: Tensor = input_edge_indices.unsqueeze(-1).expand(-1, -1, -1, coord_dim)
 
         # === gather coord
-        node_seq_coord: torch.Tensor = torch.gather(node_coord_expanded, 1, indices_coord_expanded)
+        node_seq_coord: Tensor = torch.gather(node_coord_expanded, 1, indices_coord_expanded)
 
-        # === select coord
-        node_coord_expanded = node_coord_expanded[:, selected_node, :, :]
+        edge_coord: Tensor = node_coord_expanded - node_seq_coord
 
-        # combine node data + seq data => edge data
-        # shape: (batch_size, node_num, seq, node_coord_dim) =>
-        # (batch_size, node_num, seq, 2 * node_coord_dim)
-        edge_vertex_coord: torch.Tensor = torch.concat([node_coord_expanded, node_seq_coord], dim=-1)
-        edge_coord: torch.Tensor = node_coord_expanded - node_seq_coord
+        return edge_coord
 
-        return torch.concat([edge_coord, edge_vertex_coord], dim=-1)
+    def forward(self, x: Dict[str, Tensor]):
+        # ====== Input data
+        # ============ input transform
+        x_trans: Dict[str, Tensor] = {}
+        for preprocess_layer in self.input_layer:
+            n = preprocess_layer.get_prefix_name
+            if n in self.input_layer_config:
+                x_trans[f"{n}_emb"] = preprocess_layer(x[n])
 
-    def random_select_nodes(self, indices: torch.Tensor, select_node: torch.Tensor) -> torch.Tensor:
-        batch_size, node_num, seq_num = indices.shape
+        # ============ input fetch
+        input_node_coord: Tensor = x["node_coord"]  # shape: (batch_size, node_num, coord_dim)
+        input_node_laplace_coord: Tensor = x["laplace_coord"]  # shape: (batch_size, node_num, coord_dim)
+        input_node_laplace_coord_emb: Tensor = x_trans["laplace_coord_emb"]  # shape: (batch_size, node_num, coord_dim)
+        input_node_fea_emb: Tensor = x_trans["fiber_and_sheet_emb"]  # shape: (batch_size, node_num, node_feature_dim
 
-        select_batch = torch.arange(batch_size)
+        input_edge_indices: Tensor = x["edges_indices"]  # shape: (batch_size, node_num, seq)
+        selected_node: Tensor = x["selected_node"][0]  # shape: (batch_size, selected_node_num)
 
-        select_node_num = self.select_node_num if self.training else node_num
+        input_mat_param_emb: Tensor = x_trans["mat_param_emb"]  # shape: (batch_size, mat_param)
+        input_pressure_emb: Tensor = x_trans["pressure_emb"]  # shape: (batch_size, pressure)
+        input_shape_coeffs_emb: Tensor = x_trans["shape_coeffs_emb"]  # shape: (batch_size, graph_feature)
 
-        select_indices = torch.randint(
-            0, seq_num, (batch_size, select_node_num, self.select_edge_num), dtype=torch.int64
-        )
+        # ====== Message passing Encoder & Aggregate
+        # ============ generate node emb (node emb itself)  TODO: test whether to involve the node itself
+        input_node_emb = input_node_laplace_coord_emb + input_node_fea_emb  # (batch_size, node_num, node_emb)
+        node_seq_emb = input_node_emb.unsqueeze(dim=-2).expand(
+            -1, -1, self.select_edge_num, -1
+        )  # (batch_size, node_num, 1, node_emb) => (batch_size, node_num, seq, node_emb)
 
-        selected_edge = indices[
-            select_batch[:, None, None], select_node[None, :, None], select_indices
-        ]  # shape: (batch_size, node_num, seq)
+        # ============ generate edge emb (agg by neighbours emb)
+        selected_edge = self._random_select_edge(
+            input_edge_indices, self.device, self.select_edge_num
+        )  # shape: (batch_size, node_num, seq(of edge))
+        edge_seq_emb = self._generate_edge_emb(
+            input_node_emb, selected_edge
+        )  # shape: (batch_size, node_num, seq, node_emb)
 
-        return selected_edge
+        # ============ generate relative coord emb (agg vertices emb at both ends + segment emb)
+        edge_coord = self._generate_edge_coord(
+            input_node_coord, selected_edge
+        )  # (batch_size, node_num, seq, coord_emb)
+        edge_laplace_coord = self._generate_edge_coord(
+            input_node_laplace_coord, selected_edge
+        )  # (batch_size, node_num, seq, coord_emb)
 
-    def message_passing_layer(self, x: Dict, node_emb: torch.Tensor) -> torch.Tensor:
-        input_edge_indices: torch.Tensor = x["edges_indices"]  # shape: (batch_size, node_num, seq)
-        input_node_coord: torch.Tensor = x["node_coord"]  # shape: (batch_size, node_num, coord_dim)
-        selected_node: torch.Tensor = x["selected_node"][0, :]  # shape: (batch_size, node_num)
+        # node_coord_emb = self.node_mlp_layer(node_coord_expanded)  # (batch_size, node_num, seq, coord_emb)
+        # node_seq_coord_emb = self.node_mlp_layer(node_seq_coord)  # (batch_size, node_num, seq, coord_emb)
+        edge_coord_emb = self.edge_mlp_layer(edge_coord)  # (batch_size, node_num, seq, coord_emb)
+        edge_laplace_coord_emb = self.edge_laplace_mlp_layer(
+            edge_laplace_coord
+        )  # (batch_size, node_num, seq, coord_emb)
 
-        _, node_num, _ = input_edge_indices.shape
-        selected_node = selected_node if self.training else torch.arange(node_num)
+        coord_emb = edge_coord_emb + edge_laplace_coord_emb
 
-        selected_edge = self.random_select_nodes(input_edge_indices, selected_node)
+        # ============ agg node, edge, coord emb and send to message passing layer & pooling
+        emb_concat = torch.concat([node_seq_emb, edge_seq_emb, coord_emb], dim=-1)[:, selected_node, :, :]
 
-        # shape: (batch_size, node_num, 1, node_emb) => (batch_size, node_num, seq, node_emb)
-        node_self_emb = node_emb[:, selected_node, :]
-        node_self_seq_emb = node_self_emb.unsqueeze(dim=-2).expand(-1, -1, self.select_edge_num, -1)
-
-        # shape: (batch_size, node_num, seq, node_emb)
-        node_edge_seq_emb = self._edge_emb(node_emb, selected_edge)
-
-        # shape: (batch_size, node_num, seq, coord) -> (batch_size, node_num, seq, edge_emb)
-        edge_coord = self._edge_coord(input_node_coord, selected_edge, selected_node)
-        edge_coord_seq_emb = self.edge_update_fn[0](edge_coord)
-
-        emb_concat = torch.concat([node_self_seq_emb, node_edge_seq_emb, edge_coord_seq_emb], dim=-1)
-
-        node_emb_up = self.node_update_fn[0](emb_concat)  # shape: (batch_size, node_num, seq, node_emb)
+        if self.message_passing_layer_config["arch"] == "attention":
+            node_emb_up = emb_concat.view(
+                -1, emb_concat.shape[2], emb_concat.shape[3]
+            )  # shape: (batch_size * selected_node_num, seq_len, embed_dim)
+            node_emb_up = self.message_update_layer(node_emb_up)  # shape: (batch_size * node_num, seq, node_emb)
+            node_emb_up = node_emb_up.view(emb_concat.shape)  # shape: (batch_size, node_num, seq, node_emb)
+            node_emb_up = self.message_update_layer_mlp(node_emb_up)
+        else:
+            node_emb_up = self.message_update_layer(emb_concat)  # shape: (batch_size, node_num, seq, node_emb)
 
         node_emb_pooling = self.message_agg_pooling(node_emb_up)  # shape: (batch_size, node_num, node_emb)
 
-        return node_self_emb + node_emb_pooling
+        # ============ res
+        z_local = input_node_emb[:, selected_node, :] + node_emb_pooling
 
-    def forward(self, x: Dict[str, torch.Tensor]):
-        # ====== Input data (squeeze to align to previous project)
-        mat_param: torch.Tensor = x["mat_param"]  # shape: (batch_size, mat_param)
-        pressure: torch.Tensor = x["pressure"]  # shape: (batch_size, pressure)
-        input_shape_coeffs: torch.Tensor = x["shape_coeffs"]  # shape: (batch_size, graph_feature)
-
-        input_node = self._node_preprocess(x)  # shape: (batch_size, node_num, node_feature_dim+coord_dim)
-
-        # ====== message passing layer: Encoder & Aggregate
-        node_emb = self.node_encode_mlp_layer(input_node)  # shape: (batch_size, node_num, node_emb)
-
-        z_local = self.message_passing_layer(x, node_emb)  # shape: (batch_size, node_num, node_emb)
-
-        # encode global parameters theta
-        z_theta = self.theta_encode_mlp_layer(
-            torch.concat([mat_param, pressure, input_shape_coeffs], dim=-1)
+        # ====== Encode global parameters theta
+        global_fea = self.theta_encode_mlp_layer(
+            torch.concat([input_mat_param_emb, input_pressure_emb, input_shape_coeffs_emb], dim=-1)
         )  # shape: (batch_size, theta_feature)
-
-        # tile global values
-        global_fea = z_theta.unsqueeze(dim=-2)  # shape: (batch_size, 1, emb)
+        global_fea = global_fea.unsqueeze(dim=-2)  # shape: (batch_size, 1, emb)
         global_fea_expanded = torch.tile(global_fea, (1, z_local.shape[1], 1))  # shape: (batch_size, node_num, emb)
 
+        # ====== concat local & global
         encoding_emb = torch.concat((global_fea_expanded, z_local), dim=-1)  # shape: (batch_size, node_num, emb)
 
-        # ====== Decoder:
+        # ====== decoder
         # make prediction for forward displacement using different decoder mlp for each dimension
         individual_mlp_predictions = [
             decode_mlp(encoding_emb) for decode_mlp in self.decoder_layer

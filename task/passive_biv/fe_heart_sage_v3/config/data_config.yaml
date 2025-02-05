@@ -3,9 +3,6 @@ task_base:
   model_name: fe_heart_sage_v3
   exp_name: rec_final_4
   overwrite_exp_folder: True
-  gpu: True
-  cuda_core: 0
-  gpu_num: 2
 task_data:
   task_data_name: passive_biv
   overwrite_data: False

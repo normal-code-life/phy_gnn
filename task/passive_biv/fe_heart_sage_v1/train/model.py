@@ -19,13 +19,6 @@ torch.set_printoptions(precision=8)
 class FEHeartSAGETrainer(BaseTrainer):
     dataset_class = FEHeartSageTrainDataset
 
-    def __init__(self) -> None:
-        config = TrainerConfig()
-
-        logger.info(f"{config.get_config()}")
-
-        super().__init__(config)
-
     def create_model(self) -> None:
         self.model = FEHeartSAGEModel(self.task_train)
 
