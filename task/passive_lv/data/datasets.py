@@ -23,20 +23,17 @@ class FEPassiveLVHeartDataset(BaseAbstractDataset):
 
         # original base data path
         self.raw_data_path = f"{self.base_data_path}/rawData/{data_type}"
-        self.processed_data_path = f"{self.base_data_path}/processedData/{data_type}"
         self.topology_data_path = f"{self.base_data_path}/topologyData"
 
         logger.info(f"raw_data_path is {self.raw_data_path}")
-        logger.info(f"processed_data_path is {self.processed_data_path}")
         logger.info(f"topology_data_path is {self.topology_data_path}")
 
         # original data file path
         self.node_feature_original_path = f"{self.raw_data_path}/real-node-features.npy"
-        self.node_coord_original_path = f"{self.processed_data_path}/real-node-coords.npy"
-        self.theta_original_path = f"{self.processed_data_path}/global-features.npy"
-        self.displacement_raw_original_path = f"{self.raw_data_path}/real-node-displacement.npy"
-        self.displacement_original_path = f"{self.processed_data_path}/real-node-displacement.npy"
-        self.shape_coeff_original_path = f"{self.processed_data_path}/shape-coeffs.npy"
+        self.node_coord_original_path = f"{self.raw_data_path}/real-node-coords.npy"
+        self.theta_original_path = f"{self.raw_data_path}/global-features.npy"
+        self.displacement_original_path = f"{self.raw_data_path}/real-node-displacement.npy"
+        self.shape_coeff_original_path = f"{self.raw_data_path}/shape-coeffs.npy"
 
         # clean data destination path
         self.dataset_path = f"{self.base_data_path}/datasets/{self.data_type}"
@@ -45,7 +42,6 @@ class FEPassiveLVHeartDataset(BaseAbstractDataset):
         self.node_coord_path = f"{self.dataset_path}/node_coords.npy"
         self.edge_file_path = f"{self.dataset_path}/node_neighbours_{self.data_type}.npy"
         self.theta_path = f"{self.dataset_path}/global_features.npy"
-        self.raw_displacement_path = f"{self.dataset_path}/raw_node_displacement.npy"
         self.displacement_path = f"{self.dataset_path}/node_displacement.npy"
         self.shape_coeff_path = f"{self.dataset_path}/shape_coeffs.npy"
 

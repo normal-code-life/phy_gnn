@@ -63,7 +63,7 @@ class FEHeartSageTrainDataset(BaseDataset, FEPassiveLVHeartDataset):
         self._displacement_max = np.load(self.displacement_max_path).astype(np.float32)
         self._displacement_min = np.load(self.displacement_min_path).astype(np.float32)
 
-        displacement = np.load(self.raw_displacement_path).astype(np.float32)
+        displacement = np.load(self.displacement_path).astype(np.float32)
 
         if self.data_type == TRAIN_NAME:
             logger.info(f"data type = {self.data_type}, need to normalize displacement")

@@ -34,12 +34,7 @@ class FEPassiveLVHeartPreparationDataset(AbstractDataPreparationDataset, FEPassi
         self.nodes_per_sections = data_config["nodes_per_sections"]
         self.default_padding_value = data_config.get("default_padding_value", -1)
 
-        # self.down_sampling: Optional[float] = (
-        #     data_config.get("down_sampling", None) if self.data_type == TRAIN_NAME else None
-        # )
         self.select_nodes: Optional[np.ndarray] = None
-
-        # logger.info(f"edge_indices_generate_method is {self.edge_indices_generate_method}")
 
         logger.info(f"=== Init FEPassiveLVHeartPreparationDataset {data_type} data config done ===")
 
@@ -61,10 +56,10 @@ class FEPassiveLVHeartPreparationDataset(AbstractDataPreparationDataset, FEPassi
 
         # self._check_stats()
 
-        self._prepare_stats("coord_path", self.node_coord_path, self.node_coord_max_path, self.node_coord_min_path)
+        self._prepare_stats("coord", self.node_coord_path, self.node_coord_max_path, self.node_coord_min_path)
 
         self._prepare_stats(
-            "displacement_raw_original_path",
+            "displacement",
             self.displacement_path,
             self.displacement_max_path,
             self.displacement_min_path,
@@ -86,11 +81,9 @@ class FEPassiveLVHeartPreparationDataset(AbstractDataPreparationDataset, FEPassi
         node_features = np.load(self.node_feature_original_path).astype(np.float32)
         node_coord = np.load(self.node_coord_original_path).astype(np.float32)
         displacement = np.load(self.displacement_original_path).astype(np.float32)
-        raw_displacement = np.load(self.displacement_raw_original_path).astype(np.float32)
 
         np.save(self.node_feature_path, node_features)
         np.save(self.node_coord_path, node_coord)
-        np.save(self.displacement_path, raw_displacement)
         np.save(self.displacement_path, displacement)
 
         logger.info("====== prepare node and displacement done ======")
