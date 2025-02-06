@@ -244,7 +244,7 @@ class FEHeartSageV2Evaluation(FEHeartSageDataset):
         trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
 
         print(f"\n{'=' * 50}")
-        print(f"Model Architecture:")
+        print("Model Architecture:")
         print(model)
         print(f"\nTotal Parameters: {total_params:,}")
         print(f"Trainable Parameters: {trainable_params:,}")

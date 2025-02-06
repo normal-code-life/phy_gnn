@@ -3,9 +3,13 @@ from typing import Dict
 import numpy as np
 import torch
 
+from common.constant import TRAIN_NAME
 from pkg.train.datasets.base_datasets_train import BaseDataset
 from task.passive_lv.data import logger
 from task.passive_lv.data.datasets import FEPassiveLVHeartDataset
+
+normal_norm = "normal_norm"
+max_min_norm = "max_min_norm"
 
 
 class FEHeartSageTrainDataset(BaseDataset, FEPassiveLVHeartDataset):
@@ -35,11 +39,11 @@ class FEHeartSageTrainDataset(BaseDataset, FEPassiveLVHeartDataset):
         node_coords = np.load(self.node_coord_path).astype(np.float32)
 
         # === max min calculation
-        self.coord_max_norm_val = np.load(self.node_coord_max_path)
-        self.coord_min_norm_val = np.load(self.node_coord_min_path)
+        self._coord_max = np.load(self.node_coord_max_path)
+        self._coord_min = np.load(self.node_coord_min_path)
 
         self._node_features = node_features
-        self._node_coord = self.coord_normalization_max_min(node_coords)
+        self._node_coord = self.normalization_max_min(node_coords, self._coord_max, self._coord_min)
         logger.info(f"node_features shape: {self._node_features.shape}, node_coord: {self._node_coord.shape}")
 
         # edge features
@@ -47,14 +51,28 @@ class FEHeartSageTrainDataset(BaseDataset, FEPassiveLVHeartDataset):
         logger.info(f"edges shape: {self._edges_indices.shape}")
 
         # global variables are the same for each node in the graph (e.g. global material stiffness parameters)
-        self._theta_vals = np.load(self.theta_path).astype(np.float32)
+        # summary statistics for displacement values calculated on training data
+        self._theta_max = np.load(self.theta_max_path).astype(np.float32)
+        self._theta_min = np.load(self.theta_min_path).astype(np.float32)
+
+        theta_vals = np.load(self.theta_path).astype(np.float32)
+        self._theta_vals = self.normalization_max_min(theta_vals, self._theta_max, self._theta_min)
 
         # labels
-        self._displacement = np.load(self.displacement_path).astype(np.float32)
-
         # summary statistics for displacement values calculated on training data
-        self._displacement_mean = np.load(self.displacement_mean_path).astype(np.float32)
-        self._displacement_std = np.load(self.displacement_std_path).astype(np.float32)
+        self._displacement_max = np.load(self.displacement_max_path).astype(np.float32)
+        self._displacement_min = np.load(self.displacement_min_path).astype(np.float32)
+
+        displacement = np.load(self.raw_displacement_path).astype(np.float32)
+
+        if self.data_type == TRAIN_NAME:
+            logger.info(f"data type = {self.data_type}, need to normalize displacement")
+            self._displacement = self.normalization_max_min(
+                displacement, self._displacement_max, self._displacement_min
+            )
+        else:
+            logger.info(f"data type = {self.data_type}, no need to normalize displacement")
+            self._displacement = displacement
 
         if self.n_shape_coeff > 0:
             # load shape coefficients
@@ -67,7 +85,12 @@ class FEHeartSageTrainDataset(BaseDataset, FEPassiveLVHeartDataset):
             )
 
             # retain n_shape_coeff of these to input to the emulator
-            self._shape_coeffs = shape_coeffs[:, : self.n_shape_coeff]
+            self._shape_coeff_max = np.load(self.shape_coeff_max_path).astype(np.float32)
+            self._shape_coeff_min = np.load(self.shape_coeff_min_path).astype(np.float32)
+
+            self._shape_coeffs = self.normalization_max_min(shape_coeffs, self._shape_coeff_max, self._shape_coeff_min)[
+                :, : self.n_shape_coeff
+            ]
 
         self._node_features = torch.from_numpy(self._node_features)
         self._node_coord = torch.from_numpy(self._node_coord)
@@ -93,41 +116,57 @@ class FEHeartSageTrainDataset(BaseDataset, FEPassiveLVHeartDataset):
 
         displacement = self._displacement[index]
 
+        selected_node_num = 300
+
+        selected_node = (
+            torch.randint(0, node_coord.shape[1], size=(selected_node_num,), dtype=torch.int64, device=self.device)
+            .unsqueeze(0)
+            .expand(node_coord.shape[0], -1)
+        )
+
         sample = {
             "node_features": node_features,
             "node_coord": node_coord,
             "edges_indices": edges_indices,
             "shape_coeffs": shape_coeffs,
             "theta_vals": theta_vals,
+            "selected_node": selected_node,
         }
 
         labels = {"displacement": displacement}
 
         return sample, labels
 
-    def get_displacement_mean(self) -> torch.tensor:
-        """Get the mean displacement value for normalization.
+    def get_displacement_max(self) -> torch.tensor:
+        """Get the max displacement value for normalization.
 
         Returns:
-            torch.tensor: Mean displacement value, moved to GPU if using CUDA
+            torch.tensor: max displacement value, moved to GPU if using CUDA
         """
-        _displacement_mean = torch.from_numpy(self._displacement_mean)
-        return self._displacement_mean if not self.gpu else _displacement_mean.cuda()
+        _displacement_max = torch.from_numpy(self._displacement_max)
+        return _displacement_max if not self.gpu else _displacement_max.cuda()
 
-    def get_displacement_std(self) -> torch.tensor:
-        """Get the standard deviation of displacement values for normalization.
+    def get_displacement_min(self) -> torch.tensor:
+        """Get the min of displacement values for normalization.
 
         Returns:
-            torch.tensor: Standard deviation of displacement values, moved to GPU if using CUDA
+            torch.tensor: min displacement values, moved to GPU if using CUDA
         """
-        _displacement_std = torch.from_numpy(self._displacement_std)
-        return _displacement_std if not self.gpu else _displacement_std.cuda()
+        _displacement_min = torch.from_numpy(self._displacement_min)
+        return _displacement_min if not self.gpu else _displacement_min.cuda()
 
-    def coord_normalization_max_min(self, array: np.ndarray) -> np.ndarray:
-        # max_val = np.expand_dims(self.coord_max_norm_val, axis=(0, 1))
-        # min_val = np.expand_dims(self.coord_min_norm_val, axis=(0, 1))
-
-        max_val = max(self.coord_max_norm_val)
-        min_val = min(self.coord_min_norm_val)
-
+    @staticmethod
+    def normalization_max_min(array: np.ndarray, max_val: float, min_val: float) -> np.ndarray:
+        """Normalize coordinate values using min-max normalization."""
         return (array - min_val) / (max_val - min_val)
+
+    def displacement_normalization_max_min(self, array: np.ndarray) -> np.ndarray:
+        """Normalize coordinate values using min-max normalization.
+
+        Args:
+            array (np.ndarray): Array of coordinate values to normalize
+
+        Returns:
+            np.ndarray: Normalized coordinate values between 0 and 1
+        """
+        return (array - self._displacement_min) / (self._displacement_max - self._displacement_min)

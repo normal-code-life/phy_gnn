@@ -9,7 +9,7 @@ from pkg.train.layer.pooling_layer import MeanAggregator, SUMAggregator  # noqa
 from pkg.train.model.base_model import BaseModule
 from pkg.train.trainer.base_trainer import BaseTrainer
 from pkg.utils.logs import init_logger
-from task.passive_lv.data.datasets_train import FEHeartSageTrainDataset
+from task.passive_lv.fe_heart_sage_v3.train.datasets_train import FEHeartSageTrainDataset
 from task.passive_lv.utils.module.mlp_layer_ln import MLPLayerV2
 
 logger = init_logger("FEPassiveLVHeartSage")
@@ -293,9 +293,13 @@ class FEHeartSAGEModel(BaseModule):
         # === gather coord
         node_seq_coord: Tensor = torch.gather(node_coord_expanded, 1, indices_coord_expanded)
 
+        # combine node data + seq data => edge data
+        # shape: (batch_size, node_num, seq, node_coord_dim) =>
+        # (batch_size, node_num, seq, 2 * node_coord_dim)
+        edge_vertex_coord: Tensor = torch.concat([node_coord_expanded, node_seq_coord], dim=-1)
         edge_coord: Tensor = node_coord_expanded - node_seq_coord
 
-        return edge_coord
+        return torch.concat([edge_coord, edge_vertex_coord], dim=-1)
 
     def forward(self, x: Dict[str, Tensor]):
         # ====== Input data
@@ -316,7 +320,7 @@ class FEHeartSAGEModel(BaseModule):
         selected_node: Tensor = x["selected_node"][0]  # shape: (batch_size, selected_node_num)
 
         theta_vals_emb: Tensor = x_trans["theta_vals_emb"]  # shape: (batch_size, mat_param)
-        input_shape_coeffs_emb: Tensor = x_trans["shape_coeffs_emb"]  # shape: (batch_size, graph_feature)
+        input_shape_coeffs: Tensor = x["shape_coeffs"]  # shape: (batch_size, graph_feature)
 
         # ====== Message passing Encoder & Aggregate
         # ============ generate node emb (node emb itself)  TODO: test whether to involve the node itself
@@ -360,7 +364,7 @@ class FEHeartSAGEModel(BaseModule):
 
         # ====== Encode global parameters theta
         global_fea = self.theta_encode_mlp_layer(
-            torch.concat([theta_vals_emb, input_shape_coeffs_emb], dim=-1)
+            torch.concat([theta_vals_emb, input_shape_coeffs], dim=-1)
         )  # shape: (batch_size, theta_feature)
         global_fea = global_fea.unsqueeze(dim=-2)  # shape: (batch_size, 1, emb)
         global_fea_expanded = torch.tile(global_fea, (1, z_local.shape[1], 1))  # shape: (batch_size, node_num, emb)

@@ -62,6 +62,10 @@ class FEPassiveLVHeartDataset(BaseAbstractDataset):
         self.node_coord_min_path = f"{self.stats_data_path}/node_coords_min.npy"
         self.displacement_max_path = f"{self.stats_data_path}/real-node-displacement-max.npy"
         self.displacement_min_path = f"{self.stats_data_path}/real-node-displacement-min.npy"
+        self.shape_coeff_max_path = f"{self.stats_data_path}/shape-coeff-max.npy"
+        self.shape_coeff_min_path = f"{self.stats_data_path}/shape-coeff-min.npy"
+        self.theta_max_path = f"{self.stats_data_path}/theta-max.npy"
+        self.theta_min_path = f"{self.stats_data_path}/theta-min.npy"
 
         self.displacement_mean_path = f"{self.base_data_path}/normalisationStatistics/real-node-displacement-mean.npy"
         self.displacement_std_path = f"{self.base_data_path}/normalisationStatistics/real-node-displacement-std.npy"

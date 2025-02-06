@@ -193,9 +193,9 @@ def summary_model(
         lines.append("Batch size: {0:,}".format(batch_size))
     lines.append("-" * 30)
     lines.append(
-        "Note: Given the model design, the 'Model Detail Architecture' may not truly reflect the real model structure,"
-        "and the total or trainable params may not be accurate. "
-        "For the real model param size calculation, please check following below"
+        "Note: Due to the model’s design, the ‘Model Detail Architecture’ may not fully represent the actual "
+        "structure, and the total or trainable parameters may be inaccurate. For an accurate "
+        "model parameter size calculation, please refer to the information below."
     )
     lines.append("-" * _len_line)
 

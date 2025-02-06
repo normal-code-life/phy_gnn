@@ -5,7 +5,7 @@ import torch.nn as nn
 
 from pkg.train.layer.pooling_layer import MeanAggregator, SUMAggregator  # noqa
 from pkg.train.model.base_model import BaseModule
-from pkg.train.trainer.base_trainer import BaseTrainer, TrainerConfig
+from pkg.train.trainer.base_trainer import BaseTrainer
 from pkg.utils.logs import init_logger
 from task.passive_biv.data.datasets_train_hdf5 import FEHeartSageTrainDataset
 from task.passive_biv.utils.module.mlp_layer_ln import MLPLayer

@@ -4,18 +4,18 @@ task_base:
   exp_name: fe_heart_sage_v3_att_1
   overwrite_exp_folder: True
   gpu: True
-  cuda_core: 3
-  gpu_num: 1
+  cuda_core: 0
+  gpu_num: 2
 task_data:
   n_shape_coeff: 32  # Number of shape coefficients to input to the emulator
 task_trainer:
   epochs: 3000
   optimizer_param:
     name: adam
-    learning_rate: 0.001  # Learning rate for training the network
+    learning_rate: 0.0005  # Learning rate for training the network
     scheduler: multi_step
-    milestones:  [200, 500, 1000]
-    batch_per_epoch: 225  # total_size/batch_size
+    milestones:  [250, 500, 750, 1000, 1250, 1500]
+#    batch_per_epoch: 200
     decay_per_step: 0.5
   loss_param:
     name: euclidean_distance_mse
@@ -35,11 +35,10 @@ task_trainer:
     scheduling:
       avoid_work_hour: False
   dataset_param:
-    batch_size: 1
+    batch_size: 20
     val_batch_size: 2
-    displacement_norm_type: max_min_norm
   static_graph: False
-  init_model_weights: True
+  init_model_weights: False
 task_train:
   select_edge_num: 12
   select_node_num: 300
@@ -56,12 +55,12 @@ task_train:
       unit_sizes: [4, 64]
       activation: rrelu
       init_func: xavier_normal
-    shape_coeffs:
-      unit_sizes: [32, 64]
-      activation: rrelu
-      init_func: xavier_normal
+#    shape_coeffs:
+#      unit_sizes: [32, 64]
+#      activation: rrelu
+#      init_func: xavier_normal
   edge_mlp_layer:
-    unit_sizes: [3, 64]
+    unit_sizes: [9, 64]
     activation: rrelu
   message_passing_layer:
     agg_method: MeanAggregator
@@ -81,15 +80,15 @@ task_train:
       dim_feedforward: 768
       dropout: 0.025
     message_update_layer_mlp:
-      unit_sizes: [192, 64]
+      unit_sizes: [192, 128, 64, 64]
       layer_norm: False
       activation: rrelu
   theta_input_mlp_layer:
-    unit_sizes: [128, 64, 64]
+    unit_sizes: [96, 64, 64]
     layer_norm: True
     activation: rrelu
   decoder_layer:
-    unit_sizes: [128, 64, 1]
+    unit_sizes: [128, 64, 64, 1]
     layer_norm: False
     activation: rrelu
     output_dim: 3
