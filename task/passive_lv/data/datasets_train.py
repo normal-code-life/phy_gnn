@@ -2,6 +2,7 @@ from typing import Dict
 
 import numpy as np
 import torch
+from common.constant import TRAIN_NAME
 
 from pkg.train.datasets.base_datasets_train import BaseDataset
 from task.passive_lv.data import logger
@@ -68,7 +69,14 @@ class FEHeartSageTrainDataset(BaseDataset, FEPassiveLVHeartDataset):
             self._displacement = np.load(self.displacement_path).astype(np.float32)
         elif self.displacement_norm_type == max_min_norm:
             displacement = np.load(self.raw_displacement_path).astype(np.float32)
-            self._displacement = self.displacement_normalization_max_min(displacement)
+
+            # only do normalization on the train dataset. we will evaluate the real distance on test/eval dataset
+            if self.data_type == TRAIN_NAME:
+                logger.info(f"data type = {self.data_type}, need to normalize displacement")
+                self._displacement = self.displacement_normalization_max_min(displacement)
+            else:
+                logger.info(f"data type = {self.data_type}, no need to normalize displacement")
+                self._displacement = displacement
 
         if self.n_shape_coeff > 0:
             # load shape coefficients
@@ -189,7 +197,5 @@ class FEHeartSageTrainDataset(BaseDataset, FEPassiveLVHeartDataset):
         Returns:
             np.ndarray: Normalized coordinate values between 0 and 1
         """
-        max_val = max(self._displacement_max)
-        min_val = min(self._displacement_min)
 
-        return (array - min_val) / (max_val - min_val)
+        return (array - self._displacement_min) / (self._displacement_max - self._displacement_min)

@@ -256,7 +256,7 @@ class FEPassiveLVHeartPreparationDataset(AbstractDataPreparationDataset, FEPassi
 
         Computes and saves max and min values for normalization.
         """
-        node_displacement = np.load(self.displacement_original_path).astype(np.float32)
+        node_displacement = np.load(self.displacement_raw_original_path).astype(np.float32)
 
         displacement_max_norm_val = np.max(node_displacement, axis=(0, 1))
         displacement_min_norm_val = np.min(node_displacement, axis=(0, 1))

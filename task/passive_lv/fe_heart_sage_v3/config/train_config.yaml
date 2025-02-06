@@ -1,21 +1,21 @@
 task_base:
   task_name: passive_lv
   model_name: fe_heart_sage_v3
-  exp_name: fe_heart_sage_v3_att_3
+  exp_name: fe_heart_sage_v3_att_1
   overwrite_exp_folder: True
   gpu: True
-  cuda_core: 0
-  gpu_num: 2
+  cuda_core: 3
+  gpu_num: 1
 task_data:
   n_shape_coeff: 32  # Number of shape coefficients to input to the emulator
 task_trainer:
   epochs: 3000
   optimizer_param:
     name: adam
-    learning_rate: 0.0001  # Learning rate for training the network
+    learning_rate: 0.001  # Learning rate for training the network
     scheduler: multi_step
-    milestones:  [25, 50, 100]
-    batch_per_epoch: 2250  # total_size/batch_size
+    milestones:  [200, 500, 1000]
+    batch_per_epoch: 225  # total_size/batch_size
     decay_per_step: 0.5
   loss_param:
     name: euclidean_distance_mse
@@ -33,15 +33,16 @@ task_trainer:
       save_task_code: True
       debug: False
     scheduling:
-      avoid_work_hour: True
+      avoid_work_hour: False
   dataset_param:
-    batch_size: 20
-    val_batch_size: 5
+    batch_size: 1
+    val_batch_size: 2
+    displacement_norm_type: max_min_norm
   static_graph: False
   init_model_weights: True
 task_train:
   select_edge_num: 12
-  select_node_num: 500
+  select_node_num: 300
   input_layer:
     node_coord:
       unit_sizes: [3, 64]
