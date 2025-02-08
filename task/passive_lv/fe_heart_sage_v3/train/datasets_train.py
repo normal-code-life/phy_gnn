@@ -45,6 +45,7 @@ class FEHeartSageTrainDataset(BaseDataset, FEPassiveLVHeartDataset):
         self._node_features = node_features
         self._node_coord = self.normalization_max_min(node_coords, self._coord_max, self._coord_min)
         logger.info(f"node_features shape: {self._node_features.shape}, node_coord: {self._node_coord.shape}")
+        logger.info(f"_coord_max: {self._coord_max}, _coord_min: {self._coord_min}")
 
         # edge features
         self._edges_indices = np.load(self.edge_file_path).astype(np.int64)
@@ -57,6 +58,7 @@ class FEHeartSageTrainDataset(BaseDataset, FEPassiveLVHeartDataset):
 
         theta_vals = np.load(self.theta_path).astype(np.float32)
         self._theta_vals = self.normalization_max_min(theta_vals, self._theta_max, self._theta_min)
+        logger.info(f"_theta_max: {self._theta_max}, _theta_min: {self._theta_min}")
 
         # labels
         # summary statistics for displacement values calculated on training data
@@ -73,6 +75,7 @@ class FEHeartSageTrainDataset(BaseDataset, FEPassiveLVHeartDataset):
         else:
             logger.info(f"data type = {self.data_type}, no need to normalize displacement")
             self._displacement = displacement
+        logger.info(f"_displacement_max: {self._displacement_max}, _displacement_min: {self._displacement_min}")
 
         if self.n_shape_coeff > 0:
             # load shape coefficients
@@ -91,6 +94,7 @@ class FEHeartSageTrainDataset(BaseDataset, FEPassiveLVHeartDataset):
             self._shape_coeffs = self.normalization_max_min(shape_coeffs, self._shape_coeff_max, self._shape_coeff_min)[
                 :, : self.n_shape_coeff
             ]
+            logger.info(f"_shape_coeff_max: {self._shape_coeff_max}, _shape_coeff_min: {self._shape_coeff_min}")
 
         self._node_features = torch.from_numpy(self._node_features)
         self._node_coord = torch.from_numpy(self._node_coord)

@@ -123,7 +123,7 @@ class FEHeartSAGEModel(BaseModule):
                 nhead=self.message_passing_layer_config["message_update_layer"].get("nhead", 4),
                 dim_feedforward=self.message_passing_layer_config["message_update_layer"].get("dim_feedforward", 512),
                 dropout=self.message_passing_layer_config["message_update_layer"].get("dropout", 0.1),
-                # device=self.device,
+                device=self.device,
                 batch_first=True,
             )
             self.message_update_layer_mlp = MLPLayerV2(

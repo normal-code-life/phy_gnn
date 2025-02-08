@@ -293,13 +293,7 @@ class FEHeartSAGEModel(BaseModule):
         # === gather coord
         node_seq_coord: Tensor = torch.gather(node_coord_expanded, 1, indices_coord_expanded)
 
-        # combine node data + seq data => edge data
-        # shape: (batch_size, node_num, seq, node_coord_dim) =>
-        # (batch_size, node_num, seq, 2 * node_coord_dim)
-        edge_vertex_coord: Tensor = torch.concat([node_coord_expanded, node_seq_coord], dim=-1)
-        edge_coord: Tensor = node_coord_expanded - node_seq_coord
-
-        return torch.concat([edge_coord, edge_vertex_coord], dim=-1)
+        return node_coord_expanded - node_seq_coord
 
     def forward(self, x: Dict[str, Tensor]):
         # ====== Input data
@@ -324,7 +318,9 @@ class FEHeartSAGEModel(BaseModule):
 
         # ====== Message passing Encoder & Aggregate
         # ============ generate node emb (node emb itself)  TODO: test whether to involve the node itself
-        input_node_emb = input_node_coord_emb + input_node_fea_emb  # (batch_size, node_num, node_emb)
+        input_node_emb = torch.concat(
+            [input_node_coord_emb, input_node_fea_emb], dim=-1
+        )  # (batch_size, node_num, node_emb)
         node_seq_emb = input_node_emb.unsqueeze(dim=-2).expand(
             -1, -1, self.select_edge_num, -1
         )  # (batch_size, node_num, 1, node_emb) => (batch_size, node_num, seq, node_emb)

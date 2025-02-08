@@ -23,6 +23,7 @@ class FEPassiveLVHeartDataset(BaseAbstractDataset):
 
         # original base data path
         self.raw_data_path = f"{self.base_data_path}/rawData/{data_type}"
+        self.processed_data_path = f"{self.base_data_path}/processedData/{data_type}"
         self.topology_data_path = f"{self.base_data_path}/topologyData"
 
         logger.info(f"raw_data_path is {self.raw_data_path}")
@@ -32,6 +33,7 @@ class FEPassiveLVHeartDataset(BaseAbstractDataset):
         self.node_feature_original_path = f"{self.raw_data_path}/real-node-features.npy"
         self.node_coord_original_path = f"{self.raw_data_path}/real-node-coords.npy"
         self.theta_original_path = f"{self.raw_data_path}/global-features.npy"
+        self.displacement_processed_path = f"{self.processed_data_path}/real-node-displacement.npy"
         self.displacement_original_path = f"{self.raw_data_path}/real-node-displacement.npy"
         self.shape_coeff_original_path = f"{self.raw_data_path}/shape-coeffs.npy"
 

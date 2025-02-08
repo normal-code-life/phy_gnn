@@ -1,5 +1,5 @@
 import platform
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -56,7 +56,14 @@ class FEPassiveLVHeartPreparationDataset(AbstractDataPreparationDataset, FEPassi
 
         # self._check_stats()
 
-        self._prepare_stats("coord", self.node_coord_path, self.node_coord_max_path, self.node_coord_min_path)
+        # fmt: off
+
+        self._prepare_stats(
+            "coord",
+            self.node_coord_path,
+            self.node_coord_max_path,
+            self.node_coord_min_path,
+        )
 
         self._prepare_stats(
             "displacement",
@@ -66,10 +73,22 @@ class FEPassiveLVHeartPreparationDataset(AbstractDataPreparationDataset, FEPassi
         )
 
         self._prepare_stats(
-            "coeff", self.shape_coeff_original_path, self.shape_coeff_max_path, self.shape_coeff_min_path
+            "coeff",
+            self.shape_coeff_original_path,
+            self.shape_coeff_max_path,
+            self.shape_coeff_min_path,
+            (0,),
         )
 
-        self._prepare_stats("theta", self.theta_original_path, self.theta_max_path, self.theta_min_path)
+        self._prepare_stats(
+            "theta",
+            self.theta_original_path,
+            self.theta_max_path,
+            self.theta_min_path,
+            (0,),
+        )
+
+        # fmt: on
 
     def _prepare_features(self) -> None:
         """Prepare and save node features, coordinates and displacement data.
@@ -237,11 +256,11 @@ class FEPassiveLVHeartPreparationDataset(AbstractDataPreparationDataset, FEPassi
 
         return sorted_indices_by_dist
 
-    def _prepare_stats(self, name: str, path: str, save_max_path: str, save_min_path: str):
+    def _prepare_stats(self, name: str, path: str, save_max_path: str, save_min_path: str, axis: Tuple = (0, 1)):
         fea = np.load(path).astype(np.float32)
 
-        fea_max_norm_val = np.max(fea, axis=(0, 1))
-        fea_min_norm_val = np.min(fea, axis=(0, 1))
+        fea_max_norm_val = np.max(fea, axis=axis)
+        fea_min_norm_val = np.min(fea, axis=axis)
 
         np.save(save_max_path, fea_max_norm_val)
         np.save(save_min_path, fea_min_norm_val)

@@ -71,10 +71,10 @@ class FEPassiveLVHeartPreparationDataset(AbstractDataPreparationDataset, FEPassi
         )
 
         self._prepare_stats(
-            "coeff", self.shape_coeff_original_path, self.shape_coeff_max_path, self.shape_coeff_min_path
+            "coeff", self.shape_coeff_path, self.shape_coeff_max_path, self.shape_coeff_min_path
         )
 
-        self._prepare_stats("theta", self.theta_original_path, self.theta_max_path, self.theta_min_path)
+        self._prepare_stats("theta", self.theta_path, self.theta_max_path, self.theta_min_path)
 
     def _prepare_features(self) -> None:
         """Prepare and save node features, coordinates and displacement data.
@@ -85,12 +85,10 @@ class FEPassiveLVHeartPreparationDataset(AbstractDataPreparationDataset, FEPassi
 
         node_features = np.load(self.node_feature_original_path).astype(np.float32)
         node_coord = np.load(self.node_coord_original_path).astype(np.float32)
-        displacement = np.load(self.displacement_original_path).astype(np.float32)
-        raw_displacement = np.load(self.displacement_raw_original_path).astype(np.float32)
+        displacement = np.load(self.displacement_processed_path).astype(np.float32)
 
         np.save(self.node_feature_path, node_features)
         np.save(self.node_coord_path, node_coord)
-        np.save(self.displacement_path, raw_displacement)
         np.save(self.displacement_path, displacement)
 
         logger.info("====== prepare node and displacement done ======")
