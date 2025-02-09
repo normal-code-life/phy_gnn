@@ -12,11 +12,11 @@ task_trainer:
   epochs: 60000
   optimizer_param:
     name: adam
-    learning_rate: 0.001  # Learning rate for training the network
-    scheduler: multi_step
-    milestones:  [20, 50, 75, 100]
-    batch_per_epoch: 112
-    decay_per_step: 0.5
+    learning_rate: 0.0000625  # Learning rate for training the network
+#    scheduler: multi_step
+#    milestones:  [20, 50, 75, 100]
+#    batch_per_epoch: 112
+#    decay_per_step: 0.5
   loss_param:
     name: euclidean_distance_mse
   metrics_param:
