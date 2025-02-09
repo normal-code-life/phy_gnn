@@ -294,7 +294,8 @@ class BaseTrainer(abc.ABC):
             raise ValueError(f"loss name do not set properly, please check: {loss_param['name']}")
 
     def create_metrics(self):
-        metrics_param = self.task_trainer["metrics_param"]
+        metrics_param = self.task_trainer.get("metrics_param", {})
+
         for p in metrics_param:
             if p == "mean_absolute_error":
                 self.metrics["mean_absolute_error"] = torchmetrics.functional.mean_absolute_error

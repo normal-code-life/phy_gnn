@@ -9,7 +9,7 @@ from pkg.train.layer.pooling_layer import MeanAggregator, SUMAggregator  # noqa
 from pkg.train.model.base_model import BaseModule
 from pkg.train.trainer.base_trainer import BaseTrainer
 from pkg.utils.logs import init_logger
-from task.passive_lv.data.datasets_train import FEHeartSageTrainDataset
+from task.passive_lv.fe_heart_sage_v3.train.datasets_train import FEHeartSageTrainDataset
 from task.passive_lv.utils.module.mlp_layer_ln import MLPLayerLN
 
 logger = init_logger("FEPassiveLVHeartSage")
@@ -34,8 +34,8 @@ class FEHeartSAGETrainer(BaseTrainer):
         # config relative to dataset
         dataset_config = self.dataset_class(self.task_data, TRAIN_NAME)
 
-        self.displacement_mean = dataset_config.get_displacement_mean()
-        self.displacement_std = dataset_config.get_displacement_std()
+        self.displacement_max = dataset_config.get_displacement_max()
+        self.displacement_min = dataset_config.get_displacement_min()
 
     def create_model(self) -> None:
         self.model = FEHeartSAGEModel(self.task_train)
@@ -47,11 +47,15 @@ class FEHeartSAGETrainer(BaseTrainer):
             return False
 
     def compute_validation_loss(self, predictions: Dict[str, Tensor], labels: Dict[str, Tensor]):
-        predictions["displacement"] = predictions["displacement"] * self.displacement_std + self.displacement_mean
+        predictions["displacement"] = (
+                predictions["displacement"] * (self.displacement_max - self.displacement_min) + self.displacement_min
+        )
         return self.compute_loss(predictions, labels)
 
     def compute_metrics(self, metrics_func: callable, predictions: Dict[str, Tensor], labels: Dict[str, Tensor]):
-        predictions["displacement"] = predictions["displacement"] * self.displacement_std + self.displacement_mean
+        predictions["displacement"] = (
+                predictions["displacement"] * (self.displacement_max - self.displacement_min) + self.displacement_min
+        )
         return super().compute_metrics(metrics_func, predictions, labels)
 
 
