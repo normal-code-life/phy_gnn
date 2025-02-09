@@ -86,7 +86,6 @@ class TrainerConfig(BaseConfig):
         self.task_data["exp_name"] = self.task_base["exp_name"]
 
         self.task_data["gpu"] = self.task_base["gpu"]
-        self.task_data["cuda_core"] = self.task_base["cuda_core"]
 
         # task trainer
         self.task_trainer = config["task_trainer"]
