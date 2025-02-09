@@ -1,10 +1,10 @@
 task_base:
   task_name: passive_lv
   model_name: fe_heart_sage_v3
-  exp_name: fe_heart_sage_v3_att_3
+  exp_name: fe_heart_sage_v3_mlp
   overwrite_exp_folder: True
   gpu: True
-  cuda_core: 0
+  cuda_core: 3
   gpu_num: 2
 task_data:
   n_shape_coeff: 32  # Number of shape coefficients to input to the emulator
@@ -12,11 +12,11 @@ task_trainer:
   epochs: 60000
   optimizer_param:
     name: adam
-    learning_rate: 0.0000625  # Learning rate for training the network
-#    scheduler: multi_step
-#    milestones:  [20, 50, 75, 100]
-#    batch_per_epoch: 112
-#    decay_per_step: 0.5
+    learning_rate: 0.001  # Learning rate for training the network
+    scheduler: multi_step
+    milestones:  [20, 50, 75]
+    batch_per_epoch: 112
+    decay_per_step: 0.5
   loss_param:
     name: euclidean_distance_mse
   metrics_param:
@@ -64,25 +64,25 @@ task_train:
     activation: rrelu
   message_passing_layer:
     agg_method: MeanAggregator
-    arch: attention
+    arch: mlp
     agg_layer:
       agg_dim: 2
       keep_dim: False
     # used for mlp
-#    message_update_layer:
-#      unit_sizes: [192, 128, 64]
-#      layer_norm: True
-#      activation: rrelu
-    # used for attention
     message_update_layer:
-      d_model: 192
-      nhead: 4
-      dim_feedforward: 768
-      dropout: 0.025
-    message_update_layer_mlp:
-      unit_sizes: [192, 128, 64, 64]
-      layer_norm: False
+      unit_sizes: [192, 128, 64]
+      layer_norm: True
       activation: rrelu
+    # used for attention
+#    message_update_layer:
+#      d_model: 192
+#      nhead: 4
+#      dim_feedforward: 768
+#      dropout: 0.025
+#    message_update_layer_mlp:
+#      unit_sizes: [192, 128, 64, 64]
+#      layer_norm: False
+#      activation: rrelu
   theta_input_mlp_layer:
     unit_sizes: [96, 64, 64]
     layer_norm: True

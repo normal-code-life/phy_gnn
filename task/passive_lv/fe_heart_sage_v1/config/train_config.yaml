@@ -12,7 +12,7 @@ task_trainer:
   epochs: 3000
   optimizer_param:
     name: adam
-    learning_rate: 0.00005  # Learning rate for training the network
+    learning_rate: 0.0001  # Learning rate for training the network
   loss_param:
     name: euclidean_distance_mse
   metrics_param:
