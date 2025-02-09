@@ -1,7 +1,7 @@
 task_base:
   task_name: passive_lv
   model_name: fe_heart_sage_v3
-  exp_name: fe_heart_sage_v3_att_2
+  exp_name: fe_heart_sage_v3_att_3
   overwrite_exp_folder: True
   gpu: True
   cuda_core: 0
@@ -9,12 +9,12 @@ task_base:
 task_data:
   n_shape_coeff: 32  # Number of shape coefficients to input to the emulator
 task_trainer:
-  epochs: 3000
+  epochs: 60000
   optimizer_param:
     name: adam
-    learning_rate: 0.0005  # Learning rate for training the network
+    learning_rate: 0.001  # Learning rate for training the network
     scheduler: multi_step
-    milestones:  [20, 50, 100, 200]
+    milestones:  [20, 50, 75, 100]
     batch_per_epoch: 112
     decay_per_step: 0.5
   loss_param:
@@ -38,7 +38,7 @@ task_trainer:
     batch_size: 20
     val_batch_size: 4
   static_graph: False
-  init_model_weights: False
+  init_model_weights: True
 task_train:
   select_edge_num: 12
   select_node_num: 300
@@ -80,7 +80,7 @@ task_train:
       dim_feedforward: 768
       dropout: 0.025
     message_update_layer_mlp:
-      unit_sizes: [192, 64]
+      unit_sizes: [192, 128, 64, 64]
       layer_norm: False
       activation: rrelu
   theta_input_mlp_layer:
@@ -88,7 +88,7 @@ task_train:
     layer_norm: True
     activation: rrelu
   decoder_layer:
-    unit_sizes: [128, 64, 64, 1]
+    unit_sizes: [128, 128, 64, 1]
     layer_norm: False
     activation: rrelu
     output_dim: 3
