@@ -1,16 +1,16 @@
 task_base:
   task_name: passive_biv
   model_name: fe_heart_sage_v3
-  exp_name: rec_10_6
+  exp_name: rec_10_7
   overwrite_exp_folder: True
   gpu: True
   cuda_core: 0
   gpu_num: 2
 task_trainer:
-  epochs: 6000
+  epochs: 3000
   optimizer_param:
     name: adam
-    learning_rate: 0.001  # Learning rate for training the network
+    learning_rate: 0.0001  # Learning rate for training the network
 #    scheduler: multi_step
 #    milestones:  [250, 500, 750, 1000, 1250, 1500]
 #    batch_per_epoch: 200
@@ -41,7 +41,7 @@ task_trainer:
   init_model_weights: True
 task_train:
   select_edge_num: 12
-  select_node_num: 300
+  select_node_num: 50
   input_layer:
 #    node_coord:
 #      unit_sizes: [3, 128]
