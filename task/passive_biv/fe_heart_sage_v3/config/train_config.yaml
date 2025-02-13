@@ -1,7 +1,7 @@
 task_base:
   task_name: passive_biv
   model_name: fe_heart_sage_v3
-  exp_name: rec_10_8
+  exp_name: rec_10_9
   overwrite_exp_folder: True
   gpu: True
   cuda_core: 0
@@ -41,7 +41,7 @@ task_trainer:
   init_model_weights: True
 task_train:
   select_edge_num: 12
-  select_node_num: 1000
+  select_node_num: 300
   input_layer:
 #    node_coord:
 #      unit_sizes: [3, 128]
