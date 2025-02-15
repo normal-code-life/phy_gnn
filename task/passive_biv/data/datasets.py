@@ -84,7 +84,7 @@ class FEHeartSageDataset(BaseAbstractDataset):
             "stress": "float",
         }
 
-        self.labels = {"displacement"}
+        self.labels = {"displacement", "stress"}
 
 
 def import_data_config() -> Dict:

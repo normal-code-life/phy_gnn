@@ -584,8 +584,10 @@ class BaseTrainer(abc.ABC):
             loss = self.compute_loss(outputs, train_labels)
 
             if isinstance(loss, torch.Tensor):
+                total_loss = loss
                 metrics["train_loss"] = metrics["train_loss"] + loss.item() if "train_loss" in metrics else loss.item()
             elif isinstance(loss, Dict):
+                total_loss = sum(loss.values())
                 for name, loss in loss.items():
                     metrics[f"{name}_train_loss"] = (
                         metrics[f"{name}_train_loss"] + loss.item() if f"{name}_train_loss" in metrics else loss.item()
@@ -601,7 +603,7 @@ class BaseTrainer(abc.ABC):
             self.optimizer.zero_grad()
 
             # Backward pass: compute gradient of the loss with respect to model parameters
-            loss.backward()
+            total_loss.backward()
 
             # Calling the step function on an Optimizer makes an update to its parameters
             self.optimizer.step()

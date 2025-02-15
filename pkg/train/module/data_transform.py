@@ -104,9 +104,13 @@ class TensorToGPU(DataTransform):
 
 
 class Norm(DataTransform):
-    def __init__(self, config: Dict, global_scaling: bool = True, coarse_dim: bool = False) -> None:
+    def __init__(self, config: Dict, global_scaling: bool = True, coarse_dim: bool = False, setup_val: bool = False) -> None:
         self.normalization_config = config
-        self.feature_config: Dict[str, Dict[str, Tensor]] = self.load_stats_file()
+        if not setup_val:
+            self.feature_config: Dict[str, Dict[str, Tensor]] = self.load_stats_file()
+        else:
+            self.feature_config: Dict[str, Dict[str, Tensor]] = self.load_stats_value()
+
         self.global_scaling = global_scaling
         self.coarse_dim = coarse_dim
 
@@ -119,12 +123,20 @@ class Norm(DataTransform):
 
         return feature_config
 
+    def load_stats_value(self) -> Dict[str, Dict[str, Tensor]]:
+        feature_config: Dict[str, Dict[str, Tensor]] = {}
+
+        for key, config in self.normalization_config.items():
+            feature_config.update({key: {name: torch.tensor(config[name]) for name in config}})
+
+        return feature_config
+
 
 class MaxMinNorm(Norm):
     """Normalize a tensor with max and min."""
 
-    def __init__(self, config: Dict, global_scaling: bool = True, coarse_dim: bool = False) -> None:
-        super().__init__(config, global_scaling, coarse_dim)
+    def __init__(self, config: Dict, global_scaling: bool = True, coarse_dim: bool = False, setup_val: bool = False) -> None:
+        super().__init__(config, global_scaling, coarse_dim, setup_val)
 
         self.max_val_name = MAX_VAL
         self.min_val_name = MIN_VAL

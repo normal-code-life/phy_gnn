@@ -309,6 +309,12 @@ class FEHeartSAGEModel(BaseModule):
         # concatenate the predictions of each individual decoder mlp
         output = dict()
 
-        output["displacement"] = torch.concat(individual_mlp_predictions, dim=-1)  # shape: (batch_size, node_num, 1)
+        output["displacement"] = (
+            torch.concat(individual_mlp_predictions[0:3], dim=-1)  # shape: (batch_size, node_num, 1)
+        )
+
+        output["stress"] = (
+            torch.concat(individual_mlp_predictions[3:4], dim=-1)  # shape: (batch_size, node_num, 1)
+        )
 
         return output

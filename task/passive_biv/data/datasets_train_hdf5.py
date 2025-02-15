@@ -4,9 +4,9 @@ import numpy as np
 import torch
 from torchvision import transforms
 
-from common.constant import MODEL_TRAIN
+from common.constant import MODEL_TRAIN, MAX_VAL, MIN_VAL
 from pkg.train.datasets.base_datasets_train import MultiHDF5Dataset
-from pkg.train.module.data_transform import CovertToModelInputs, MaxMinNorm, SqueezeDataDim, ToTensor
+from pkg.train.module.data_transform import CovertToModelInputs, MaxMinNorm, SqueezeDataDim, ToTensor, ClampTensor
 from task.passive_biv.data.datasets import FEHeartSageDataset
 
 
@@ -40,11 +40,27 @@ class FEHeartSageTrainDataset(MultiHDF5Dataset, FEHeartSageDataset):
 
         transform_list.append(MaxMinNorm(norm_config, True, True))
 
-        norm_config = {
-            "displacement": self.displacement_stats_path,
-            "stress": self.stress_stats_path,
+        clamp_config = {
+            "stress": {
+                MAX_VAL: 20720,
+                MIN_VAL: 0,
+            }
         }
-        transform_list.append(MaxMinNorm(norm_config))
+
+        transform_list.append((ClampTensor(clamp_config)))
+
+        norm_config_disp = {
+            "displacement": self.displacement_stats_path,
+        }
+        transform_list.append(MaxMinNorm(norm_config_disp))
+
+        norm_config_stress = {
+            "stress": {
+                MAX_VAL: 20720,
+                MIN_VAL: 0,
+            }
+        }
+        transform_list.append(MaxMinNorm(norm_config_stress, setup_val=True))
 
         # convert data dim
         convert_data_dim_config = {"mat_param": -1, "pressure": -1, "shape_coeffs": -1}
