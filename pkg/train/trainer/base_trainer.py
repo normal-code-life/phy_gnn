@@ -581,13 +581,14 @@ class BaseTrainer(abc.ABC):
             # Compute and print loss.
             outputs = model(train_inputs)  # noqa
 
-            loss = self.compute_loss(outputs, train_labels)
+            loss: Union[Tensor, Dict[str, Tensor]] = self.compute_loss(outputs, train_labels)
+            total_loss: Optional[Union[Dict[Tensor], Tensor]] = None
 
-            if isinstance(loss, torch.Tensor):
+            if isinstance(loss, Tensor):
                 total_loss = loss
                 metrics["train_loss"] = metrics["train_loss"] + loss.item() if "train_loss" in metrics else loss.item()
             elif isinstance(loss, Dict):
-                total_loss = sum(loss.values())
+                total_loss = sum(loss.values())  # noqa
                 for name, loss in loss.items():
                     metrics[f"{name}_train_loss"] = (
                         metrics[f"{name}_train_loss"] + loss.item() if f"{name}_train_loss" in metrics else loss.item()
@@ -604,6 +605,20 @@ class BaseTrainer(abc.ABC):
 
             # Backward pass: compute gradient of the loss with respect to model parameters
             total_loss.backward()
+
+            def check_grad(name, param):
+                if param.grad is not None:
+                    grad_norm = param.grad.norm()
+                    if torch.isnan(grad_norm) or torch.isinf(grad_norm):
+                        print(f"Gradient problem in {name}: {grad_norm}")
+                        return True
+                return False
+
+            for name, param in model.named_parameters():
+                if check_grad(name, param):
+                    for name, param in model.named_parameters():
+                        print(f"==> {name} {param.tolist()} {param.grad}")
+                    raise Exception("value error, has grad problem")
 
             # Calling the step function on an Optimizer makes an update to its parameters
             self.optimizer.step()

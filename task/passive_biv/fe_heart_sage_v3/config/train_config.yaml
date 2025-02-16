@@ -49,30 +49,30 @@ task_train:
 #      init_func: xavier_normal
     laplace_coord:
       unit_sizes: [8, 128]
-      activation: rrelu
+      activation: LeakyReLU
       init_func: xavier_normal
     fiber_and_sheet:
       unit_sizes: [6, 128]
-      activation: rrelu
+      activation: LeakyReLU
       init_func: xavier_normal
     mat_param:
       unit_sizes: [6, 128]
-      activation: rrelu
+      activation: LeakyReLU
       init_func: xavier_normal
     pressure:
       unit_sizes: [2, 128]
-      activation: rrelu
+      activation: LeakyReLU
       init_func: xavier_normal
     shape_coeffs:
       unit_sizes: [58, 128]
-      activation: rrelu
+      activation: LeakyReLU
       init_func: xavier_normal
   edge_mlp_layer:
     unit_sizes: [3, 128]
-    activation: rrelu
+    activation: LeakyReLU
   edge_laplace_mlp_layer:
     unit_sizes: [8, 128]
-    activation: rrelu
+    activation: LeakyReLU
   message_passing_layer:
     agg_method: MeanAggregator
     arch: attention
@@ -93,15 +93,15 @@ task_train:
     message_update_layer_mlp:
       unit_sizes: [384, 128]
       layer_norm: False
-      activation: rrelu
+      activation: LeakyReLU
   theta_input_mlp_layer:
     unit_sizes: [384, 256, 128, 128]
     layer_norm: True
-    activation: rrelu
+    activation: LeakyReLU
   decoder_layer:
     unit_sizes: [256, 128, 128, 1]
     layer_norm: False
-    activation: rrelu
+    activation: LeakyReLU
     output_dim: 4
   labels:
     - displacement
