@@ -1,7 +1,7 @@
 task_base:
   task_name: passive_biv
   model_name: fe_heart_sage_v3
-  exp_name: rec_10_12
+  exp_name: rec_10_2
   overwrite_exp_folder: True
   gpu: True
   cuda_core: 0
@@ -49,30 +49,30 @@ task_train:
 #      init_func: xavier_normal
     laplace_coord:
       unit_sizes: [8, 128]
-      activation: LeakyReLU
+      activation: rrelu
       init_func: xavier_normal
     fiber_and_sheet:
       unit_sizes: [6, 128]
-      activation: LeakyReLU
+      activation: rrelu
       init_func: xavier_normal
     mat_param:
       unit_sizes: [6, 128]
-      activation: LeakyReLU
+      activation: rrelu
       init_func: xavier_normal
     pressure:
       unit_sizes: [2, 128]
-      activation: LeakyReLU
+      activation: rrelu
       init_func: xavier_normal
     shape_coeffs:
       unit_sizes: [58, 128]
-      activation: LeakyReLU
+      activation: rrelu
       init_func: xavier_normal
   edge_mlp_layer:
     unit_sizes: [3, 128]
-    activation: LeakyReLU
+    activation: rrelu
   edge_laplace_mlp_layer:
     unit_sizes: [8, 128]
-    activation: LeakyReLU
+    activation: rrelu
   message_passing_layer:
     agg_method: MeanAggregator
     arch: attention
@@ -93,16 +93,15 @@ task_train:
     message_update_layer_mlp:
       unit_sizes: [384, 128]
       layer_norm: False
-      activation: LeakyReLU
+      activation: rrelu
   theta_input_mlp_layer:
     unit_sizes: [384, 256, 128, 128]
     layer_norm: True
-    activation: LeakyReLU
+    activation: rrelu
   decoder_layer:
     unit_sizes: [256, 128, 128, 1]
     layer_norm: False
-    activation: LeakyReLU
-    output_dim: 4
+    activation: rrelu
+    output_dim: 3
   labels:
     - displacement
-    - stress
