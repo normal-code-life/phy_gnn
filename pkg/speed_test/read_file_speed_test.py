@@ -1,3 +1,20 @@
+"""File I/O Speed Test Module
+
+This module provides functionality for measuring file I/O performance by:
+- Walking through a directory tree recursively
+- Reading each file and measuring read time and throughput
+- Calculating aggregate statistics like:
+  - Total data size processed
+  - Total processing time
+  - Average read speed in MB/s
+  - Per-file metrics
+
+The module is designed for:
+- Benchmarking storage system performance
+- Identifying slow file access patterns
+- Validating I/O throughput requirements
+"""
+
 import os
 import sys
 import time

@@ -1,6 +1,6 @@
 import torch
 
-from pkg.tf_utils.method import segment_sum
+from pkg.dnn_utils.method import segment_sum
 
 
 def test_segment_sum():

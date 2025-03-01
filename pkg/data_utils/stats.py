@@ -1,3 +1,16 @@
+"""Statistical Analysis Module
+
+This module provides functionality for computing and analyzing statistical properties
+of numerical data arrays. It calculates common statistical measures like mean, median,
+standard deviation and various percentiles.
+
+The module is designed for:
+- Computing descriptive statistics on numpy arrays
+- Handling multi-dimensional data with flexible axis selection
+- Logging statistical results
+- Optionally saving results to disk
+"""
+
 import logging
 from typing import Set, Union
 
@@ -23,32 +36,37 @@ def stats_analysis(
     value_set: np.ndarray,
     axis: Union[Set[int], int],
     save_path: str,
-    logger: logging,
+    logger: logging.Logger,
     write_to_path: bool = False,
 ) -> None:
-    """
-    Analyze statistical properties of a given numpy array and save the results.
+    """Computes and logs statistical measures for a numerical array.
 
-    Parameters:
+    Calculates common statistical properties including:
+    - Min, max, mean, median
+    - Standard deviation
+    - Various percentiles (10th, 25th, 75th, 90th, 95th, 99th)
+
+    Parameters
     ----------
     feature_name : str
-        The name of the feature being analyzed.
+        Name identifier for the feature being analyzed
     value_set : np.ndarray
-        The numpy array containing the values to analyze.
-    axis : List[int]
-        The axis or axes along which to compute the statistics. If None, compute over the entire array.
+        Array of numerical values to analyze
+    axis : Union[Set[int], int]
+        Axis or axes along which to compute statistics
     save_path : str
-        The path to save the resulting statistics as a .npz file.
+        Path where statistics will be saved if write_to_path is True
     logger : logging.Logger
-        The logger used to log the statistical analysis results.
-    write_to_path : bool
-        decide whether to write to path
+        Logger instance for outputting results
+    write_to_path : bool, optional
+        Whether to save results to disk, by default False
 
-    Returns:
-    ----------
+    Returns
+    -------
     None
+        Results are logged and optionally saved to disk
     """
-    # Compute the statistical values
+    # Calculate statistical measures
     stats_val = {
         MAX_VAL: np.max(value_set, axis=axis),
         MIN_VAL: np.min(value_set, axis=axis),
@@ -63,11 +81,11 @@ def stats_analysis(
         PERC_99_VAL: np.percentile(value_set, [99], axis=axis),
     }
 
-    # Log the statistics
-    logger.info(f"stats feature name: {feature_name}, shape: {value_set.shape}, stats data: ")
-    for key in stats_val:
-        logger.info(f"{feature_name}: {key}, {stats_val[key]}")
+    # Log results
+    logger.info(f"Stats for feature '{feature_name}' with shape {value_set.shape}:")
+    for key, value in stats_val.items():
+        logger.info(f"{key}: {value}")
 
-    # Save the statistics to a .npz file
+    # Optionally save to disk
     if write_to_path:
         np.savez(save_path, **stats_val)

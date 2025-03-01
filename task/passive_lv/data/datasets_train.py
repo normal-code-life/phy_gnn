@@ -93,23 +93,12 @@ class FEHeartSageTrainDataset(BaseDataset, FEPassiveLVHeartDataset):
 
         displacement = self._displacement[index]
 
-        # for version `fe_heart_sage_v3` we need to input extra `selected_node` and `selected_node_num`:
-        # using this strategy is only a transitional solution, it will be overwritten later on.
-        selected_node_num = 300
-
-        selected_node = (
-            torch.randint(0, node_coord.shape[1], size=(selected_node_num,), dtype=torch.int64, device=self.device)
-            .unsqueeze(0)
-            .expand(node_coord.shape[0], -1)
-        )
-
         sample = {
             "node_features": node_features,
             "node_coord": node_coord,
             "edges_indices": edges_indices,
             "shape_coeffs": shape_coeffs,
             "theta_vals": theta_vals,
-            "selected_node": selected_node,
         }
 
         labels = {"displacement": displacement}
@@ -135,14 +124,8 @@ class FEHeartSageTrainDataset(BaseDataset, FEPassiveLVHeartDataset):
         return _displacement_std if not self.gpu else _displacement_std.cuda()
 
     def coord_normalization_max_min(self, array: np.ndarray) -> np.ndarray:
-        """Normalize coordinate values using min-max normalization.
-
-        Args:
-            array (np.ndarray): Array of coordinate values to normalize
-
-        Returns:
-            np.ndarray: Normalized coordinate values between 0 and 1
-        """
+        # max_val = np.expand_dims(self.coord_max_norm_val, axis=(0, 1))
+        # min_val = np.expand_dims(self.coord_min_norm_val, axis=(0, 1))
 
         max_val = max(self.coord_max_norm_val)
         min_val = min(self.coord_min_norm_val)

@@ -14,6 +14,12 @@ from pkg.train.datasets.reader_hdf5 import multi_hdf5_loader, shuffle_iterator
 
 
 class AbstractTrainDataset(BaseAbstractTrainDataset, BaseAbstractDataset, Dataset):
+    """Abstract base class for training datasets.
+
+    Provides core functionality for training datasets including length calculation.
+    Subclasses implement specific data loading logic.
+    """
+
     @abc.abstractmethod
     def get_head_inputs(self, batch_size: int) -> Dict:
         raise NotImplementedError("Subclasses must implement get_head_inputs method")
@@ -23,6 +29,11 @@ class AbstractTrainDataset(BaseAbstractTrainDataset, BaseAbstractDataset, Datase
 
 
 class BaseDataset(AbstractTrainDataset):
+    """Base class for non-iterable training datasets.
+
+    Implements get_head_inputs for model visualization.
+    """
+
     def get_head_inputs(self, batch_size) -> Dict:
         inputs, _ = self.__getitem__(np.arange(0, batch_size))
 
@@ -30,6 +41,15 @@ class BaseDataset(AbstractTrainDataset):
 
 
 class BaseIterableDataset(AbstractTrainDataset, IterableDataset):
+    """Base class for iterable training datasets.
+
+    Provides functionality for streaming data loading and batch generation.
+    Subclasses implement specific data iteration logic.
+
+    Attributes:
+        stats_data_path (str): Path to training statistics
+    """
+
     def __init__(self, data_config: Dict, data_type: str, *args, **kwargs) -> None:
         super().__init__(data_config, data_type, *args, **kwargs)
 
@@ -55,6 +75,17 @@ class BaseIterableDataset(AbstractTrainDataset, IterableDataset):
 
 
 class MultiTFRecordDataset(BaseIterableDataset):
+    """Dataset for loading multiple TFRecord files.
+
+    Handles distributed data loading and shuffling of TFRecord format data.
+
+    Attributes:
+        num_of_files (int): Number of TFRecord files
+        compression_type (str): TFRecord compression type
+        shuffle_queue_size (int): Size of shuffle buffer
+        transform (transforms.Compose): Data transformation pipeline
+    """
+
     def __init__(self, data_config: Dict, data_type: str, *args, **kwargs) -> None:
         super().__init__(data_config, data_type, *args, **kwargs)
         # config
@@ -108,6 +139,18 @@ class MultiTFRecordDataset(BaseIterableDataset):
 
 
 class MultiHDF5Dataset(BaseIterableDataset):
+    """Dataset for loading multiple HDF5 files.
+
+    Handles distributed data loading and shuffling of HDF5 format data.
+
+    Attributes:
+        num_of_files (int): Number of HDF5 files
+        compression_type (str): HDF5 compression type
+        shuffle_queue_size (int): Size of shuffle buffer
+        infinite (bool): Whether to loop infinitely over training data
+        transform (transforms.Compose): Data transformation pipeline
+    """
+
     def __init__(self, data_config: Dict, data_type: str, *args, **kwargs) -> None:
         super().__init__(data_config, data_type, *args, **kwargs)
         # config

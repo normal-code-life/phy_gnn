@@ -49,9 +49,16 @@ class TrainerConfig(BaseConfig):
         config_path = f"{task_path}/config/{config_name}.yaml"
         config: Dict = load_yaml(config_path)
 
+        if task_name != config["task_base"]["task_name"]:
+            raise ValueError("task_name in task_base should match with the input model_name")
+
+        if model_name != config["task_base"]["model_name"]:
+            raise ValueError("model_name in task_base should match with the input model_name")
+
         # === fill in task base info
         self.task_base = config["task_base"]
         self.task_name = self.task_base["task_name"]
+        self.model_name = self.task_base["exp_name"]
         self.exp_name = self.task_base["exp_name"]
 
         self.task_base["repo_path"] = repo_path
@@ -79,7 +86,6 @@ class TrainerConfig(BaseConfig):
         self.task_data["exp_name"] = self.task_base["exp_name"]
 
         self.task_data["gpu"] = self.task_base["gpu"]
-        self.task_data["cuda_core"] = self.task_base["cuda_core"]
 
         # task trainer
         self.task_trainer = config["task_trainer"]
@@ -230,11 +236,11 @@ class BaseTrainer(abc.ABC):
         logger.info(model)
 
         if self.gpu:
-            inputs = {key: inputs[key].cuda() for key in inputs}
+            if self.gpu_num >= 2:
+                logger.info("when gpu num is over 2, we do not support model summary function")
+                return
 
-        if self.gpu_num >= 2:
-            logger.info("when gpu num is over 2, we do not support model summary function")
-            return
+            inputs = {key: inputs[key].cuda() for key in inputs}
 
         str_summary = summary_model(
             model,
@@ -287,7 +293,8 @@ class BaseTrainer(abc.ABC):
             raise ValueError(f"loss name do not set properly, please check: {loss_param['name']}")
 
     def create_metrics(self):
-        metrics_param = self.task_trainer["metrics_param"]
+        metrics_param = self.task_trainer.get("metrics_param", {})
+
         for p in metrics_param:
             if p == "mean_absolute_error":
                 self.metrics["mean_absolute_error"] = torchmetrics.functional.mean_absolute_error
@@ -574,11 +581,14 @@ class BaseTrainer(abc.ABC):
             # Compute and print loss.
             outputs = model(train_inputs)  # noqa
 
-            loss = self.compute_loss(outputs, train_labels)
+            loss: Union[Tensor, Dict[str, Tensor]] = self.compute_loss(outputs, train_labels)
+            total_loss: Optional[Union[Dict[Tensor], Tensor]] = None
 
-            if isinstance(loss, torch.Tensor):
+            if isinstance(loss, Tensor):
+                total_loss = loss
                 metrics["train_loss"] = metrics["train_loss"] + loss.item() if "train_loss" in metrics else loss.item()
             elif isinstance(loss, Dict):
+                total_loss = sum(loss.values())  # noqa
                 for name, loss in loss.items():
                     metrics[f"{name}_train_loss"] = (
                         metrics[f"{name}_train_loss"] + loss.item() if f"{name}_train_loss" in metrics else loss.item()
@@ -594,7 +604,21 @@ class BaseTrainer(abc.ABC):
             self.optimizer.zero_grad()
 
             # Backward pass: compute gradient of the loss with respect to model parameters
-            loss.backward()
+            total_loss.backward()
+
+            def check_grad(name, param):
+                if param.grad is not None:
+                    grad_norm = param.grad.norm()
+                    if torch.isnan(grad_norm) or torch.isinf(grad_norm):
+                        print(f"Gradient problem in {name}: {grad_norm}")
+                        return True
+                return False
+
+            for name, param in model.named_parameters():
+                if check_grad(name, param):
+                    for name, param in model.named_parameters():
+                        print(f"==> {name} {param.tolist()} {param.grad}")
+                    raise Exception("value error, has grad problem")
 
             # Calling the step function on an Optimizer makes an update to its parameters
             self.optimizer.step()

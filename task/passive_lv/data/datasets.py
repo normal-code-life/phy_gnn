@@ -19,7 +19,7 @@ class FEPassiveLVHeartDataset(BaseAbstractDataset):
             data_type (str): Type of dataset - one of 'train', 'val', or 'test'
         """
         super().__init__(data_config, data_type)
-        logger.info(f"=== init FEPassiveLVHeartDataset {data_type} data config start ===")
+        logger.info(f"=== Init FEPassiveLVHeartDataset {data_type} data config start ===")
 
         # original base data path
         self.raw_data_path = f"{self.base_data_path}/rawData/{data_type}"
@@ -27,15 +27,15 @@ class FEPassiveLVHeartDataset(BaseAbstractDataset):
         self.topology_data_path = f"{self.base_data_path}/topologyData"
 
         logger.info(f"raw_data_path is {self.raw_data_path}")
-        logger.info(f"processed_data_path is {self.processed_data_path}")
         logger.info(f"topology_data_path is {self.topology_data_path}")
 
         # original data file path
         self.node_feature_original_path = f"{self.raw_data_path}/real-node-features.npy"
-        self.node_coord_original_path = f"{self.processed_data_path}/real-node-coords.npy"
-        self.theta_original_path = f"{self.processed_data_path}/global-features.npy"
-        self.displacement_original_path = f"{self.processed_data_path}/real-node-displacement.npy"
-        self.shape_coeff_original_path = f"{self.processed_data_path}/shape-coeffs.npy"
+        self.node_coord_original_path = f"{self.raw_data_path}/real-node-coords.npy"
+        self.theta_original_path = f"{self.raw_data_path}/global-features.npy"
+        self.displacement_processed_path = f"{self.processed_data_path}/real-node-displacement.npy"
+        self.displacement_original_path = f"{self.raw_data_path}/real-node-displacement.npy"
+        self.shape_coeff_original_path = f"{self.raw_data_path}/shape-coeffs.npy"
 
         # clean data destination path
         self.dataset_path = f"{self.base_data_path}/datasets/{self.data_type}"
@@ -58,8 +58,14 @@ class FEPassiveLVHeartDataset(BaseAbstractDataset):
         # stats path
         self.node_coord_max_path = f"{self.stats_data_path}/node_coords_max.npy"
         self.node_coord_min_path = f"{self.stats_data_path}/node_coords_min.npy"
+        self.displacement_max_path = f"{self.stats_data_path}/real-node-displacement-max.npy"
+        self.displacement_min_path = f"{self.stats_data_path}/real-node-displacement-min.npy"
+        self.shape_coeff_max_path = f"{self.stats_data_path}/shape-coeff-max.npy"
+        self.shape_coeff_min_path = f"{self.stats_data_path}/shape-coeff-min.npy"
+        self.theta_max_path = f"{self.stats_data_path}/theta-max.npy"
+        self.theta_min_path = f"{self.stats_data_path}/theta-min.npy"
 
         self.displacement_mean_path = f"{self.base_data_path}/normalisationStatistics/real-node-displacement-mean.npy"
         self.displacement_std_path = f"{self.base_data_path}/normalisationStatistics/real-node-displacement-std.npy"
 
-        logger.info(f"=== init FEPassiveLVHeartDataset {data_type} data config done ===")
+        logger.info(f"=== Init FEPassiveLVHeartDataset {data_type} data config done ===")

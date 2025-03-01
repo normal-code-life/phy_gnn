@@ -1,18 +1,31 @@
-from typing import Dict, Tuple, Union
+from typing import Dict
 
 import numpy as np
 import torch
-from torch import Tensor
 from torchvision import transforms
 
-from common.constant import MAX_VAL, MIN_VAL, MODEL_TRAIN, PERC_10_VAL, PERC_90_VAL
+from common.constant import MAX_VAL, MIN_VAL, MODEL_TRAIN
 from pkg.train.datasets.base_datasets_train import MultiHDF5Dataset
 from pkg.train.module.data_transform import ClampTensor, CovertToModelInputs, MaxMinNorm, SqueezeDataDim, ToTensor
 from task.passive_biv.data.datasets import FEHeartSageDataset
 
 
 class FEHeartSageTrainDataset(MultiHDF5Dataset, FEHeartSageDataset):
-    """Data loader for graph-formatted input-output data with common, fixed topology."""
+    """Data loader for graph-formatted input-output data with common, fixed topology.
+
+    This dataset loads and preprocesses training data for the FE Heart Sage model.
+    It applies a series of transformations to prepare the data for training:
+    1. Converts HDF5 data to PyTorch tensors
+    2. Normalizes node coordinates, fiber/sheet orientations, shape coefficients, material parameters and pressures
+    3. Clamps stress values to valid ranges
+    4. Normalizes displacements and stresses
+    5. Squeezes unnecessary dimensions from parameters
+    6. Converts data into the format expected by the model
+
+    Args:
+        data_config (Dict): Configuration dictionary containing dataset parameters
+        data_type (str): Type of dataset (e.g. 'train', 'val')
+    """
 
     def __init__(self, data_config: Dict, data_type: str) -> None:
         super().__init__(data_config, data_type, MODEL_TRAIN)
@@ -23,6 +36,16 @@ class FEHeartSageTrainDataset(MultiHDF5Dataset, FEHeartSageDataset):
 
     # init transform data
     def _init_transform(self):
+        """Initialize the data transformation pipeline.
+
+        Sets up a sequence of transforms to preprocess the raw data:
+        - Convert HDF5 to tensors
+        - Normalize various input features
+        - Clamp stress values
+        - Normalize displacements and stresses
+        - Adjust data dimensions
+        - Format for model input
+        """
         transform_list = []
 
         hdf5_to_tensor_config = {
@@ -30,15 +53,6 @@ class FEHeartSageTrainDataset(MultiHDF5Dataset, FEHeartSageDataset):
             "feature_description": self.feature_description,
         }
         transform_list.append(ToTensor(hdf5_to_tensor_config))
-
-        climp_config = {
-            "displacement": {
-                MAX_VAL: 2.688125,
-                MIN_VAL: -2.8395823,
-            }
-        }
-
-        transform_list.append(ClampTensor(climp_config))
 
         norm_config = {
             "node_coord": self.node_coord_stats_path,
@@ -50,15 +64,27 @@ class FEHeartSageTrainDataset(MultiHDF5Dataset, FEHeartSageDataset):
 
         transform_list.append(MaxMinNorm(norm_config, True, True))
 
-        norm_config = {
-            "displacement": self.displacement_stats_path,
-            "stress": self.stress_stats_path,
-            "replace_by_perc": {
-                MIN_VAL: PERC_10_VAL,
-                MAX_VAL: PERC_90_VAL,
-            },
+        clamp_config = {
+            "stress": {
+                MAX_VAL: 20720,
+                MIN_VAL: 0,
+            }
         }
-        transform_list.append(MaxMinNorm(norm_config, True))
+
+        transform_list.append((ClampTensor(clamp_config)))
+
+        norm_config_disp = {
+            "displacement": self.displacement_stats_path,
+        }
+        transform_list.append(MaxMinNorm(norm_config_disp))
+
+        norm_config_stress = {
+            "stress": {
+                MAX_VAL: 20720,
+                MIN_VAL: 0,
+            }
+        }
+        transform_list.append(MaxMinNorm(norm_config_stress, setup_val=True))
 
         # convert data dim
         convert_data_dim_config = {"mat_param": -1, "pressure": -1, "shape_coeffs": -1}
@@ -72,9 +98,21 @@ class FEHeartSageTrainDataset(MultiHDF5Dataset, FEHeartSageDataset):
         self.transform = transforms.Compose(transform_list)
 
     def __len__(self):
+        """Return the total number of samples in the dataset."""
         return self.data_size
 
     def get_head_inputs(self, batch_size) -> Dict:
+        """Get a batch of inputs for model visualization/debugging.
+
+        Creates a batch of inputs by sampling from the dataset iterator.
+        Also adds randomly selected nodes for the fe_heart_sage_v4 model version.
+
+        Args:
+            batch_size (int): Number of samples to include in the batch
+
+        Returns:
+            Dict: Batch of model inputs with shape [batch_size, ...]
+        """
         res: Dict = {}
         for i in range(batch_size):
             inputs, _ = next(self.__iter__())
@@ -99,23 +137,3 @@ class FEHeartSageTrainDataset(MultiHDF5Dataset, FEHeartSageDataset):
         res["selected_node"] = selected_node
 
         return res
-
-
-class CovertToModelInputsRandom(CovertToModelInputs):
-    def __init__(self, config: Dict, multi_obj: bool = False, selected_node_num: int = 300) -> None:
-        super().__init__(config, multi_obj)
-        self.selected_node_num = selected_node_num
-
-    def __call__(
-        self, sample: Tuple[Dict[str, Tensor], Dict[str, Tensor]]
-    ) -> Tuple[Dict[str, Tensor], Union[Tensor, Dict[str, Tensor]]]:
-        inputs, labels = super().__call__(sample)
-
-        node_num, _ = inputs["edges_indices"].shape
-
-        selected_node = torch.randint(0, node_num, size=(self.selected_node_num,), dtype=torch.int64)
-
-        inputs["selected_node"] = selected_node
-        labels["selected_node"] = selected_node
-
-        return inputs, labels

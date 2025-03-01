@@ -1,14 +1,29 @@
-"""edge generation description.
+"""Edge Generation Module
 
-This module is primarily used to generate edge nodes for a given node.
-It is designed under the assumption that any node has the potential to be connected,
-And this approach is based on location information, randomly selecting nearby points.
+This module provides functions for generating edges between nodes based on their spatial distances.
+It implements two main approaches:
+1. A NumPy-based implementation (generate_distance_based_edges_ny)
+2. A Numba JIT-compiled implementation (generate_distance_based_edges_nb)
 
-The difference between generate_distance_based_edges_ny and generate_distance_based_edges_nb is that
-generate_distance_based_edges_ny is built using NumPy, while generate_distance_based_edges_nb is built using JIT.
-The `nb` version is more suitable for large-scale datasets which will leverge the multi-cpu
+The edge generation process works by:
+1. Computing distances between nodes based on their coordinates
+2. Sorting nodes by distance
+3. Selecting a specified number of nearby nodes from different distance sections
+4. Creating edges between the selected nodes
 
-potential issue: https://github.com/pytorch/pytorch/issues/78490
+The module is designed for scenarios where:
+- Nodes have spatial coordinates (e.g. 2D or 3D positions)
+- Edge connections should be based on spatial proximity
+- Different numbers of connections are desired at different distance ranges
+- Random sampling within distance ranges is acceptable
+
+The Numba implementation (generate_distance_based_edges_nb) is optimized for:
+- Large-scale datasets with many nodes
+- Multi-core CPU environments
+- Performance-critical applications
+
+Note: There is a potential PyTorch issue (#78490) that may affect GPU memory usage
+when using these functions in conjunction with PyTorch operations.
 """
 
 import warnings

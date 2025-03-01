@@ -6,7 +6,7 @@ import numpy as np
 
 from common.constant import HDF5, TEST_NAME, TRAIN_NAME, VALIDATION_NAME
 from pkg.data_utils.dataset_generation import split_dataset_indices
-from pkg.train.datasets.base_datasets import import_data_config
+from pkg.train.datasets.utils import import_data_config
 from task.passive_biv.data.datasets_preparation_hdf5 import PassiveBiVPreparationDataset
 
 data_format = HDF5
@@ -24,7 +24,7 @@ if __name__ == "__main__":
 
     model_name = args[0].model_name
 
-    data_config = import_data_config("passive_biv", model_name, "passive_biv")
+    data_config = import_data_config("passive_biv", model_name)
 
     data_config["sample_path"] = f"{data_config['task_data_path']}/record_inputs"
 

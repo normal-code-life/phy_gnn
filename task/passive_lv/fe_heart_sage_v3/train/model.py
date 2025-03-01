@@ -9,10 +9,10 @@ from pkg.train.layer.pooling_layer import MeanAggregator, SUMAggregator  # noqa
 from pkg.train.model.base_model import BaseModule
 from pkg.train.trainer.base_trainer import BaseTrainer
 from pkg.utils.logs import init_logger
-from task.passive_lv.data.datasets_train import FEHeartSageTrainDataset
+from task.passive_lv.fe_heart_sage_v3.train.datasets_train import FEHeartSageTrainDataset
 from task.passive_lv.utils.module.mlp_layer_ln import MLPLayerV2
 
-logger = init_logger("FEPassiveLVHeartSage")
+logger = init_logger("FE_PASSIVE_LV_HEART_SAGE")
 
 torch.manual_seed(753)
 torch.set_printoptions(precision=8)
@@ -38,18 +38,22 @@ class FEHeartSageV3Trainer(BaseTrainer):
         # config relative to dataset
         dataset_config = self.dataset_class(self.task_data, TRAIN_NAME)
 
-        self.displacement_mean = dataset_config.get_displacement_mean()
-        self.displacement_std = dataset_config.get_displacement_std()
+        self.displacement_max = dataset_config.get_displacement_max()
+        self.displacement_min = dataset_config.get_displacement_min()
 
     def create_model(self) -> None:
         self.model = FEHeartSAGEModel(self.task_train)
 
     def compute_validation_loss(self, predictions: Dict[str, Tensor], labels: Dict[str, Tensor]):
-        predictions["displacement"] = predictions["displacement"] * self.displacement_std + self.displacement_mean
+        predictions["displacement"] = (
+            predictions["displacement"] * (self.displacement_max - self.displacement_min) + self.displacement_min
+        )
         return self.compute_loss(predictions, labels)
 
     def compute_metrics(self, metrics_func: callable, predictions: Dict[str, Tensor], labels: Dict[str, Tensor]):
-        predictions["displacement"] = predictions["displacement"] * self.displacement_std + self.displacement_mean
+        predictions["displacement"] = (
+            predictions["displacement"] * (self.displacement_max - self.displacement_min) + self.displacement_min
+        )
         return super().compute_metrics(metrics_func, predictions, labels)
 
     def validation_step_check(self, epoch: int, is_last_epoch: bool) -> bool:
@@ -121,7 +125,6 @@ class FEHeartSAGEModel(BaseModule):
         # mlp layer config
         self.input_layer_config = config["input_layer"]
         self.edge_mlp_layer_config = config["edge_mlp_layer"]
-        self.edge_laplace_mlp_layer_config = config["edge_laplace_mlp_layer"]
         self.theta_input_mlp_layer_config = config["theta_input_mlp_layer"]
         self.decoder_layer_config = config["decoder_layer"]
 
@@ -164,8 +167,6 @@ class FEHeartSAGEModel(BaseModule):
             self.input_layer.append(MLPLayerV2(layer_config, prefix_name=layer_name))
 
         self.edge_mlp_layer = MLPLayerV2(self.edge_mlp_layer_config, prefix_name="edge_input")
-
-        self.edge_laplace_mlp_layer = MLPLayerV2(self.edge_laplace_mlp_layer_config, prefix_name="edge_laplace_input")
 
         if self.message_passing_layer_config["arch"] == "attention":
             self.message_update_layer = nn.TransformerEncoderLayer(
@@ -292,9 +293,7 @@ class FEHeartSAGEModel(BaseModule):
         # === gather coord
         node_seq_coord: Tensor = torch.gather(node_coord_expanded, 1, indices_coord_expanded)
 
-        edge_coord: Tensor = node_coord_expanded - node_seq_coord
-
-        return edge_coord
+        return node_coord_expanded - node_seq_coord
 
     def forward(self, x: Dict[str, Tensor]):
         # ====== Input data
@@ -315,11 +314,13 @@ class FEHeartSAGEModel(BaseModule):
         selected_node: Tensor = x["selected_node"][0]  # shape: (batch_size, selected_node_num)
 
         theta_vals_emb: Tensor = x_trans["theta_vals_emb"]  # shape: (batch_size, mat_param)
-        input_shape_coeffs_emb: Tensor = x_trans["shape_coeffs_emb"]  # shape: (batch_size, graph_feature)
+        input_shape_coeffs: Tensor = x["shape_coeffs"]  # shape: (batch_size, graph_feature)
 
         # ====== Message passing Encoder & Aggregate
         # ============ generate node emb (node emb itself)  TODO: test whether to involve the node itself
-        input_node_emb = input_node_coord_emb + input_node_fea_emb  # (batch_size, node_num, node_emb)
+        input_node_emb = torch.concat(
+            [input_node_coord_emb, input_node_fea_emb], dim=-1
+        )  # (batch_size, node_num, node_emb)
         node_seq_emb = input_node_emb.unsqueeze(dim=-2).expand(
             -1, -1, self.select_edge_num, -1
         )  # (batch_size, node_num, 1, node_emb) => (batch_size, node_num, seq, node_emb)
@@ -359,7 +360,7 @@ class FEHeartSAGEModel(BaseModule):
 
         # ====== Encode global parameters theta
         global_fea = self.theta_encode_mlp_layer(
-            torch.concat([theta_vals_emb, input_shape_coeffs_emb], dim=-1)
+            torch.concat([theta_vals_emb, input_shape_coeffs], dim=-1)
         )  # shape: (batch_size, theta_feature)
         global_fea = global_fea.unsqueeze(dim=-2)  # shape: (batch_size, 1, emb)
         global_fea_expanded = torch.tile(global_fea, (1, z_local.shape[1], 1))  # shape: (batch_size, node_num, emb)

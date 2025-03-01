@@ -8,7 +8,7 @@ import numpy as np
 from common.constant import TRAIN_NAME, VALIDATION_NAME
 from pkg.train.datasets.utils import import_data_config
 from pkg.utils.monitor import monitor_cpu_usage
-from task.passive_lv.data.datasets_preparation import FEPassiveLVHeartPreparationDataset
+from task.passive_lv.fe_heart_sage_v3.train.datasets_preparation import FEPassiveLVHeartPreparationDataset
 
 np.random.seed(753)
 

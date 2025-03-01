@@ -9,6 +9,38 @@ from pkg.utils.logs import init_logger
 
 
 class TensorBoardCallback(CallBack):
+    """A callback for logging training metrics and profiling information to TensorBoard.
+
+    This callback handles:
+    - Writing training and validation metrics to TensorBoard
+    - Optional profiling of model training using PyTorch profiler
+    - Proper cleanup of TensorBoard writer and profiler resources
+
+    Parameters:
+    -----------
+    task_base_param : Dict
+        Dictionary containing base parameters like log directory path.
+
+    param : Dict
+        Dictionary containing profiler configuration parameters:
+        - profiler (bool): Whether to enable profiling
+        - wait (int): Number of steps to wait before profiling starts
+        - warmup (int): Number of warmup steps for profiler
+        - active (int): Number of active profiling steps
+        - repeat (int): Number of times to repeat profiling cycle
+
+    Attributes:
+    -----------
+    writer : SummaryWriter
+        TensorBoard writer instance for logging metrics.
+
+    profiler : Optional[torch.profiler.profile]
+        PyTorch profiler instance if profiling is enabled.
+
+    logger : Logger
+        Logger instance for callback-specific logging.
+    """
+
     def __init__(self, task_base_param: Dict, param: Dict) -> None:
         super(TensorBoardCallback, self).__init__(task_base_param, param)
 

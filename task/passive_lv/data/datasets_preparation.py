@@ -61,7 +61,18 @@ class FEPassiveLVHeartPreparationDataset(AbstractDataPreparationDataset, FEPassi
 
         # self._check_stats()
 
-        self._prepare_node_coord_stats()
+        self._prepare_stats("coord_path", self.node_coord_path, self.node_coord_max_path, self.node_coord_min_path)
+
+        self._prepare_stats(
+            "displacement_raw_original_path",
+            self.displacement_path,
+            self.displacement_max_path,
+            self.displacement_min_path,
+        )
+
+        self._prepare_stats("coeff", self.shape_coeff_path, self.shape_coeff_max_path, self.shape_coeff_min_path)
+
+        self._prepare_stats("theta", self.theta_path, self.theta_max_path, self.theta_min_path)
 
     def _prepare_features(self) -> None:
         """Prepare and save node features, coordinates and displacement data.
@@ -72,7 +83,7 @@ class FEPassiveLVHeartPreparationDataset(AbstractDataPreparationDataset, FEPassi
 
         node_features = np.load(self.node_feature_original_path).astype(np.float32)
         node_coord = np.load(self.node_coord_original_path).astype(np.float32)
-        displacement = np.load(self.displacement_original_path).astype(np.float32)
+        displacement = np.load(self.displacement_processed_path).astype(np.float32)
 
         np.save(self.node_feature_path, node_features)
         np.save(self.node_coord_path, node_coord)
@@ -80,7 +91,8 @@ class FEPassiveLVHeartPreparationDataset(AbstractDataPreparationDataset, FEPassi
 
         logger.info("====== prepare node and displacement done ======")
 
-    def _prepare_global_features(self, fea_name: str, read_path: str, save_path: str, np_type: np.dtype) -> None:
+    @staticmethod
+    def _prepare_global_features(fea_name: str, read_path: str, save_path: str, np_type: np.dtype) -> None:
         """Prepare and save global features.
 
         Args:
@@ -228,22 +240,17 @@ class FEPassiveLVHeartPreparationDataset(AbstractDataPreparationDataset, FEPassi
 
         return sorted_indices_by_dist
 
-    def _prepare_node_coord_stats(self):
-        """Calculate and save node coordinate statistics.
+    def _prepare_stats(self, name: str, path: str, save_max_path: str, save_min_path: str):
+        fea = np.load(path).astype(np.float32)
 
-        Computes and saves max and min values for normalization.
-        """
-        node_coords = np.load(self.node_coord_path).astype(np.float32)
+        fea_max_norm_val = np.max(fea, axis=(0, 1))
+        fea_min_norm_val = np.min(fea, axis=(0, 1))
 
-        coord_max_norm_val = np.max(node_coords, axis=(0, 1))
-        coord_min_norm_val = np.min(node_coords, axis=(0, 1))
-
-        np.save(self.node_coord_max_path, coord_max_norm_val)
-        np.save(self.node_coord_min_path, coord_min_norm_val)
+        np.save(save_max_path, fea_max_norm_val)
+        np.save(save_min_path, fea_min_norm_val)
 
         logger.info(
-            f"{self.data_type} prepare_node_stats preset max_norm and min_norm is "
-            f"{coord_max_norm_val} {coord_min_norm_val} "
+            f"{self.data_type} {name} preset max_norm and min_norm is " f"{fea_max_norm_val} {fea_min_norm_val} "
         )
 
     def _check_stats(self):

@@ -7,7 +7,6 @@ from pkg.utils import io
 from task.passive_biv.fe_heart_sage_v1.train.model import FEHeartSAGETrainer
 from task.passive_biv.fe_heart_sage_v2.train.model import FEHeartSageV2Trainer
 from task.passive_biv.fe_heart_sage_v3.train.model import FEHeartSageV3Trainer
-from task.passive_biv.fe_heart_sage_v4.train.model import FEHeartSageV4Trainer
 from task.passive_biv.test.train.model import TestTrainer
 
 # used for debug
@@ -21,7 +20,7 @@ if __name__ == "__main__":
             "--task_name",
             "passive_biv",
             "--model_name",
-            "fe_heart_sage_v4",
+            "fe_heart_sage_v3",
             "--config_name",
             "train_config",
             "--task_type",
@@ -41,8 +40,6 @@ if __name__ == "__main__":
         model = FEHeartSageV2Trainer()
     elif args[0].model_name == "fe_heart_sage_v3":
         model = FEHeartSageV3Trainer()
-    elif args[0].model_name == "fe_heart_sage_v4":
-        model = FEHeartSageV4Trainer()
     elif args[0].model_name == "test":
         model = TestTrainer()
     else:

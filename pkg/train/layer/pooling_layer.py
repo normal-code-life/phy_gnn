@@ -6,6 +6,22 @@ from pkg.train.model.base_model import BaseModule
 
 
 class PoolingLayer(BaseModule):
+    """Base class for pooling layers.
+
+    Implements common functionality for aggregating features along a dimension.
+
+    Args:
+        config (Dict): Configuration dictionary containing:
+            - agg_dim (int): Dimension to aggregate along (default: -1)
+            - keep_dim (bool): Whether to keep the aggregated dimension (default: True)
+        *args: Variable length argument list
+        **kwargs: Arbitrary keyword arguments
+
+    Attributes:
+        agg_dim (int): Dimension to aggregate along
+        keep_dim (bool): Whether to keep the aggregated dimension
+    """
+
     def __init__(self, config: Dict, *args, **kwargs) -> None:
         super(PoolingLayer, self).__init__(config, *args, **kwargs)
 
@@ -14,6 +30,18 @@ class PoolingLayer(BaseModule):
 
 
 class MeanAggregator(PoolingLayer):
+    """Mean pooling aggregator.
+
+    Aggregates features by taking the mean along a specified dimension.
+
+    Args:
+        config (Dict): Configuration dictionary containing:
+            - agg_dim (int): Dimension to aggregate along (default: -1)
+            - keep_dim (bool): Whether to keep the aggregated dimension (default: True)
+        *args: Variable length argument list
+        **kwargs: Arbitrary keyword arguments
+    """
+
     def __init__(self, config: Dict, *args, **kwargs) -> None:
         super(MeanAggregator, self).__init__(config, *args, **kwargs)
         config["prefix_name"] = "mean_pooling_agg"
@@ -34,6 +62,18 @@ class MeanAggregator(PoolingLayer):
 
 
 class SUMAggregator(PoolingLayer):
+    """Sum pooling aggregator.
+
+    Aggregates features by taking the sum along a specified dimension.
+
+    Args:
+        config (Dict): Configuration dictionary containing:
+            - agg_dim (int): Dimension to aggregate along (default: -1)
+            - keep_dim (bool): Whether to keep the aggregated dimension (default: True)
+        *args: Variable length argument list
+        **kwargs: Arbitrary keyword arguments
+    """
+
     def __init__(self, config: Dict, *args, **kwargs) -> None:
         super(SUMAggregator, self).__init__(config, *args, **kwargs)
         self.prefix_name = "sum_pooling_agg"

@@ -1,49 +1,34 @@
 import abc
 import os
 import platform
-import sys
 from typing import Dict, Optional
 
 from pkg.train.datasets import logger
-from pkg.utils.io import get_repo_path, load_yaml
 
 
 class BaseAbstractDataset(abc.ABC):
-    """Abstract base class for dataset preparation and train.
+    """Base abstract class for dataset handling.
 
-    This class serves as a blueprint for datasets, providing common setup
-    such as paths and hardware configuration. Subclasses are expected to
-    implement methods for data processing and management.
+    Provides core functionality for dataset preparation and training, including path setup
+    and hardware configuration. Subclasses implement specific data processing logic.
 
     Attributes:
-    ----------
-    base_data_path : str
-        Path to the base data directory.
-    base_task_path : str
-        Path to the base task directory.
-    gpu : bool
-        Flag indicating if GPU should be used.
-    cuda_core : str
-        Identifier for the CUDA core to be used.
-    data_type : str
-        Type of the data being handled (e.g., 'train', 'test').
-    exp_name : str, optional
-        Name of the experiment, if specified.
+        base_data_path (str): Base data directory path
+        base_task_path (str): Base task directory path
+        gpu (bool): Whether to use GPU
+        cuda_core (str): CUDA core identifier
+        data_type (str): Dataset type (e.g. train, test)
+        exp_name (str, optional): Experiment name
     """
 
     def __init__(self, data_config: Dict, data_type: str, *args, **kwargs) -> None:
-        """Initialize the dataset with configuration details.
+        """Initialize dataset with config.
 
-        Parameters:
-        ----------
-        data_config : Dict
-            Dictionary containing configuration details such as paths and hardware setup.
-        data_type : str
-            String specifying the type of data (e.g., 'train', 'test').
-        args : tuple
-            Additional positional arguments.
-        kwargs : dict
-            Additional keyword arguments.
+        Args:
+            data_config (Dict): Configuration for paths and hardware
+            data_type (str): Dataset type (e.g. train, test)
+            *args: Additional args
+            **kwargs: Additional kwargs
         """
         logger.info(f"=== Init BaseAbstractDataset {data_type} data config start ===")
         logger.info(f"data_config is: {data_config}")
@@ -107,46 +92,38 @@ class BaseAbstractDataset(abc.ABC):
 
 
 class BaseAbstractDataPreparationDataset(abc.ABC):
-    """Abstract base class for data preparation tasks.
+    """Base abstract class for dataset preparation.
 
-    This class defines the blueprint for preparing datasets, generating data,
-    and computing data statistics. Subclasses should implement the methods
-    defined here.
+    Defines interface for data generation and statistics computation.
+    Subclasses implement specific preparation logic.
 
     Methods:
-    --------
-    prepare_dataset_process():
-        Prepare the dataset. Must be implemented by subclasses.
-    _data_generation():
-        Generate data. Must be implemented by subclasses.
-    _data_stats():
-        Compute data statistics. Must be implemented by subclasses.
+        prepare_dataset_process(): Main dataset preparation workflow
+        _data_generation(): Generate dataset
+        _data_stats(): Compute dataset statistics
     """
 
     @abc.abstractmethod
     def prepare_dataset_process(self):
-        """Prepare the dataset.
+        """Execute dataset preparation workflow.
 
-        This method should be overridden in subclasses to define the
-        specific steps needed to prepare the dataset.
+        Subclasses implement specific preparation steps.
         """
         raise NotImplementedError("Subclasses must implement the prepare_dataset_process method.")
 
     @abc.abstractmethod
     def _data_generation(self):
-        """Generate data.
+        """Generate dataset.
 
-        This method should be overridden in subclasses to define the
-        specific steps needed to generate data.
+        Subclasses implement data generation logic.
         """
         raise NotImplementedError("Subclasses must implement the _data_generation method.")
 
     @abc.abstractmethod
     def _data_stats(self):
-        """Compute data statistics.
+        """Compute dataset statistics.
 
-        This method should be overridden in subclasses to define how
-        data statistics should be computed.
+        Subclasses implement statistics computation.
         """
         raise NotImplementedError("Subclasses must implement the _data_stats method.")
 
@@ -154,33 +131,21 @@ class BaseAbstractDataPreparationDataset(abc.ABC):
 class BaseAbstractTrainDataset(BaseAbstractDataset):
     @abc.abstractmethod
     def get_head_inputs(self, batch_size: int) -> Dict:
-        """Generate and return the inputs required for the model head.
+        """Get model head inputs for architecture visualization.
 
-        This method must be implemented by subclasses to generate the necessary
-        input data for the model's head, based on the provided batch size. It mainly used for
-        printing model architecture.
-
-        Parameters:
-        ----------
-        batch_size : int
-            The number of samples to generate inputs for.
+        Args:
+            batch_size (int): Number of samples to generate
 
         Returns:
-        ----------
-        Dict : A dictionary containing the inputs for the model head.
+            Dict: Model head inputs
         """
         raise NotImplementedError("Subclasses must implement get_head_inputs method")
 
     @abc.abstractmethod
     def __len__(self):
-        """
-        Return the size of the dataset.
-
-        Subclasses must override this method to provide the logic for
-        determining the size of the dataset.
+        """Get dataset size.
 
         Returns:
-        ----------
-        int : The number of items in the dataset.
+            int: Number of samples in dataset
         """
         raise NotImplementedError("Subclasses must implement __len__ method")

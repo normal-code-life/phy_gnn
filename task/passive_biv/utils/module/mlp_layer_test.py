@@ -3,7 +3,7 @@ from torchsummary import summary
 from pkg.utils.logs import init_logger
 from task.passive_biv.utils.module.mlp_layer_ln import MLPLayer
 
-logger = init_logger("test_mlp_module")
+logger = init_logger("TEST_MLP")
 
 if __name__ == "__main__":
     config = {

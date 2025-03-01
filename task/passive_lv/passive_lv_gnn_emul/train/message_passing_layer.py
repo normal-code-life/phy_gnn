@@ -8,7 +8,7 @@ from pkg.train.model.base_model import BaseModule
 from pkg.utils.logs import init_logger
 from task.passive_lv.passive_lv_gnn_emul.train.mlp_layer_ln import MLPLayerLN
 
-logger = init_logger("MessagePassing")
+logger = init_logger("MESSAGE_PASSING")
 
 
 class MessagePassingModule(BaseModule):
