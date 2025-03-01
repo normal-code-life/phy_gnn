@@ -70,9 +70,7 @@ class FEPassiveLVHeartPreparationDataset(AbstractDataPreparationDataset, FEPassi
             self.displacement_min_path,
         )
 
-        self._prepare_stats(
-            "coeff", self.shape_coeff_path, self.shape_coeff_max_path, self.shape_coeff_min_path
-        )
+        self._prepare_stats("coeff", self.shape_coeff_path, self.shape_coeff_max_path, self.shape_coeff_min_path)
 
         self._prepare_stats("theta", self.theta_path, self.theta_max_path, self.theta_min_path)
 

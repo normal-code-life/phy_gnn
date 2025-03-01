@@ -8,7 +8,7 @@ import torch.nn as nn
 from pkg.train.model.base_model import BaseModule
 from pkg.utils.logs import init_logger
 
-logger = init_logger("mlp_layer_ln")
+logger = init_logger("MLP_LAYER_LN")
 
 
 class MLPLayerBase(BaseModule):

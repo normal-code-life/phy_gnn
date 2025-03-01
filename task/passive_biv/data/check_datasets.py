@@ -2,11 +2,11 @@ import time
 
 from torch.utils.data import DataLoader
 
-from pkg.train.datasets.base_datasets import import_data_config
+from pkg.train.datasets.utils import import_data_config
 from task.passive_biv.data.datasets_train_hdf5 import FEHeartSageTrainDataset
 
 if __name__ == "__main__":
-    data_config = import_data_config("passive_biv", "fe_heart_sage_v3", "passive_biv")
+    data_config = import_data_config("passive_biv", "fe_heart_sage_v3")
 
     data_config["sample_path"] = f"{data_config['task_data_path']}/record_inputs"
 

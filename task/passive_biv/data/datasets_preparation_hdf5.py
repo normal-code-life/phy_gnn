@@ -13,6 +13,27 @@ from task.passive_biv.data.datasets import FEHeartSageDataset
 
 
 class PassiveBiVPreparationDataset(AbstractDataPreparationDataset, FEHeartSageDataset):
+    """Dataset preparation class for passive bi-ventricular heart model.
+
+    Handles loading, preprocessing and saving heart simulation data into HDF5 format.
+    Includes functionality for:
+    - Loading node coordinates, material parameters, pressures etc.
+    - Generating distance-based edges between nodes
+    - Computing dataset statistics
+    - Downsampling nodes if needed
+    - Saving processed data into chunked HDF5 files
+
+    Args:
+        data_config (Dict): Configuration dictionary containing:
+            - sample_indices: Indices of samples to process
+            - chunk_file_size: Number of samples per HDF5 file
+            - sections: Number of sections for edge generation
+            - nodes_per_sections: Number of nodes per section
+            - train_down_sampling_node: Optional downsampling ratio for training
+            - val_down_sampling_node: Optional downsampling ratio for validation
+        data_type (str): Type of dataset (train/validation)
+    """
+
     def __init__(self, data_config: Dict, data_type: str) -> None:
         super(PassiveBiVPreparationDataset, self).__init__(data_config, data_type)
         # sample indices
@@ -33,6 +54,16 @@ class PassiveBiVPreparationDataset(AbstractDataPreparationDataset, FEHeartSageDa
         logger.info(f"====== finish {self.__class__.__name__} {data_type} data config ======")
 
     def _data_generation(self):
+        """Generate processed dataset and save to HDF5 files.
+
+        Loads raw data, processes it and saves into chunked HDF5 files containing:
+        - Node coordinates and features
+        - Edge indices
+        - Material parameters
+        - Pressures
+        - Shape coefficients
+        - Ground truth displacements and stresses
+        """
         # read global features
         data_global_feature = np.loadtxt(self.global_feature_data_path, delimiter=",")
         data_shape_coeff = np.loadtxt(self.shape_data_path, delimiter=",")
@@ -86,6 +117,18 @@ class PassiveBiVPreparationDataset(AbstractDataPreparationDataset, FEHeartSageDa
             logger.info(f"data_generation {i}: {indices} done")
 
     def _down_sampling_node(self, record_inputs: np.ndarray, record_outputs: np.ndarray) -> (np.ndarray, np.ndarray):
+        """Randomly downsample nodes from input and output data.
+
+        Args:
+            record_inputs (np.ndarray): Input features for all nodes
+            record_outputs (np.ndarray): Output values for all nodes
+
+        Returns:
+            tuple: Downsampled input and output arrays
+
+        Raises:
+            ValueError: If requested number of nodes exceeds available nodes
+        """
         num_nodes, record_inputs_dim = record_inputs.shape
 
         _, record_outputs_dim = record_outputs.shape
@@ -102,6 +145,17 @@ class PassiveBiVPreparationDataset(AbstractDataPreparationDataset, FEHeartSageDa
         return record_inputs[select_nodes, :], record_outputs[select_nodes, :]
 
     def _generate_distance_based_edges(self, node_coords) -> np.ndarray:
+        """Generate edges between nodes based on distances.
+
+        Uses platform-specific implementation (Darwin vs others) to generate
+        edges connecting nodes within specified distance thresholds.
+
+        Args:
+            node_coords: Node coordinate array
+
+        Returns:
+            np.ndarray: Edge indices array
+        """
         if self.platform == DARWIN:
             return generate_distance_based_edges_ny(
                 node_coords[np.newaxis, :, :], [0], self.sections, self.nodes_per_sections
@@ -122,6 +176,13 @@ class PassiveBiVPreparationDataset(AbstractDataPreparationDataset, FEHeartSageDa
         )
 
     def _data_stats(self) -> None:
+        """Compute statistics for all data components.
+
+        Calculates and saves statistics for:
+        - Node features (coordinates, Laplace coordinates, fiber orientations)
+        - Global features (material parameters, pressures, shape coefficients)
+        - Labels (displacements, stresses)
+        """
         self._data_node_stats()
 
         self._data_global_feature_stats()
@@ -129,6 +190,11 @@ class PassiveBiVPreparationDataset(AbstractDataPreparationDataset, FEHeartSageDa
         self._data_label_stats()
 
     def _data_node_stats(self, write_to_path: bool = True) -> None:
+        """Compute statistics for node-level features.
+
+        Args:
+            write_to_path (bool): Whether to save stats to files
+        """
         # fmt: off
         node_coord_set: Optional[np.ndarray] = None
         laplace_coord_set: Optional[np.ndarray] = None
@@ -160,6 +226,11 @@ class PassiveBiVPreparationDataset(AbstractDataPreparationDataset, FEHeartSageDa
         # fmt: on
 
     def _data_global_feature_stats(self, write_to_path: bool = True) -> None:
+        """Compute statistics for global features.
+
+        Args:
+            write_to_path (bool): Whether to save stats to files
+        """
         # fmt: off
         data_global_feature = np.loadtxt(self.global_feature_data_path, delimiter=",")
         data_shape_coeff = np.loadtxt(self.shape_data_path, delimiter=",")
@@ -171,6 +242,11 @@ class PassiveBiVPreparationDataset(AbstractDataPreparationDataset, FEHeartSageDa
         # fmt: on
 
     def _data_label_stats(self, write_to_path: bool = True) -> None:
+        """Compute statistics for output labels.
+
+        Args:
+            write_to_path (bool): Whether to save stats to files
+        """
         # fmt: off
         displacement_set: Optional[np.ndarray] = None
         stress_set: Optional[np.ndarray] = None
@@ -195,4 +271,5 @@ class PassiveBiVPreparationDataset(AbstractDataPreparationDataset, FEHeartSageDa
         # fmt: on
 
     def _data_stats_total_size(self) -> None:
+        """Save total number of samples to file."""
         np.save(self.data_size_path, self.sample_indices.shape[0])

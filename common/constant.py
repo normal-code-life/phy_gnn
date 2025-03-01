@@ -27,4 +27,4 @@ DARWIN = "Darwin"
 
 # data format
 HDF5 = "hdf5"
-TFrecord = "tfrecord"
+TFRecord = "tfrecord"

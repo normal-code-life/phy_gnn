@@ -10,7 +10,7 @@ from pkg.utils.logs import init_logger
 from task.passive_biv.data.datasets_train_hdf5 import FEHeartSageTrainDataset
 from task.passive_biv.utils.module.mlp_layer_ln import MLPLayer
 
-logger = init_logger("FE_Heart_Sage_v2")
+logger = init_logger("FE_PASSIVE_BIV_HEART_SAGE")
 
 torch.manual_seed(753)
 torch.set_printoptions(precision=8)

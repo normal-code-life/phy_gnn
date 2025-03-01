@@ -11,7 +11,7 @@ from pkg.utils.logs import init_logger
 from task.passive_biv.data.datasets_train_hdf5 import FEHeartSageTrainDataset
 from task.passive_biv.utils.module.mlp_layer_ln import MLPLayerV2
 
-logger = init_logger("FEPassiveBivHeartSage")
+logger = init_logger("FE_PASSIVE_BIV_HEART_SAGE")
 
 torch.manual_seed(753)
 torch.set_printoptions(precision=8)
@@ -309,12 +309,10 @@ class FEHeartSAGEModel(BaseModule):
         # concatenate the predictions of each individual decoder mlp
         output = dict()
 
-        output["displacement"] = (
-            torch.concat(individual_mlp_predictions[0:3], dim=-1)  # shape: (batch_size, node_num, 1)
-        )
+        output["displacement"] = torch.concat(
+            individual_mlp_predictions[0:3], dim=-1
+        )  # shape: (batch_size, node_num, 1)
 
-        output["stress"] = (
-            torch.concat(individual_mlp_predictions[3:4], dim=-1)  # shape: (batch_size, node_num, 1)
-        )
+        output["stress"] = torch.concat(individual_mlp_predictions[3:4], dim=-1)  # shape: (batch_size, node_num, 1)
 
         return output
