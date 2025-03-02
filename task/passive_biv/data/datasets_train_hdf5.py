@@ -7,10 +7,10 @@ from torchvision import transforms
 from common.constant import MAX_VAL, MIN_VAL, MODEL_TRAIN
 from pkg.train.datasets.base_datasets_train import MultiHDF5Dataset
 from pkg.train.module.data_transform import ClampTensor, CovertToModelInputs, MaxMinNorm, SqueezeDataDim, ToTensor
-from task.passive_biv.data.datasets import FEHeartSageDataset
+from task.passive_biv.data.datasets import FEHeartSimSageDataset
 
 
-class FEHeartSageTrainDataset(MultiHDF5Dataset, FEHeartSageDataset):
+class FEHeartSimSageTrainDataset(MultiHDF5Dataset, FEHeartSimSageDataset):
     """Data loader for graph-formatted input-output data with common, fixed topology.
 
     This dataset loads and preprocesses training data for the FE Heart Sage model.

@@ -11,10 +11,10 @@ from pkg.train.module.data_transform import (
     SqueezeDataDim,
     TFRecordToTensor
 )
-from task.passive_biv.data.datasets import FEHeartSageDataset
+from task.passive_biv.data.datasets import FEHeartSimSageDataset
 
 
-class FEHeartSageV2TrainDataset(MultiTFRecordDataset, FEHeartSageDataset):
+class FEHeartSimSageTrainDataset(MultiTFRecordDataset, FEHeartSimSageDataset):
     """Data loader for graph-formatted input-output data with common, fixed topology."""
 
     def __init__(self, data_config: Dict, data_type: str) -> None:

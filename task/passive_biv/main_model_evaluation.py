@@ -1,5 +1,5 @@
-from task.passive_biv.fe_heart_sage_v2.train.model import FEHeartSageV2Trainer
+from task.passive_biv.fe_heart_sim_sage.train.model import FEHeartSimSageTrainer
 
 if __name__ == "__main__":
-    model = FEHeartSageV2Trainer()
+    model = FEHeartSimSageTrainer()
     model.evaluation()

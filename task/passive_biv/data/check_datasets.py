@@ -3,14 +3,14 @@ import time
 from torch.utils.data import DataLoader
 
 from pkg.train.datasets.utils import import_data_config
-from task.passive_biv.data.datasets_train_hdf5 import FEHeartSageTrainDataset
+from task.passive_biv.data.datasets_train_hdf5 import FEHeartSimSageTrainDataset
 
 if __name__ == "__main__":
     data_config = import_data_config("passive_biv", "fe_heart_sage_v3")
 
     data_config["sample_path"] = f"{data_config['task_data_path']}/record_inputs"
 
-    train_data = FEHeartSageTrainDataset(data_config, "train")
+    train_data = FEHeartSimSageTrainDataset(data_config, "train")
 
     train_data_loader = DataLoader(
         dataset=train_data,

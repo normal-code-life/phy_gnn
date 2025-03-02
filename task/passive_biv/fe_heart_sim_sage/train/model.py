@@ -8,8 +8,8 @@ from pkg.train.layer.pooling_layer import MeanAggregator, SUMAggregator  # noqa
 from pkg.train.model.base_model import BaseModule
 from pkg.train.trainer.base_trainer import BaseTrainer
 from pkg.utils.logs import init_logger
-from task.passive_biv.data.datasets_train_hdf5 import FEHeartSageTrainDataset
-from task.passive_biv.utils.module.mlp_layer_ln import MLPLayerV2
+from task.passive_biv.data.datasets_train_hdf5 import FEHeartSimSageTrainDataset
+from task.passive_biv.utils.module.mlp_layer_ln import MLPLayer
 
 logger = init_logger("FE_PASSIVE_BIV_HEART_SAGE")
 
@@ -17,8 +17,8 @@ torch.manual_seed(753)
 torch.set_printoptions(precision=8)
 
 
-class FEHeartSageV3Trainer(BaseTrainer):
-    dataset_class = FEHeartSageTrainDataset
+class FEHeartSimSageTrainer(BaseTrainer):
+    dataset_class = FEHeartSimSageTrainDataset
 
     def __init__(self) -> None:
         super().__init__()
@@ -28,7 +28,7 @@ class FEHeartSageV3Trainer(BaseTrainer):
         self.device = "cuda" if self.gpu else "cpu"
 
     def create_model(self) -> None:
-        self.model = FEHeartSAGEModel(self.task_train)
+        self.model = FEHeartSimSAGEModel(self.task_train)
 
     def validation_step_check(self, epoch: int, is_last_epoch: bool) -> bool:
         if epoch <= 20 or epoch % 5 == 0 or is_last_epoch:
@@ -68,9 +68,7 @@ class FEHeartSageV3Trainer(BaseTrainer):
         return inputs, labels
 
 
-class FEHeartSAGEModel(BaseModule):
-    """https://github.com/raunakkmr/GraphSAGE."""
-
+class FEHeartSimSAGEModel(BaseModule):
     def __init__(self, config: Dict, *args, **kwargs) -> None:
         super().__init__(config, *args, **kwargs)
 
@@ -111,11 +109,11 @@ class FEHeartSAGEModel(BaseModule):
         # Input layer
         self.input_layer: nn.ModuleList = nn.ModuleList()
         for layer_name, layer_config in self.input_layer_config.items():
-            self.input_layer.append(MLPLayerV2(layer_config, prefix_name=layer_name))
+            self.input_layer.append(MLPLayer(layer_config, prefix_name=layer_name))
 
-        self.edge_mlp_layer = MLPLayerV2(self.edge_mlp_layer_config, prefix_name="edge_input")
+        self.edge_mlp_layer = MLPLayer(self.edge_mlp_layer_config, prefix_name="edge_input")
 
-        self.edge_laplace_mlp_layer = MLPLayerV2(self.edge_laplace_mlp_layer_config, prefix_name="edge_laplace_input")
+        self.edge_laplace_mlp_layer = MLPLayer(self.edge_laplace_mlp_layer_config, prefix_name="edge_laplace_input")
 
         if self.message_passing_layer_config["arch"] == "attention":
             self.message_update_layer = nn.TransformerEncoderLayer(
@@ -126,11 +124,11 @@ class FEHeartSAGEModel(BaseModule):
                 device=self.device,
                 batch_first=True,
             )
-            self.message_update_layer_mlp = MLPLayerV2(
+            self.message_update_layer_mlp = MLPLayer(
                 self.message_passing_layer_config["message_update_layer_mlp"], prefix_name="message"
             )
         elif self.message_passing_layer_config["arch"] == "mlp":
-            self.message_update_layer = MLPLayerV2(
+            self.message_update_layer = MLPLayer(
                 self.message_passing_layer_config["message_update_layer"], prefix_name="message"
             )
         else:
@@ -141,13 +139,13 @@ class FEHeartSAGEModel(BaseModule):
         self.message_agg_pooling = globals()[agg_method](self.message_passing_layer_config["agg_layer"])
 
         # theta mlp
-        self.theta_encode_mlp_layer = MLPLayerV2(self.theta_input_mlp_layer_config, prefix_name="theta_encode")
+        self.theta_encode_mlp_layer = MLPLayer(self.theta_input_mlp_layer_config, prefix_name="theta_encode")
 
         # decoder MLPs
         decoder_layer_config = self.decoder_layer_config
         self.decoder_layer = nn.ModuleList(
             [
-                MLPLayerV2(decoder_layer_config, prefix_name=f"decode_{i}")
+                MLPLayer(decoder_layer_config, prefix_name=f"decode_{i}")
                 for i in range(decoder_layer_config["output_dim"])
             ]
         )
@@ -309,10 +307,6 @@ class FEHeartSAGEModel(BaseModule):
         # concatenate the predictions of each individual decoder mlp
         output = dict()
 
-        output["displacement"] = torch.concat(
-            individual_mlp_predictions[0:3], dim=-1
-        )  # shape: (batch_size, node_num, 1)
-
-        output["stress"] = torch.concat(individual_mlp_predictions[3:4], dim=-1)  # shape: (batch_size, node_num, 1)
+        output["displacement"] = torch.concat(individual_mlp_predictions, dim=-1)  # shape: (batch_size, node_num, 1)
 
         return output

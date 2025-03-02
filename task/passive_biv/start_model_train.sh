@@ -1,7 +1,7 @@
 #!/bin/bash
 
 export TASK_NAME="passive_biv"
-export MODEL_NAME="fe_heart_sage_v3"
+export MODEL_NAME="fe_heart_sim_sage"
 
 if [ "${1}" = "--model_name" ]; then
   export MODEL_NAME="${2}"
