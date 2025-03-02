@@ -4,10 +4,7 @@ import sys
 from typing import List
 
 from pkg.utils import io
-from task.passive_biv.fe_heart_sage_v1.train.model import FEHeartSAGETrainer
-from task.passive_biv.fe_heart_sage_v2.train.model import FEHeartSageV2Trainer
-from task.passive_biv.fe_heart_sage_v3.train.model import FEHeartSageV3Trainer
-from task.passive_biv.test.train.model import TestTrainer
+from task.passive_biv.fe_heart_sim_sage.train.model import FEHeartSimSageTrainer
 
 # used for debug
 if __name__ == "__main__":
@@ -20,7 +17,7 @@ if __name__ == "__main__":
             "--task_name",
             "passive_biv",
             "--model_name",
-            "fe_heart_sage_v3",
+            "fe_heart_sim_sage",
             "--config_name",
             "train_config",
             "--task_type",
@@ -34,14 +31,8 @@ if __name__ == "__main__":
 
     args: (argparse.Namespace, List[str]) = parser.parse_known_args()
 
-    if args[0].model_name == "fe_heart_sage_v1":
-        model = FEHeartSAGETrainer()
-    elif args[0].model_name == "fe_heart_sage_v2":
-        model = FEHeartSageV2Trainer()
-    elif args[0].model_name == "fe_heart_sage_v3":
-        model = FEHeartSageV3Trainer()
-    elif args[0].model_name == "test":
-        model = TestTrainer()
+    if args[0].model_name == "fe_heart_sim_sage":
+        model = FEHeartSimSageTrainer()
     else:
         raise ValueError("please pass the right model name")
 

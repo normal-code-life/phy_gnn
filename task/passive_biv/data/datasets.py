@@ -4,7 +4,7 @@ from pkg.train.datasets.base_datasets import BaseAbstractDataset
 from task.passive_biv.data import logger
 
 
-class FEHeartSageDataset(BaseAbstractDataset):
+class FEHeartSimSageDataset(BaseAbstractDataset):
     """FE Heart Sage Dataset main class which including our basic attributes.
 
     This class is responsible for loading and processing data for a specific task,

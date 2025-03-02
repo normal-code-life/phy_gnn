@@ -16,13 +16,13 @@ from pkg.train.trainer.base_trainer import TrainerConfig
 from pkg.utils import io
 from pkg.utils.logs import init_logger
 from pkg.utils.model_summary import summary_model
-from task.passive_biv.data.datasets import FEHeartSageDataset
+from task.passive_biv.data.datasets import FEHeartSimSageDataset
 
 logger = init_logger("SINGLE_CASE_EVAL")
 
 
-class FEHeartSageV2Evaluation(FEHeartSageDataset):
-    """Evaluation class for FE Heart SAGE model that handles single graph cases.
+class FEHeartSimSageEvaluation(FEHeartSimSageDataset):
+    """Evaluation class for FE Heart SIM SAGE model that handles single graph cases.
 
     This class extends FEHeartSageDataset to provide evaluation functionality for individual test cases.
     It handles data loading, preprocessing, model inference and result saving for single graph evaluations.
@@ -297,7 +297,7 @@ if __name__ == "__main__":
             "--task_name",
             "passive_biv",
             "--model_name",
-            "fe_heart_sage_v4",
+            "fe_heart_sim_sage",
             "--config_name",
             "train_config",
             "--task_type",
@@ -312,6 +312,6 @@ if __name__ == "__main__":
     config.task_data["sections"] = [0, 20, 100, 250, 500, 1000]
     config.task_data["nodes_per_sections"] = [20, 30, 30, 10, 10]
 
-    evaluation = FEHeartSageV2Evaluation(config.task_data, "eval", 3)
+    evaluation = FEHeartSimSageEvaluation(config.task_data, "eval", 3)
 
     evaluation.single_graph_evaluation()
