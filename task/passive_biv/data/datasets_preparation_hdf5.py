@@ -9,10 +9,10 @@ from pkg.data_utils.edge_generation import generate_distance_based_edges_nb, gen
 from pkg.data_utils.stats import stats_analysis
 from pkg.train.datasets.base_datasets_preparation import AbstractDataPreparationDataset
 from task.passive_biv.data import logger
-from task.passive_biv.data.datasets import FEHeartSageDataset
+from task.passive_biv.data.datasets import FEHeartSimSageDataset
 
 
-class PassiveBiVPreparationDataset(AbstractDataPreparationDataset, FEHeartSageDataset):
+class PassiveBiVPreparationDataset(AbstractDataPreparationDataset, FEHeartSimSageDataset):
     """Dataset preparation class for passive bi-ventricular heart model.
 
     Handles loading, preprocessing and saving heart simulation data into HDF5 format.
